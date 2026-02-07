@@ -1,4 +1,4 @@
-package ru.myapp.model;
+package ru.schedule.model;
 
 import jakarta.persistence.*;
 import lombok.Getter;

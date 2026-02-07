@@ -1,6 +1,6 @@
-package ru.myapp.service;
+package ru.schedule.service;
 
-import ru.myapp.dto.UserDto;
+import ru.schedule.dto.UserDto;
 
 import java.util.List;
 

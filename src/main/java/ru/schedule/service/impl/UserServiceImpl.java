@@ -1,11 +1,11 @@
-package ru.myapp.service.impl;
+package ru.schedule.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import ru.myapp.dto.UserDto;
-import ru.myapp.model.User;
-import ru.myapp.repository.UserRepository;
-import ru.myapp.service.UserService;
+import ru.schedule.dto.UserDto;
+import ru.schedule.model.User;
+import ru.schedule.repository.UserRepository;
+import ru.schedule.service.UserService;
 
 import java.util.List;
 

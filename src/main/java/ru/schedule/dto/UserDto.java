@@ -1,4 +1,4 @@
-package ru.myapp.dto;
+package ru.schedule.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

@@ -1,9 +1,9 @@
-package ru.myapp.controller;
+package ru.schedule.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import ru.myapp.dto.UserDto;
-import ru.myapp.service.UserService;
+import ru.schedule.dto.UserDto;
+import ru.schedule.service.UserService;
 
 import java.util.List;
 

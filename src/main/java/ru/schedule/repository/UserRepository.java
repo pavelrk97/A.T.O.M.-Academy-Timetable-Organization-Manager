@@ -1,8 +1,8 @@
-package ru.myapp.repository;
+package ru.schedule.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import ru.myapp.model.User;
+import ru.schedule.model.User;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
