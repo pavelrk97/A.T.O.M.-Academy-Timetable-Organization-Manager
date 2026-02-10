@@ -95,6 +95,7 @@ public class ScheduleCsvParser {
         boolean inAssessment = false;
 
         Lesson currentAssessment = null;
+        String pendingInstructor = null;
 
         for (String raw : lines) {
             String line = raw.trim();
@@ -112,6 +113,12 @@ public class ScheduleCsvParser {
                 continue;
             }
 
+            // строка = ТОЛЬКО инструктор
+            if (isPureInstructor(line)) {
+                pendingInstructor = line;
+                continue;
+            }
+
             // экзамен
             if (ASSESSMENT_TITLES.contains(line)) {
                 Lesson l = new Lesson();
@@ -124,6 +131,7 @@ public class ScheduleCsvParser {
                 day.lessons.add(l);
                 currentAssessment = l;
                 inAssessment = true;
+                pendingInstructor = null;
                 continue;
             }
 
@@ -133,11 +141,15 @@ public class ScheduleCsvParser {
             int hours = Integer.parseInt(m.group(1));
             String text = line.replace(m.group(0), "").trim();
 
-            // ===== экзамен: собираем инструкторов =====
+            // ===== экзамен =====
             if (inAssessment && currentAssessment != null) {
                 List<String> found = findInstructors(text);
+                if (found.isEmpty() && pendingInstructor != null) {
+                    found = List.of(pendingInstructor);
+                }
                 currentAssessment.lecturers.addAll(found);
-                currentAssessment.durationHours = hours; // НЕ суммируем
+                currentAssessment.durationHours = hours;
+                pendingInstructor = null;
                 continue;
             }
 
@@ -148,16 +160,25 @@ public class ScheduleCsvParser {
             lesson.type = selfStudy ? LessonType.SELF_STUDY : LessonType.LECTURE;
 
             List<String> instructors = findInstructors(text);
+
             if (!instructors.isEmpty()) {
                 lesson.lecturer = instructors.get(0);
                 lesson.title = removeInstructor(text, lesson.lecturer);
+            } else if (pendingInstructor != null) {
+                lesson.lecturer = pendingInstructor;
+                lesson.title = text;
             } else {
                 lesson.title = text;
             }
 
             day.lessons.add(lesson);
+            pendingInstructor = null;
             inAssessment = false;
         }
+    }
+
+    private static boolean isPureInstructor(String line) {
+        return INSTRUCTORS.contains(line);
     }
 
     // ===== ВТОРОЙ ПРОХОД ПО СЛОВАМ =====
