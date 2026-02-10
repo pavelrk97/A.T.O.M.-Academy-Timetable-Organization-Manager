@@ -11,12 +11,13 @@ import java.util.regex.*;
 public class ScheduleCsvParser {
 
     // (4ч)
-    private static final Pattern DURATION = Pattern.compile("\\((\\d+)\\s*ч\\)");
+    private static final Pattern DURATION =
+            Pattern.compile("\\((\\d+)\\s*ч\\)");
 
-    // CS01, NS01, IC01, I&C01
-    private static final Pattern COURSE_CODE = Pattern.compile("^[A-Z]{2,}\\d*$");
+    // RE02, I&C02, T02
+    private static final Pattern COURSE_CODE =
+            Pattern.compile("^[A-Z&]{1,5}\\d{2}$");
 
-    // инструкторы
     private static final Set<String> INSTRUCTORS = Set.of(
             "Бращенко","Волкова","Майстренко","Мухамбеталин","Трушейкин","Брянский",
             "Коновалов","Костылев","Алексеева","Голубенко","Гонтов","Иванов",
@@ -31,16 +32,17 @@ public class ScheduleCsvParser {
     private static final Set<String> ASSESSMENT_TITLES = Set.of(
             "Промежуточный контроль",
             "Intermediate Examination",
+            "Entermidiate examination",
             "Examination"
     );
 
     public static List<Group> parse(InputStream is) throws Exception {
-        CSVReader reader = new CSVReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+        CSVReader reader = new CSVReader(
+                new InputStreamReader(is, StandardCharsets.UTF_8)
+        );
         List<String[]> rows = reader.readAll();
 
-        // 0 строка — дни недели (игнор)
-        String[] datesRow = rows.get(1); // даты
-
+        String[] datesRow = rows.get(1);
         List<Group> result = new ArrayList<>();
 
         String activeCourseCode = null;
@@ -64,11 +66,12 @@ public class ScheduleCsvParser {
 
                 parseCell(row[c], day);
 
-                // если в дне встретился новый курс — он активен дальше
-                if (day.meta.containsKey("courseCode")) {
-                    activeCourseCode = day.meta.get("courseCode");
+                if (!day.meta.containsKey("courseCode")) {
+                    // нет курса → день невалиден
+                    continue;
                 }
 
+                activeCourseCode = day.meta.get("courseCode");
                 group.days.add(day);
             }
         }
@@ -90,31 +93,34 @@ public class ScheduleCsvParser {
         int order = 1;
         boolean selfStudy = false;
         boolean inAssessment = false;
+
         Lesson currentAssessment = null;
 
         for (String raw : lines) {
             String line = raw.trim();
             if (line.isEmpty()) continue;
 
-            // СП → дальше все занятия SELF_STUDY
+            // СП
             if (line.equals("СП")) {
                 selfStudy = true;
                 continue;
             }
 
-            // код курса
-            if (COURSE_CODE.matcher(line).find()) {
+            // короткий код курса
+            if (COURSE_CODE.matcher(line).matches()) {
                 day.meta.put("courseCode", line);
                 continue;
             }
 
-            // промежуточный контроль
+            // экзамен
             if (ASSESSMENT_TITLES.contains(line)) {
                 Lesson l = new Lesson();
                 l.order = order++;
                 l.title = line;
                 l.type = LessonType.ASSESSMENT;
                 l.durationHours = 0;
+                l.lecturers = new ArrayList<>();
+
                 day.lessons.add(l);
                 currentAssessment = l;
                 inAssessment = true;
@@ -127,16 +133,24 @@ public class ScheduleCsvParser {
             int hours = Integer.parseInt(m.group(1));
             String text = line.replace(m.group(0), "").trim();
 
+            // ===== экзамен: собираем инструкторов =====
+            if (inAssessment && currentAssessment != null) {
+                List<String> found = findInstructors(text);
+                currentAssessment.lecturers.addAll(found);
+                currentAssessment.durationHours = hours; // НЕ суммируем
+                continue;
+            }
+
+            // ===== обычное занятие =====
             Lesson lesson = new Lesson();
             lesson.order = order++;
             lesson.durationHours = hours;
             lesson.type = selfStudy ? LessonType.SELF_STUDY : LessonType.LECTURE;
 
-            // лектор + название
-            String lecturer = extractInstructor(text);
-            if (lecturer != null) {
-                lesson.lecturer = lecturer;
-                lesson.title = text.replaceFirst(Pattern.quote(lecturer), "").trim();
+            List<String> instructors = findInstructors(text);
+            if (!instructors.isEmpty()) {
+                lesson.lecturer = instructors.get(0);
+                lesson.title = removeInstructor(text, lesson.lecturer);
             } else {
                 lesson.title = text;
             }
@@ -146,12 +160,18 @@ public class ScheduleCsvParser {
         }
     }
 
-    private static String extractInstructor(String text) {
-        for (String i : INSTRUCTORS) {
-            if (text.startsWith(i)) {
-                return i;
+    // ===== ВТОРОЙ ПРОХОД ПО СЛОВАМ =====
+    private static List<String> findInstructors(String text) {
+        List<String> result = new ArrayList<>();
+        for (String instructor : INSTRUCTORS) {
+            if (text.contains(instructor)) {
+                result.add(instructor);
             }
         }
-        return null;
+        return result;
+    }
+
+    private static String removeInstructor(String text, String instructor) {
+        return text.replace(instructor, "").trim();
     }
 }
