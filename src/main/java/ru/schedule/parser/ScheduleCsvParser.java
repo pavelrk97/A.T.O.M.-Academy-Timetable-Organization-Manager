@@ -7,8 +7,8 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.*;
-import java.time.LocalDate;
 import java.time.Month;
+import ru.schedule.parser.DateParser;
 
 
 public class ScheduleCsvParser {
@@ -76,7 +76,7 @@ public class ScheduleCsvParser {
                 if (row[c] == null || row[c].trim().isEmpty()) continue;
 
                 Day day = new Day();
-                day.date = parseDate(datesRow[c]);
+                day.date = DateParser.parse(datesRow[c]);
 
                 if (activeCourseCode != null) {
                     day.meta.put("courseCode", activeCourseCode);
@@ -212,31 +212,5 @@ public class ScheduleCsvParser {
 
     private static String removeInstructor(String text, String instructor) {
         return text.replace(instructor, "").trim();
-    }
-
-    private static LocalDate parseDate(String rawDate) {
-
-        if (rawDate == null || rawDate.isBlank()) return null;
-
-        rawDate = rawDate.trim().toLowerCase();
-
-        String[] parts = rawDate.split("\\.");
-        if (parts.length < 2) {
-            throw new RuntimeException("Неверный формат даты: " + rawDate);
-        }
-
-        int day = Integer.parseInt(parts[0]);
-
-        // убираем возможную точку
-        String monthKey = parts[1].replace(".", "");
-
-        Month month = MONTHS.get(monthKey);
-        if (month == null) {
-            throw new RuntimeException("Неизвестный месяц: " + rawDate);
-        }
-
-        int year = 2026;
-
-        return LocalDate.of(year, month, day);
     }
 }
