@@ -7,6 +7,9 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.*;
+import java.time.LocalDate;
+import java.time.Month;
+
 
 public class ScheduleCsvParser {
 
@@ -36,6 +39,21 @@ public class ScheduleCsvParser {
             "Examination"
     );
 
+    private static final Map<String, Month> MONTHS = Map.ofEntries(
+            Map.entry("янв", Month.JANUARY),
+            Map.entry("февр", Month.FEBRUARY),
+            Map.entry("мар", Month.MARCH),
+            Map.entry("апр", Month.APRIL),
+            Map.entry("мая", Month.MAY),
+            Map.entry("июн", Month.JUNE),
+            Map.entry("июл", Month.JULY),
+            Map.entry("авг", Month.AUGUST),
+            Map.entry("сент", Month.SEPTEMBER),
+            Map.entry("окт", Month.OCTOBER),
+            Map.entry("нояб", Month.NOVEMBER),
+            Map.entry("дек", Month.DECEMBER)
+    );
+
     public static List<Group> parse(InputStream is) throws Exception {
         CSVReader reader = new CSVReader(
                 new InputStreamReader(is, StandardCharsets.UTF_8)
@@ -58,7 +76,7 @@ public class ScheduleCsvParser {
                 if (row[c] == null || row[c].trim().isEmpty()) continue;
 
                 Day day = new Day();
-                day.date = datesRow[c];
+                day.date = parseDate(datesRow[c]);
 
                 if (activeCourseCode != null) {
                     day.meta.put("courseCode", activeCourseCode);
@@ -194,5 +212,31 @@ public class ScheduleCsvParser {
 
     private static String removeInstructor(String text, String instructor) {
         return text.replace(instructor, "").trim();
+    }
+
+    private static LocalDate parseDate(String rawDate) {
+
+        if (rawDate == null || rawDate.isBlank()) return null;
+
+        rawDate = rawDate.trim().toLowerCase();
+
+        String[] parts = rawDate.split("\\.");
+        if (parts.length < 2) {
+            throw new RuntimeException("Неверный формат даты: " + rawDate);
+        }
+
+        int day = Integer.parseInt(parts[0]);
+
+        // убираем возможную точку
+        String monthKey = parts[1].replace(".", "");
+
+        Month month = MONTHS.get(monthKey);
+        if (month == null) {
+            throw new RuntimeException("Неизвестный месяц: " + rawDate);
+        }
+
+        int year = 2026;
+
+        return LocalDate.of(year, month, day);
     }
 }
