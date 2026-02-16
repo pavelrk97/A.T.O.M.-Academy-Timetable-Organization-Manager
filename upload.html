@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload CSV</title>
+</head>
+<body>
+<h2>Загрузка расписания</h2>
+
+<form action="http://localhost:8080/import"
+      method="post"
+      enctype="multipart/form-data">
+
+    <input type="file" name="file" accept=".csv"/>
+    <br><br>
+    <button type="submit">Загрузить</button>
+
+</form>
+</body>
+</html>
