@@ -2,6 +2,7 @@ package ru.schedule.parser;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.schedule.exception.ScheduleParseException;
 
 import java.time.LocalDate;
 import java.time.Month;
@@ -34,19 +35,13 @@ public class DateParser {
      */
     private static int resolveAcademicYear() {
         LocalDate now = LocalDate.now();
-
-        if (now.getMonthValue() >= 9) {
-            return now.getYear();
-        } else {
-            return now.getYear() - 1;
-        }
+        return now.getYear();
     }
 
     public static LocalDate parse(String rawDate) {
 
         if (rawDate == null || rawDate.isBlank()) {
-            log.warn("Пустая дата из CSV");
-            return null;
+            throw new ScheduleParseException("Пустая дата в CSV");
         }
 
         try {
@@ -54,8 +49,9 @@ public class DateParser {
 
             String[] parts = rawDate.split("\\.");
             if (parts.length < 2) {
-                log.error("Неверный формат даты: {}", rawDate);
-                return null;
+                throw new ScheduleParseException(
+                        "Неверный формат даты: " + rawDate
+                );
             }
 
             int day = Integer.parseInt(parts[0]);
@@ -63,23 +59,24 @@ public class DateParser {
 
             Month month = MONTHS.get(monthKey);
             if (month == null) {
-                log.error("Неизвестный месяц: {}", rawDate);
-                return null;
+                throw new ScheduleParseException(
+                        "Неизвестный месяц: " + rawDate
+                );
             }
 
             int academicStartYear = resolveAcademicYear();
 
-            // если месяц сентябрь–декабрь → тот же год
-            // если январь–август → следующий
             int year = (month.getValue() >= 9)
                     ? academicStartYear
                     : academicStartYear + 1;
 
             return LocalDate.of(year, month, day);
 
-        } catch (Exception e) {
-            log.error("Ошибка парсинга даты: {}", rawDate, e);
-            return null;
+        } catch (NumberFormatException e) {
+            log.error("Ошибка числа в дате: {}", rawDate, e);
+            throw new ScheduleParseException(
+                    "Ошибка числа в дате: " + rawDate, e
+            );
         }
     }
 }
