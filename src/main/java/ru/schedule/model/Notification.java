@@ -15,9 +15,7 @@ public class Notification extends BaseEntity {
     private NotificationType type;
 
     private String message;
-
     private boolean isRead = false;
-
     private UUID relatedEntityId;
 
     public User getUser() { return user; }

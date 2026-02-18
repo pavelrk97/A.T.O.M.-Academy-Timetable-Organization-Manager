@@ -9,10 +9,11 @@ import java.util.Objects;
 @Table(name = "groups")
 public class Group extends BaseEntity {
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String code;
 
     private String location;
+    private Integer course;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "group_id")
@@ -26,6 +27,9 @@ public class Group extends BaseEntity {
 
     public String getLocation() { return location; }
     public void setLocation(String location) { this.location = location; }
+
+    public Integer getCourse() { return course; }
+    public void setCourse(Integer course) { this.course = course; }
 
     public List<Day> getDays() { return days; }
     public void setDays(List<Day> days) { this.days = days; }

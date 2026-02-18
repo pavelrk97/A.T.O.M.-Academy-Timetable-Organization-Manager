@@ -4,7 +4,9 @@ spring:
 
 ---
 
+# =========================
 # dev профиль — локальная H2 база
+# =========================
 spring:
   config:
     activate:
@@ -19,7 +21,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update   # создаёт/обновляет таблицы автоматически
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
@@ -34,7 +36,9 @@ spring:
 
 ---
 
+# =========================
 # prod профиль — PostgreSQL
+# =========================
 spring:
   config:
     activate:
@@ -48,7 +52,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: validate  # валидирует схемы, не создает
     show-sql: false
     properties:
       hibernate:

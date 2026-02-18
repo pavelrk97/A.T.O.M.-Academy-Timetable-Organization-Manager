@@ -13,9 +13,12 @@ public class User extends BaseEntity {
     private String username;
 
     private String fullName;
+    private String email;
 
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    private boolean isActive = true;
 
     @ManyToMany
     @JoinTable(
@@ -31,8 +34,14 @@ public class User extends BaseEntity {
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }
 
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
+
+    public boolean isActive() { return isActive; }
+    public void setActive(boolean active) { isActive = active; }
 
     public List<Group> getGroups() { return groups; }
     public void setGroups(List<Group> groups) { this.groups = groups; }
