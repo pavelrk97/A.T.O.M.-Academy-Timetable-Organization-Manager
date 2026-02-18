@@ -16,8 +16,25 @@ public abstract class BaseEntity {
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private String createdBy;
-    private String updatedBy;
+
+    @ManyToOne
+    @JoinColumn(name = "created_by")
+    private User createdBy;
+
+    @ManyToOne
+    @JoinColumn(name = "updated_by")
+    private User updatedBy;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -31,9 +48,9 @@ public abstract class BaseEntity {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public User getCreatedBy() { return createdBy; }
+    public void setCreatedBy(User createdBy) { this.createdBy = createdBy; }
 
-    public String getUpdatedBy() { return updatedBy; }
-    public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
+    public User getUpdatedBy() { return updatedBy; }
+    public void setUpdatedBy(User updatedBy) { this.updatedBy = updatedBy; }
 }
