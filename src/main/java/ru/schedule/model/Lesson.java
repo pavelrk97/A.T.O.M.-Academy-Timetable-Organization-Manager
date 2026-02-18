@@ -10,21 +10,18 @@ import java.util.Objects;
 public class Lesson extends BaseEntity {
 
     private int orderNumber;
-
     private String title;
     private String lecturer;
+    private int durationHours;
+    private String note;
+
+    @Enumerated(EnumType.STRING)
+    private LessonType type;
 
     @ElementCollection
     @CollectionTable(name = "lesson_lecturers", joinColumns = @JoinColumn(name = "lesson_id"))
     @Column(name = "lecturer")
     private List<String> lecturers = new ArrayList<>();
-
-    private int durationHours;
-
-    @Enumerated(EnumType.STRING)
-    private LessonType type;
-
-    private String note;
 
     public int getOrderNumber() { return orderNumber; }
     public void setOrderNumber(int orderNumber) { this.orderNumber = orderNumber; }
@@ -55,7 +52,5 @@ public class Lesson extends BaseEntity {
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(getId());
-    }
+    public int hashCode() { return Objects.hash(getId()); }
 }
