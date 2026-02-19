@@ -28,11 +28,6 @@ public class DateParser {
             Map.entry("дек", Month.DECEMBER)
     );
 
-    /**
-     * Определяет учебный год автоматически:
-     * Если сейчас сентябрь–декабрь → начало текущего года
-     * Если январь–август → начало прошлого года
-     */
     private static int resolveAcademicYear() {
         LocalDate now = LocalDate.now();
         return now.getYear();
@@ -64,11 +59,7 @@ public class DateParser {
                 );
             }
 
-            int academicStartYear = resolveAcademicYear();
-
-            int year = (month.getValue() >= 9)
-                    ? academicStartYear
-                    : academicStartYear + 1;
+            int year = 2026;
 
             return LocalDate.of(year, month, day);
 
