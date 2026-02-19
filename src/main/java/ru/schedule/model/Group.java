@@ -1,22 +1,27 @@
 package ru.schedule.model;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import ru.schedule.model.BaseEntity;
+import ru.schedule.model.Day;
+import ru.schedule.model.User;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Entity
 @Table(name = "groups")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Group extends BaseEntity {
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String code;
 
     private String location;
+
     private Integer course;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "group_id")
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Day> days = new ArrayList<>();
 
     @ManyToMany(mappedBy = "groups")
@@ -36,16 +41,4 @@ public class Group extends BaseEntity {
 
     public List<User> getUsers() { return users; }
     public void setUsers(List<User> users) { this.users = users; }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Group group)) return false;
-        return Objects.equals(getId(), group.getId());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getId());
-    }
 }
