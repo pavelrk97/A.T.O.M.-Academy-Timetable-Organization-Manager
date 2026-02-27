@@ -1,12 +1,17 @@
 package ru.schedule.model;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import ru.schedule.model.BaseEntity;
+import ru.schedule.model.Day;
+import ru.schedule.model.User;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Entity
 @Table(name = "groups")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Group extends BaseEntity {
 
     @Column(nullable = false)
@@ -14,9 +19,13 @@ public class Group extends BaseEntity {
 
     private String location;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "group_id")
+    private Integer course;
+
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Day> days = new ArrayList<>();
+
+    @ManyToMany(mappedBy = "groups")
+    private List<User> users = new ArrayList<>();
 
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
@@ -24,18 +33,12 @@ public class Group extends BaseEntity {
     public String getLocation() { return location; }
     public void setLocation(String location) { this.location = location; }
 
+    public Integer getCourse() { return course; }
+    public void setCourse(Integer course) { this.course = course; }
+
     public List<Day> getDays() { return days; }
     public void setDays(List<Day> days) { this.days = days; }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Group group)) return false;
-        return Objects.equals(getId(), group.getId());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getId());
-    }
+    public List<User> getUsers() { return users; }
+    public void setUsers(List<User> users) { this.users = users; }
 }

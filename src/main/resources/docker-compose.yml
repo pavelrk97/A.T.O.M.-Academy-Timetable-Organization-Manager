@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  app:
+    image: schedule-parser:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: schedule-parser-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/myapp
+      SPRING_DATASOURCE_USERNAME: dbuser
+      SPRING_DATASOURCE_PASSWORD: password
+    depends_on:
+      - postgres
+    volumes:
+      - ./uploads:/app/uploads  # если нужно сохранять загружаемые файлы
+
+  postgres:
+    image: postgres:16
+    container_name: schedule-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: dbuser
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: myapp
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

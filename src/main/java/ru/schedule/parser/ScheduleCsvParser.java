@@ -5,10 +5,11 @@ import ru.schedule.model.*;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.regex.*;
+import java.time.LocalDate;
 import java.time.Month;
-import ru.schedule.parser.DateParser;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ScheduleCsvParser {
 
@@ -33,30 +34,13 @@ public class ScheduleCsvParser {
             "Examination"
     );
 
-    private static final Map<String, Month> MONTHS = Map.ofEntries(
-            Map.entry("янв", Month.JANUARY),
-            Map.entry("февр", Month.FEBRUARY),
-            Map.entry("мар", Month.MARCH),
-            Map.entry("апр", Month.APRIL),
-            Map.entry("мая", Month.MAY),
-            Map.entry("июн", Month.JUNE),
-            Map.entry("июл", Month.JULY),
-            Map.entry("авг", Month.AUGUST),
-            Map.entry("сент", Month.SEPTEMBER),
-            Map.entry("окт", Month.OCTOBER),
-            Map.entry("нояб", Month.NOVEMBER),
-            Map.entry("дек", Month.DECEMBER)
-    );
-
     public static List<Group> parse(InputStream is) throws Exception {
-        CSVReader reader = new CSVReader(
-                new InputStreamReader(is, StandardCharsets.UTF_8)
-        );
+        CSVReader reader = new CSVReader(new InputStreamReader(is, StandardCharsets.UTF_8));
         List<String[]> rows = reader.readAll();
+        if (rows.size() < 2) return Collections.emptyList();
 
         String[] datesRow = rows.get(1);
         List<Group> result = new ArrayList<>();
-
         String activeCourseCode = null;
 
         for (int r = 2; r < rows.size(); r++) {
@@ -70,17 +54,14 @@ public class ScheduleCsvParser {
                 if (row[c] == null || row[c].trim().isEmpty()) continue;
 
                 Day day = new Day();
-                day.setDate(DateParser.parse(datesRow[c]));
-
+                day.setDate(parseDate(datesRow[c]));
                 if (activeCourseCode != null) {
                     day.getMeta().put("courseCode", activeCourseCode);
                 }
 
                 parseCell(row[c], day);
 
-                if (!day.getMeta().containsKey("courseCode")) {
-                    continue;
-                }
+                if (!day.getMeta().containsKey("courseCode")) continue;
 
                 activeCourseCode = day.getMeta().get("courseCode");
                 group.getDays().add(day);
@@ -104,7 +85,6 @@ public class ScheduleCsvParser {
         int order = 1;
         boolean selfStudy = false;
         boolean inAssessment = false;
-
         Lesson currentAssessment = null;
         String pendingInstructor = null;
 
@@ -122,7 +102,7 @@ public class ScheduleCsvParser {
                 continue;
             }
 
-            if (isPureInstructor(line)) {
+            if (INSTRUCTORS.contains(line)) {
                 pendingInstructor = line;
                 continue;
             }
@@ -134,7 +114,6 @@ public class ScheduleCsvParser {
                 l.setType(LessonType.ASSESSMENT);
                 l.setDurationHours(0);
                 l.setLecturers(new ArrayList<>());
-
                 day.getLessons().add(l);
                 currentAssessment = l;
                 inAssessment = true;
@@ -150,9 +129,7 @@ public class ScheduleCsvParser {
 
             if (inAssessment && currentAssessment != null) {
                 List<String> found = findInstructors(text);
-                if (found.isEmpty() && pendingInstructor != null) {
-                    found = List.of(pendingInstructor);
-                }
+                if (found.isEmpty() && pendingInstructor != null) found = List.of(pendingInstructor);
                 currentAssessment.getLecturers().addAll(found);
                 currentAssessment.setDurationHours(hours);
                 pendingInstructor = null;
@@ -165,7 +142,6 @@ public class ScheduleCsvParser {
             lesson.setType(selfStudy ? LessonType.SELF_STUDY : LessonType.LECTURE);
 
             List<String> instructors = findInstructors(text);
-
             if (!instructors.isEmpty()) {
                 lesson.setLecturer(instructors.get(0));
                 lesson.setTitle(removeInstructor(text, instructors.get(0)));
@@ -182,21 +158,19 @@ public class ScheduleCsvParser {
         }
     }
 
-    private static boolean isPureInstructor(String line) {
-        return INSTRUCTORS.contains(line);
-    }
-
     private static List<String> findInstructors(String text) {
         List<String> result = new ArrayList<>();
         for (String instructor : INSTRUCTORS) {
-            if (text.contains(instructor)) {
-                result.add(instructor);
-            }
+            if (text.contains(instructor)) result.add(instructor);
         }
         return result;
     }
 
     private static String removeInstructor(String text, String instructor) {
         return text.replace(instructor, "").trim();
+    }
+
+    private static LocalDate parseDate(String s) {
+        return DateParser.parse(s);
     }
 }
