@@ -8,6 +8,8 @@
         <option value="$PROJECT_DIR$/schedule-system/pom.xml" />
         <option value="$PROJECT_DIR$/schedule-sys/pom.xml" />
         <option value="$PROJECT_DIR$/schedule-import-parser-core/pom.xml" />
+        <option value="$PROJECT_DIR$/../schedule-api-service/pom.xml" />
+        <option value="$PROJECT_DIR$/schedule-api-service/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">
