@@ -9,11 +9,11 @@
         <outputRelativeToContentRoot value="true" />
         <module name="schedule-api-service" />
         <module name="schedule-import-parser-core" />
+        <module name="schedule-parser" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="schedule-import-parser-core (1) (ru.practicum)" target="1.8" />
-      <module name="schedule-parser" target="21" />
       <module name="schedule-sys" target="1.8" />
       <module name="schedule-system" target="1.8" />
     </bytecodeTargetLevel>
