@@ -2,6 +2,8 @@ package ru.controller;
 
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import ru.model.Group;
+import ru.parser.ScheduleCsvParser;
 import ru.service.JsonImportService;
 
 import java.util.*;
@@ -21,6 +23,17 @@ public class ImportController {
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", "ok");
+        return response;
+    }
+
+    @PostMapping("/importcsv")
+    public Map<String, Object> importSchedule(@RequestParam MultipartFile file) throws Exception {
+        List<Group> groups = ScheduleCsvParser.parse(file.getInputStream());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("groups", groups);
+        response.put("groupCount", groups.size());
+
         return response;
     }
 }
