@@ -8,12 +8,12 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.1</version>
+        <version>3.2.5</version>
         <relativePath/>
     </parent>
 
     <groupId>ru.schedule</groupId>
-    <artifactId>schedule-parser-mvp</artifactId>
+    <artifactId>schedule-import-parser-core</artifactId>
     <version>1.0</version>
 
     <properties>
@@ -83,3 +83,5 @@
     </build>
 
 </project>
+
+
