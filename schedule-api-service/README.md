@@ -1,6 +1,6 @@
-# schedule-api-service-mvp
+# schedule-api-service
 
-Фасадный API-сервис для `schedule-import-parser-core-mvp`.
+Фасадный API-сервис для `schedule-import-parser-core`.
 
 Назначение:
 - поднимать внешний API на `http://localhost:8081`
@@ -19,7 +19,7 @@
 - `POST /api/import/csv`
 
 Как запускать:
-1. Сначала запустить `schedule-import-parser-core-mvp` на `8080`
+1. Сначала запустить `schedule-import-parser-core` на `8080`
 2. Затем запустить этот сервис на `8081`
 
 Авторизация:

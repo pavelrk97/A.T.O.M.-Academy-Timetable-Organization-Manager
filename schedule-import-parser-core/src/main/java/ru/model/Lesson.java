@@ -1,7 +1,18 @@
 package ru.model;
 
-import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +29,7 @@ public class Lesson extends BaseEntity {
 
     private String lecturer;
 
+    @Column(nullable = false)
     private int durationHours;
 
     private String note;
@@ -30,6 +42,14 @@ public class Lesson extends BaseEntity {
     @CollectionTable(name = "lesson_lecturers", joinColumns = @JoinColumn(name = "lesson_id"))
     @Column(name = "lecturer_name")
     private List<String> lecturers = new ArrayList<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "lesson_instructors",
+            joinColumns = @JoinColumn(name = "lesson_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private List<User> assignedInstructors = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "day_id", nullable = false)
@@ -55,6 +75,9 @@ public class Lesson extends BaseEntity {
 
     public List<String> getLecturers() { return lecturers; }
     public void setLecturers(List<String> lecturers) { this.lecturers = lecturers; }
+
+    public List<User> getAssignedInstructors() { return assignedInstructors; }
+    public void setAssignedInstructors(List<User> assignedInstructors) { this.assignedInstructors = assignedInstructors; }
 
     public Day getDay() { return day; }
     public void setDay(Day day) { this.day = day; }

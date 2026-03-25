@@ -1,49 +1,78 @@
 package ru.service;
 
-import lombok.RequiredArgsConstructor;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 import ru.dto.GroupDto;
+import ru.exception.ResourceNotFoundException;
 import ru.mapper.GroupMapper;
+import ru.model.Day;
 import ru.model.Group;
+import ru.model.Lesson;
 import ru.repository.GroupRepository;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class GroupService {
 
     private final GroupRepository groupRepository;
 
-    public List<GroupDto> getAll() {
+    public GroupService(GroupRepository groupRepository) {
+        this.groupRepository = groupRepository;
+    }
 
-        return groupRepository.findAll()
-                .stream()
-                .map(GroupMapper::toDto)
-                .collect(Collectors.toList());
+    public List<GroupDto> getAll() {
+        return groupRepository.findAll().stream().map(GroupMapper::toDto).toList();
     }
 
     public GroupDto getById(UUID id) {
-
-        Group group = groupRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Group not found"));
-
-        return GroupMapper.toDto(group);
+        return GroupMapper.toDto(findEntity(id));
     }
 
+    @Transactional
     public GroupDto create(GroupDto dto) {
-
         Group group = GroupMapper.toEntity(dto);
-
-        Group saved = groupRepository.save(group);
-
-        return GroupMapper.toDto(saved);
+        link(group);
+        return GroupMapper.toDto(groupRepository.save(group));
     }
 
-    public void delete(UUID id) {
+    @Transactional
+    public GroupDto update(UUID id, GroupDto dto) {
+        Group group = findEntity(id);
+        group.setCode(dto.getCode());
+        group.setLocation(dto.getLocation());
+        group.setCourse(dto.getCourse());
 
-        groupRepository.deleteById(id);
+        if (dto.getDays() != null) {
+            Group replacement = GroupMapper.toEntity(dto);
+            group.getDays().clear();
+            replacement.getDays().forEach(day -> {
+                day.setGroup(group);
+                day.getLessons().forEach(lesson -> lesson.setDay(day));
+                group.getDays().add(day);
+            });
+        }
+
+        return GroupMapper.toDto(groupRepository.save(group));
+    }
+
+    @Transactional
+    public void delete(UUID id) {
+        groupRepository.delete(findEntity(id));
+    }
+
+    public Group findEntity(UUID id) {
+        return groupRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found: " + id));
+    }
+
+    private void link(Group group) {
+        for (Day day : group.getDays()) {
+            day.setGroup(group);
+            for (Lesson lesson : day.getLessons()) {
+                lesson.setDay(day);
+            }
+        }
     }
 }

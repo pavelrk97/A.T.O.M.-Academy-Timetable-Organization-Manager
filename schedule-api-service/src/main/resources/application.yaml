@@ -7,4 +7,10 @@ core:
 
 spring:
   application:
-    name: schedule-api-service
+    name: schedule-api-service-mvp
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

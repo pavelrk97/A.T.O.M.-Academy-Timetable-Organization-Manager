@@ -1,14 +1,18 @@
 package ru.controller;
 
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import ru.model.Group;
-import ru.parser.ScheduleCsvParser;
 import ru.service.JsonImportService;
 
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @RestController
+@RequestMapping("/api/import")
 public class ImportController {
 
     private final JsonImportService jsonImportService;
@@ -17,24 +21,24 @@ public class ImportController {
         this.jsonImportService = jsonImportService;
     }
 
-    @PostMapping("/import")
-    public Map<String, Object> importJson(@RequestParam MultipartFile file) throws Exception {
-        jsonImportService.importFromJson(file.getInputStream());
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", "ok");
-        return response;
+    @PostMapping("/json")
+    public Map<String, Object> importJson(@RequestParam MultipartFile file, Authentication authentication) throws Exception {
+        int imported = jsonImportService.importFromJson(file.getInputStream());
+        return response("json", imported, authentication.getName());
     }
 
-    @PostMapping("/importcsv")
-    public Map<String, Object> importSchedule(@RequestParam MultipartFile file) throws Exception {
-        List<Group> groups = ScheduleCsvParser.parse(file.getInputStream());
+    @PostMapping("/csv")
+    public Map<String, Object> importCsv(@RequestParam MultipartFile file, Authentication authentication) throws Exception {
+        int imported = jsonImportService.importFromCsv(file.getInputStream());
+        return response("csv", imported, authentication.getName());
+    }
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("groups", groups);
-        response.put("groupCount", groups.size());
-
+    private Map<String, Object> response(String source, int imported, String username) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", "ok");
+        response.put("source", source);
+        response.put("importedGroups", imported);
+        response.put("performedBy", username);
         return response;
     }
 }
-
