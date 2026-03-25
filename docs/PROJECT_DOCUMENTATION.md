@@ -105,9 +105,7 @@ Google Sheets в проекте рассматривается как:
 
 ## 5. Технологический стек
 
-### 5.1 Core
-- Java 21
-- Spring Boot 3.2.x
+### 5.1 Core`r`n- Java 21`r`n- Spring Boot 3.2.5
 - Spring Web
 - Spring Data JPA
 - Spring Security
@@ -116,9 +114,7 @@ Google Sheets в проекте рассматривается как:
 - PostgreSQL для prod
 - OpenCSV
 
-### 5.2 API facade
-- Java 17
-- Spring Boot 3.2.x
+### 5.2 API facade`r`n- Java 21`r`n- Spring Boot 3.2.5
 - Spring Web
 - OpenFeign
 - WebClient
@@ -663,3 +659,4 @@ select * from change_logs;
 - public/read и protected/write сценарии есть;
 - система уже может использоваться для ручной проверки и дальнейшей итеративной разработки;
 - проект еще не приведен к production-уровню по security, тестам и стабильности импорта.
+

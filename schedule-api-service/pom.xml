@@ -6,11 +6,11 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.atom</groupId>
-  <artifactId>schedule-api-service-mvp</artifactId>
+  <artifactId>schedule-api-service</artifactId>
   <version>1.0.0</version>
   <packaging>jar</packaging>
 
-  <name>schedule-api-service-mvp</name>
+  <name>schedule-api-service</name>
 
   <parent>
     <groupId>org.springframework.boot</groupId>
@@ -19,7 +19,7 @@
   </parent>
 
   <properties>
-    <java.version>17</java.version>
+    <java.version>21</java.version>
     <spring-cloud.version>2023.0.1</spring-cloud.version>
   </properties>
 
@@ -90,3 +90,5 @@
   </build>
 
 </project>
+
+
