@@ -20,8 +20,8 @@ public class DataInitializer {
 
     @PostConstruct
     public void init() {
-        seed("admin", "admin123", "Administrator", Role.ADMIN, false);
-        seed("editor", "editor123", "Schedule Editor", Role.EDITOR, false);
+        seed("admin", "admin123", "Administrator", Role.ADMIN, true);
+        seed("editor", "editor123", "Schedule Editor", Role.EDITOR, true);
         seed("instructor", "instructor123", "Main Instructor", Role.INSTRUCTOR, true);
     }
 

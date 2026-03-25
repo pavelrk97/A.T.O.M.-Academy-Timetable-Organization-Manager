@@ -34,7 +34,7 @@ public class User extends BaseEntity {
 
     private boolean isActive = true;
 
-    private boolean canTeach = false;
+    private boolean canTeach = true;
 
     @ManyToMany
     @JoinTable(
