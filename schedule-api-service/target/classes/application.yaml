@@ -1,0 +1,10 @@
+server:
+  port: 8081
+
+core:
+  service:
+    url: http://localhost:8080
+
+spring:
+  application:
+    name: schedule-api-service
