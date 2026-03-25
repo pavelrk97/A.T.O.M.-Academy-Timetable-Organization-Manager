@@ -1,7 +1,7 @@
 package ru.dto;
 
 import lombok.*;
-import ru.enums.LessonType;
+import ru.model.LessonType;
 
 import java.util.List;
 import java.util.UUID;
