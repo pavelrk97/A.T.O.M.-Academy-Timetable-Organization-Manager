@@ -1,12 +1,9 @@
 spring:
   profiles:
-    active: prod
+    active: dev
 
 ---
 
-# =========================
-# DEV — H2 (автосоздание таблиц)
-# =========================
 spring:
   config:
     activate:
@@ -40,9 +37,6 @@ spring:
 
 ---
 
-# =========================
-# PROD — PostgreSQL
-# =========================
 spring:
   config:
     activate:
@@ -72,4 +66,4 @@ spring:
 logging:
   level:
     root: INFO
-
+    org.springframework.security: INFO
