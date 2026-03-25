@@ -68,17 +68,6 @@
       <scope>test</scope>
     </dependency>
 
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>com.atom</groupId>
-      <artifactId>schedule-api-service</artifactId>
-      <version>1.0.0</version>
-    </dependency>
   </dependencies>
 
   <dependencyManagement>
