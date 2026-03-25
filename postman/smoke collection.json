@@ -1,0 +1,169 @@
+{
+  "info": {
+    "_postman_id": "6c6d4d0c-2c7d-4d6a-9b64-atom-smoke",
+    "name": "A.T.O.M. Smoke Test",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8081" },
+    { "key": "adminUser", "value": "admin" },
+    { "key": "adminPass", "value": "admin123" },
+    { "key": "csvFilePath", "value": "D:/path/to/schedule.csv" },
+    { "key": "lessonId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Public Schedule",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/public/schedule",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "public", "schedule"]
+        }
+      }
+    },
+    {
+      "name": "2. Auth Me (Admin)",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPass}}", "type": "string" }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "me"]
+        }
+      }
+    },
+    {
+      "name": "3. Import CSV",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPass}}", "type": "string" }
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "{{csvFilePath}}"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/import/csv",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "import", "csv"]
+        }
+      }
+    },
+    {
+      "name": "4. Public Schedule After Import",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/public/schedule",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "public", "schedule"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var json = pm.response.json();",
+              "if (Array.isArray(json) && json.length > 0) {",
+              "  pm.collectionVariables.set('lessonId', json[0].lessonId);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Get Groups",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPass}}", "type": "string" }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/groups",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "groups"]
+        }
+      }
+    },
+    {
+      "name": "6. Get Workload",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPass}}", "type": "string" }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/workload",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "workload"]
+        }
+      }
+    },
+    {
+      "name": "7. Get Lesson By Id",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPass}}", "type": "string" }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/lessons/{{lessonId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "lessons", "{{lessonId}}"]
+        }
+      }
+    },
+    {
+      "name": "8. Lesson History",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPass}}", "type": "string" }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/lessons/{{lessonId}}/history",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "lessons", "{{lessonId}}", "history"]
+        }
+      }
+    }
+  ]
+}
