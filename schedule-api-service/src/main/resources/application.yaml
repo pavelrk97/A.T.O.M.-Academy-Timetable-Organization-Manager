@@ -7,7 +7,11 @@ core:
 
 spring:
   application:
-    name: schedule-api-service-mvp
+    name: schedule-api-service
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
 
 management:
   endpoints:

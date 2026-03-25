@@ -5,21 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="803edd04-53b3-4e91-a717-d3bf486cd49b" name="Changes" comment="first split fixed csv parser">
-      <change afterPath="$PROJECT_DIR$/.idea/easycode/codebase-v2.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/schedule-api-service/src/main/java/ru/enums/LessonType.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/schedule-import-parser-core/src/main/java/ru/controller/GroupController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/schedule-import-parser-core/src/main/java/ru/dto/DayDto.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/schedule-import-parser-core/src/main/java/ru/dto/GroupDto.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/schedule-import-parser-core/src/main/java/ru/dto/LessonDto.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/schedule-import-parser-core/src/main/java/ru/mapper/DayMapper.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/schedule-import-parser-core/src/main/java/ru/mapper/GroupMapper.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/schedule-import-parser-core/src/main/java/ru/mapper/LessonMapper.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/schedule-import-parser-core/src/main/java/ru/service/GroupService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/schedule-api-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/schedule-api-service/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/schedule-api-service/src/main/java/ru/dto/DayDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/schedule-api-service/src/main/java/ru/dto/DayDto.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/schedule-api-service/src/main/java/ru/dto/GroupDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/schedule-api-service/src/main/java/ru/dto/GroupDto.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/schedule-api-service/src/main/java/ru/dto/LessonDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/schedule-api-service/src/main/java/ru/dto/LessonDto.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/schedule-api-service/src/main/resources/application.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/schedule-api-service/src/main/resources/application.yaml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,11 +62,11 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "SONARLINT_PRECOMMIT_ANALYSIS": "true",
-    "git-widget-placeholder": "schedule-api-microserv",
+    "git-widget-placeholder": "schedule-api-microserv-aiTest",
     "kotlin-language-version-configured": "true",
     "last_directory_selection": "D:/Proger/A.T.O.M.-Academy-Timetable-Organization-Manager/schedule-api-service/src/main/java",
     "last_opened_file_path": "D:/Proger/A.T.O.M.-Academy-Timetable-Organization-Manager-mvp",
-    "project.structure.last.edited": "Modules",
+    "project.structure.last.edited": "Project",
     "project.structure.proportion": "0.15",
     "project.structure.side.proportion": "0.3201472",
     "settings.editor.selected.configurable": "preferences.pluginManager"
