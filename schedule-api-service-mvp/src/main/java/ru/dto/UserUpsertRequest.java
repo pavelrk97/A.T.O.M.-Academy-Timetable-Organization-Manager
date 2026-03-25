@@ -24,5 +24,5 @@ public class UserUpsertRequest {
     private Role role;
 
     private boolean active = true;
-    private boolean canTeach = false;
+    private boolean canTeach = true;
 }
