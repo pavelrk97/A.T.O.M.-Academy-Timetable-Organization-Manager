@@ -1,10 +1,7 @@
 package ru.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import ru.dto.ImportRequest;
 import ru.model.Day;
 import ru.model.Group;
 import ru.model.Lesson;
@@ -20,23 +17,13 @@ import java.util.Optional;
 @Service
 public class JsonImportService {
 
-    private final ObjectMapper objectMapper;
     private final GroupRepository groupRepository;
     private final UserService userService;
 
-    public JsonImportService(ObjectMapper objectMapper,
-                             GroupRepository groupRepository,
-                             UserService userService,
-                             PasswordEncoder passwordEncoder) {
-        this.objectMapper = objectMapper;
+    public JsonImportService(GroupRepository groupRepository,
+                             UserService userService) {
         this.groupRepository = groupRepository;
         this.userService = userService;
-    }
-
-    @Transactional
-    public int importFromJson(InputStream jsonStream) throws Exception {
-        ImportRequest request = objectMapper.readValue(jsonStream, ImportRequest.class);
-        return importGroups(request.getGroups());
     }
 
     @Transactional

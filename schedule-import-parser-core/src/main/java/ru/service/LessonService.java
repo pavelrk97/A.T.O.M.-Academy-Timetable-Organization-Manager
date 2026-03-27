@@ -85,14 +85,13 @@ public class LessonService {
         }
 
         if (actor.getRole() == Role.INSTRUCTOR) {
-            ensureInstructorCanEdit(lesson, actor);
-            lesson.setNote(dto.getNote());
-        } else {
-            if (dto.getDayId() != null && !dto.getDayId().equals(lesson.getDay().getId())) {
-                lesson.setDay(resolveDay(dto.getDayId()));
-            }
-            applyFullEdit(lesson, dto);
+            throw new ForbiddenEditException("Instructor cannot edit lessons");
         }
+
+        if (dto.getDayId() != null && !dto.getDayId().equals(lesson.getDay().getId())) {
+            lesson.setDay(resolveDay(dto.getDayId()));
+        }
+        applyFullEdit(lesson, dto);
 
         Lesson saved = lessonRepository.save(lesson);
         auditService.logLessonChange(ChangeAction.UPDATED, before, snapshot(saved), actor.getUsername(), "Lesson updated");
@@ -204,13 +203,6 @@ public class LessonService {
 
         return dayRepository.findById(dayId)
                 .orElseThrow(() -> new ResourceNotFoundException("Day not found: " + dayId));
-    }
-
-    private void ensureInstructorCanEdit(Lesson lesson, User actor) {
-        boolean assigned = lesson.getAssignedInstructors().stream().anyMatch(user -> user.getId().equals(actor.getId()));
-        if (!assigned) {
-            throw new ForbiddenEditException("Instructor can edit only assigned lessons");
-        }
     }
 
     private Lesson snapshot(Lesson source) {
