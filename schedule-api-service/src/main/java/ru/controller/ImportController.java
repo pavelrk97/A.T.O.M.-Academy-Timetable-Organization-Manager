@@ -21,8 +21,8 @@ public class ImportController {
 
     private final WebClient webClient;
 
-    public ImportController(@Value("${core.service.url}") String coreUrl) {
-        this.webClient = WebClient.builder().baseUrl(coreUrl).build();
+    public ImportController(@Value("${import.service.url}") String importServiceUrl) {
+        this.webClient = WebClient.builder().baseUrl(importServiceUrl).build();
     }
 
     @PostMapping(value = "/csv", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

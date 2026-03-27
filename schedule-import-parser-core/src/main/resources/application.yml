@@ -1,4 +1,13 @@
+server:
+  port: 8080
+
+identity:
+  service:
+    url: http://localhost:8082
+
 spring:
+  application:
+    name: schedule-service
   profiles:
     active: dev
 
@@ -10,14 +19,14 @@ spring:
       on-profile: dev
 
   datasource:
-    url: jdbc:h2:mem:schedule;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:file:~/atom-shared-db;AUTO_SERVER=TRUE;MODE=PostgreSQL;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
     username: sa
     password:
 
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
@@ -43,7 +52,7 @@ spring:
       on-profile: prod
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/myapp
+    url: jdbc:postgresql://localhost:5432/atom
     username: dbuser
     password: password
     driver-class-name: org.postgresql.Driver

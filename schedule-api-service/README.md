@@ -1,25 +1,27 @@
-# schedule-api-service
+п»ї# api-gateway
 
-Фасадный API-сервис для `schedule-import-parser-core`.
+Р’РЅРµС€РЅСЏСЏ С‚РѕС‡РєР° РІС…РѕРґР° РІ СЃРёСЃС‚РµРјСѓ A.T.O.M.
 
-## Назначение
-- внешний API на `http://localhost:8081`
-- проксирование защищенных и публичных запросов в core `http://localhost:8080`
+## РќР°Р·РЅР°С‡РµРЅРёРµ
+- РїСЂРёРЅРёРјР°РµС‚ РєР»РёРµРЅС‚СЃРєРёРµ Р·Р°РїСЂРѕСЃС‹ РЅР° `http://localhost:8081`
+- РјР°СЂС€СЂСѓС‚РёР·РёСЂСѓРµС‚ РёС… РІ downstream-СЃРµСЂРІРёСЃС‹
+- СЃРѕС…СЂР°РЅСЏРµС‚ РµРґРёРЅС‹Р№ РІРЅРµС€РЅРёР№ РєРѕРЅС‚СЂР°РєС‚ `api/*`
 
-## Что проксируется
-- `GET /api/public/schedule`
-- `GET /api/auth/me`
-- `GET/POST/PUT /api/users`
-- `GET/POST/PUT/DELETE /api/groups`
-- `GET/POST/PUT/DELETE /api/lessons`
-- `GET /api/lessons/{id}/history`
-- `GET /api/workload`
-- `POST /api/import/csv`
+## РњР°СЂС€СЂСѓС‚РёР·Р°С†РёСЏ
+- `identity-service`:
+  `GET /api/auth/me`, `GET/POST/PUT /api/users`
+- `schedule-service`:
+  `GET /api/public/schedule`, `GET/POST/PUT/DELETE /api/groups`,
+  `GET/POST/PUT/DELETE /api/lessons`, `GET /api/lessons/{id}/history`,
+  `GET /api/workload`
+- `import-service`:
+  `POST /api/import/csv`
 
-## Запуск
-1. Запустить `schedule-import-parser-core` на `8080`
-2. Запустить `schedule-api-service` на `8081`
+## Downstream СЃРµСЂРІРёСЃС‹
+- `schedule-service` -> `http://localhost:8080`
+- `identity-service` -> `http://localhost:8082`
+- `import-service` -> `http://localhost:8083`
 
-## Авторизация
-- заголовок `Authorization` пробрасывается в core
-- тестовые учетки из core: `admin`, `editor`, `instructor`
+## РђРІС‚РѕСЂРёР·Р°С†РёСЏ
+- Gateway РЅРµ РІР°Р»РёРґРёСЂСѓРµС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ СЃР°Рј
+- Р·Р°РіРѕР»РѕРІРѕРє `Authorization` РїСЂРѕР±СЂР°СЃС‹РІР°РµС‚СЃСЏ РґР°Р»СЊС€Рµ РІ РЅСѓР¶РЅС‹Р№ СЃРµСЂРІРёСЃ

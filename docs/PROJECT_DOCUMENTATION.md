@@ -1,164 +1,147 @@
-# A.T.O.M. Project Documentation
+п»ї# A.T.O.M. Project Documentation
 
-## 1. Назначение
-A.T.O.M. (Academy Timetable Organization Manager) — система управления расписанием академии.
+## 1. РќР°Р·РЅР°С‡РµРЅРёРµ
+A.T.O.M. (Academy Timetable Organization Manager) вЂ” СЃРёСЃС‚РµРјР° СѓРїСЂР°РІР»РµРЅРёСЏ СЂР°СЃРїРёСЃР°РЅРёРµРј Р°РєР°РґРµРјРёРё.
 
-Цель:
-- единый источник актуального расписания;
-- ролевой доступ к данным;
-- контроль конфликтов правок;
-- история изменений;
-- стартовая загрузка из CSV Google Sheets.
+РўРµРєСѓС‰Р°СЏ РІРµСЂСЃРёСЏ РїСЂРѕРµРєС‚Р° РѕС„РѕСЂРјР»РµРЅР° РєР°Рє РјРёРЅРёРјР°Р»СЊРЅРѕ РёРЅРІР°Р·РёРІРЅР°СЏ РјРёРєСЂРѕСЃРµСЂРІРёСЃРЅР°СЏ Р°СЂС…РёС‚РµРєС‚СѓСЂР°:
+- РµРґРёРЅР°СЏ РІРЅРµС€РЅСЏСЏ С‚РѕС‡РєР° РІС…РѕРґР° С‡РµСЂРµР· API Gateway;
+- РѕС‚РґРµР»СЊРЅС‹Р№ СЃРµСЂРІРёСЃ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ Рё Basic Auth;
+- РѕС‚РґРµР»СЊРЅС‹Р№ СЃРµСЂРІРёСЃ РёРјРїРѕСЂС‚Р° CSV;
+- РѕС‚РґРµР»СЊРЅС‹Р№ СЃРµСЂРІРёСЃ СЂР°СЃРїРёСЃР°РЅРёСЏ, workload Рё Р°СѓРґРёС‚Р°.
 
-## 2. Архитектура
-Актуальные модули:
-- `schedule-import-parser-core` — основной backend и работа с БД (`8080`)
-- `schedule-api-service` — фасадный API (`8081`)
+## 2. РЎРµСЂРІРёСЃС‹ Рё РїРѕСЂС‚С‹
+- `schedule-api-service` вЂ” API Gateway (`8081`)
+- `schedule-import-parser-core` вЂ” `schedule-service` (`8080`)
+- `identity-service` вЂ” РїРѕР»СЊР·РѕРІР°С‚РµР»Рё Рё Basic Auth (`8082`)
+- `import-service` вЂ” РІРЅРµС€РЅРёР№ CSV import ingress (`8083`)
 
-Поток:
-1. Клиент -> `schedule-api-service` (`8081`)
-2. Фасад -> `schedule-import-parser-core` (`8080`)
-3. Core исполняет бизнес-логику и отвечает
+## 3. РђСЂС…РёС‚РµРєС‚СѓСЂРЅС‹Р№ РїРѕС‚РѕРє
+### 3.1 Р§С‚РµРЅРёРµ СЂР°СЃРїРёСЃР°РЅРёСЏ
+1. РљР»РёРµРЅС‚ -> `api-gateway` (`8081`)
+2. Gateway -> `schedule-service` (`8080`)
+3. `schedule-service` РѕС‚РІРµС‡Р°РµС‚ РґР°РЅРЅС‹РјРё СЂР°СЃРїРёСЃР°РЅРёСЏ
 
-## 3. Технологии
-Core:
-- Java 21
-- Spring Boot 3.2.5
-- Spring Web / Security / Data JPA / Validation
-- H2 (dev), PostgreSQL (prod)
-- OpenCSV
+### 3.2 РђРІС‚РѕСЂРёР·Р°С†РёСЏ
+1. РљР»РёРµРЅС‚ РѕС‚РїСЂР°РІР»СЏРµС‚ `Basic Auth` РІ Gateway
+2. Gateway РїСЂРѕР±СЂР°СЃС‹РІР°РµС‚ `Authorization` РІ РЅСѓР¶РЅС‹Р№ downstream-СЃРµСЂРІРёСЃ
+3. `schedule-service` Рё `import-service` Р·Р°РїСЂР°С€РёРІР°СЋС‚ user details Сѓ `identity-service` С‡РµСЂРµР· РІРЅСѓС‚СЂРµРЅРЅРёР№ endpoint
+4. `identity-service` РѕСЃС‚Р°С‘С‚СЃСЏ РµРґРёРЅСЃС‚РІРµРЅРЅРѕР№ РІРЅРµС€РЅРµР№ С‚РѕС‡РєРѕР№ СЂР°Р±РѕС‚С‹ СЃ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏРјРё
 
-API facade:
-- Java 21
-- Spring Boot 3.2.5
-- Spring Web, OpenFeign, WebClient
+### 3.3 РРјРїРѕСЂС‚ CSV
+1. РљР»РёРµРЅС‚ -> `api-gateway` -> `import-service`
+2. `import-service` РїСЂРѕРІРµСЂСЏРµС‚, С‡С‚Рѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РёРјРµРµС‚ СЂРѕР»СЊ `ADMIN`
+3. `import-service` РїРµСЂРµСЃС‹Р»Р°РµС‚ multipart CSV РІРѕ РІРЅСѓС‚СЂРµРЅРЅРёР№ endpoint `schedule-service`
+4. `schedule-service` РїР°СЂСЃРёС‚ CSV Рё СЃРѕС…СЂР°РЅСЏРµС‚ РіСЂСѓРїРїС‹, РґРЅРё, Р·Р°РЅСЏС‚РёСЏ Рё СЃРІСЏР·Рё СЃ РёРЅСЃС‚СЂСѓРєС‚РѕСЂР°РјРё
 
-## 4. Роли и права
-Роли:
+## 4. РћС‚РІРµС‚СЃС‚РІРµРЅРЅРѕСЃС‚СЊ СЃРµСЂРІРёСЃРѕРІ
+### 4.1 API Gateway
+- РІРЅРµС€РЅРёР№ API РґР»СЏ РєР»РёРµРЅС‚Р°;
+- РїСЂРѕРєСЃРёСЂРѕРІР°РЅРёРµ Р·Р°РїСЂРѕСЃРѕРІ;
+- СЃРѕС…СЂР°РЅРµРЅРёРµ СЃС‚Р°СЂРѕРіРѕ РІРЅРµС€РЅРµРіРѕ РєРѕРЅС‚СЂР°РєС‚Р° `api/*`.
+
+### 4.2 identity-service
+- `GET /api/auth/me`;
+- `GET/POST/PUT /api/users`;
+- РІРЅСѓС‚СЂРµРЅРЅРёР№ endpoint user details РґР»СЏ РґСЂСѓРіРёС… СЃРµСЂРІРёСЃРѕРІ.
+
+### 4.3 schedule-service
+- РїСѓР±Р»РёС‡РЅРѕРµ СЂР°СЃРїРёСЃР°РЅРёРµ;
+- CRUD РіСЂСѓРїРї;
+- CRUD Р·Р°РЅСЏС‚РёР№;
+- optimistic locking;
+- Р°СѓРґРёС‚ РёР·РјРµРЅРµРЅРёР№ Р·Р°РЅСЏС‚РёР№;
+- workload;
+- РІРЅСѓС‚СЂРµРЅРЅРёР№ CSV import endpoint.
+
+### 4.4 import-service
+- РІРЅРµС€РЅРёР№ endpoint `POST /api/import/csv`;
+- РѕС‚РґРµР»СЊРЅС‹Р№ runtime РґР»СЏ ingress/import СЃС†РµРЅР°СЂРёСЏ;
+- orchestration РјРµР¶РґСѓ РєР»РёРµРЅС‚РѕРј Рё РІРЅСѓС‚СЂРµРЅРЅРёРј import endpoint `schedule-service`.
+
+## 5. Р РѕР»Рё Рё РїСЂР°РІР°
+Р РѕР»Рё:
 - `ADMIN`
 - `EDITOR`
 - `INSTRUCTOR`
-- `PUBLIC` (без ЛК)
+- `PUBLIC` (Р±РµР· Р›Рљ)
 
-### 4.1 ADMIN
-Имеет право:
-- управление пользователями
-- импорт CSV
-- создание/изменение/удаление групп
-- создание/изменение/удаление занятий
-- просмотр истории и workload
+### 5.1 ADMIN
+РРјРµРµС‚ РїСЂР°РІРѕ:
+- СѓРїСЂР°РІР»РµРЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏРјРё;
+- РёРјРїРѕСЂС‚ CSV;
+- СЃРѕР·РґР°РЅРёРµ/РёР·РјРµРЅРµРЅРёРµ/СѓРґР°Р»РµРЅРёРµ РіСЂСѓРїРї;
+- СЃРѕР·РґР°РЅРёРµ/РёР·РјРµРЅРµРЅРёРµ/СѓРґР°Р»РµРЅРёРµ Р·Р°РЅСЏС‚РёР№;
+- РїСЂРѕСЃРјРѕС‚СЂ РёСЃС‚РѕСЂРёРё Рё workload.
 
-### 4.2 EDITOR
-Имеет право:
-- просмотр расписания
-- создание/изменение/удаление групп
-- создание/изменение/удаление занятий
-- просмотр истории и workload
+### 5.2 EDITOR
+РРјРµРµС‚ РїСЂР°РІРѕ:
+- РїСЂРѕСЃРјРѕС‚СЂ СЂР°СЃРїРёСЃР°РЅРёСЏ;
+- СЃРѕР·РґР°РЅРёРµ/РёР·РјРµРЅРµРЅРёРµ/СѓРґР°Р»РµРЅРёРµ РіСЂСѓРїРї;
+- СЃРѕР·РґР°РЅРёРµ/РёР·РјРµРЅРµРЅРёРµ/СѓРґР°Р»РµРЅРёРµ Р·Р°РЅСЏС‚РёР№;
+- РїСЂРѕСЃРјРѕС‚СЂ РёСЃС‚РѕСЂРёРё Рё workload.
 
-Не имеет права:
-- управление пользователями
-- импорт CSV
+РќРµ РёРјРµРµС‚ РїСЂР°РІР°:
+- СѓРїСЂР°РІР»РµРЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏРјРё;
+- РёРјРїРѕСЂС‚ CSV.
 
-### 4.3 INSTRUCTOR
-Имеет право:
-- смотреть расписание
-- смотреть workload
+### 5.3 INSTRUCTOR
+РРјРµРµС‚ РїСЂР°РІРѕ:
+- РїСЂРѕСЃРјРѕС‚СЂ СЂР°СЃРїРёСЃР°РЅРёСЏ;
+- РїСЂРѕСЃРјРѕС‚СЂ workload.
 
-Не имеет права:
-- создавать занятия
-- менять занятия
-- удалять занятия
-- управлять пользователями
-- импортировать данные
+РќРµ РёРјРµРµС‚ РїСЂР°РІР°:
+- СЃРѕР·РґР°РІР°С‚СЊ, РјРµРЅСЏС‚СЊ Рё СѓРґР°Р»СЏС‚СЊ Р·Р°РЅСЏС‚РёСЏ;
+- СѓРїСЂР°РІР»СЏС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏРјРё;
+- РёРјРїРѕСЂС‚РёСЂРѕРІР°С‚СЊ РґР°РЅРЅС‹Рµ.
 
-### 4.4 PUBLIC
-Имеет право:
-- только читать публичное расписание
+### 5.4 PUBLIC
+РРјРµРµС‚ РїСЂР°РІРѕ:
+- С‚РѕР»СЊРєРѕ С‡РёС‚Р°С‚СЊ РїСѓР±Р»РёС‡РЅРѕРµ СЂР°СЃРїРёСЃР°РЅРёРµ.
 
-## 5. Доменная модель
-Ключевые сущности:
+## 6. Р”РѕРјРµРЅРЅР°СЏ РјРѕРґРµР»СЊ
+РљР»СЋС‡РµРІС‹Рµ СЃСѓС‰РЅРѕСЃС‚Рё:
 - `User`
 - `Group`
 - `Day`
 - `Lesson`
 - `ChangeLog`
 
-Принцип инструкторов:
-- отдельная сущность `Instructor` не вводится
-- инструкторы — это пользователи
-- связь занятий с инструкторами: `lesson_instructors`
+РџСЂРёРЅС†РёРї РёРЅСЃС‚СЂСѓРєС‚РѕСЂРѕРІ:
+- РѕС‚РґРµР»СЊРЅР°СЏ СЃСѓС‰РЅРѕСЃС‚СЊ `Instructor` РЅРµ РІРІРѕРґРёС‚СЃСЏ;
+- РёРЅСЃС‚СЂСѓРєС‚РѕСЂС‹ С…СЂР°РЅСЏС‚СЃСЏ РєР°Рє РїРѕР»СЊР·РѕРІР°С‚РµР»Рё;
+- СЃРІСЏР·СЊ Р·Р°РЅСЏС‚РёР№ СЃ РёРЅСЃС‚СЂСѓРєС‚РѕСЂР°РјРё: `lesson_instructors`.
 
-## 6. Конфликты правок
-Используется optimistic locking через `@Version`.
+## 7. РљРѕРЅС„Р»РёРєС‚С‹ РїСЂР°РІРѕРє
+РСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ optimistic locking С‡РµСЂРµР· `@Version`.
 
-Правило:
-- update/delete занятия допускается только с актуальной версией
-- при рассинхроне возвращается `409 Conflict`
+РџСЂР°РІРёР»Рѕ:
+- update/delete Р·Р°РЅСЏС‚РёСЏ РґРѕРїСѓСЃРєР°РµС‚СЃСЏ С‚РѕР»СЊРєРѕ СЃ Р°РєС‚СѓР°Р»СЊРЅРѕР№ РІРµСЂСЃРёРµР№;
+- РїСЂРё СЂР°СЃСЃРёРЅС…СЂРѕРЅРµ РІРѕР·РІСЂР°С‰Р°РµС‚СЃСЏ `409 Conflict`.
 
-Ключевой файл:
-- `schedule-import-parser-core/src/main/java/ru/service/LessonService.java`
+## 8. РђСѓРґРёС‚ РёР·РјРµРЅРµРЅРёР№
+РќР° СЃРѕР·РґР°РЅРёРµ, РёР·РјРµРЅРµРЅРёРµ Рё СѓРґР°Р»РµРЅРёРµ Р·Р°РЅСЏС‚РёР№ РїРёС€РµС‚СЃСЏ Р°СѓРґРёС‚ РІ `change_logs`.
 
-## 7. История изменений
-На создание/изменение/удаление занятий пишется аудит в `change_logs`.
+## 9. РЈС‡РµС‚ С‡Р°СЃРѕРІ
+Workload = Р°РіСЂРµРіРёСЂРѕРІР°РЅРёРµ `durationHours` РїРѕ РЅР°Р·РЅР°С‡РµРЅРЅС‹Рј РёРЅСЃС‚СЂСѓРєС‚РѕСЂР°Рј.
 
-Ключевые файлы:
-- `schedule-import-parser-core/src/main/java/ru/service/AuditService.java`
-- `schedule-import-parser-core/src/main/java/ru/repository/ChangeLogRepository.java`
+РџРѕРґС‚РІРµСЂР¶РґРµРЅРЅРѕРµ РїСЂР°РІРёР»Рѕ:
+- РµСЃР»Рё РЅР° Р·Р°РЅСЏС‚РёРµ РЅР°Р·РЅР°С‡РµРЅРѕ РЅРµСЃРєРѕР»СЊРєРѕ РёРЅСЃС‚СЂСѓРєС‚РѕСЂРѕРІ, РєР°Р¶РґРѕРјСѓ РЅР°С‡РёСЃР»СЏРµС‚СЃСЏ РїРѕР»РЅР°СЏ `durationHours`;
+- РґРµР»РµРЅРёРµ С‡Р°СЃРѕРІ РјРµР¶РґСѓ РёРЅСЃС‚СЂСѓРєС‚РѕСЂР°РјРё РЅРµ РїСЂРёРјРµРЅСЏРµС‚СЃСЏ.
 
-## 8. Учет часов
-Учет часов = агрегирование `durationHours` по назначенным инструкторам.
+## 10. РРјРїРѕСЂС‚ РґР°РЅРЅС‹С…
+РСЃС‚РѕС‡РЅРёРє:
+- С‚РѕР»СЊРєРѕ CSV РёР· Google Sheets.
 
-Подтвержденное правило:
-- если на занятие назначено несколько инструкторов (например, ПК/экзамен), каждому начисляется полная `durationHours`
-- деление часов между инструкторами не применяется
+Р’РЅРµС€РЅРёР№ endpoint:
+- `POST http://localhost:8081/api/import/csv`
 
-Ключевой файл:
-- `schedule-import-parser-core/src/main/java/ru/service/LessonService.java`
+Р’РЅСѓС‚СЂРµРЅРЅРёР№ endpoint:
+- `POST http://localhost:8080/internal/import/csv`
 
-## 9. Импорт данных
-Источник:
-- только CSV из Google Sheets
+JSON-РёРјРїРѕСЂС‚ СѓРґР°Р»С‘РЅ РёР· РєРѕРЅС‚СЂР°РєС‚Р° Рё РІС‹С‡РёС‰РµРЅ РёР· РєРѕРґРѕРІРѕР№ Р±Р°Р·С‹.
 
-Текущий endpoint:
-- `POST /api/import/csv`
-
-JSON-импорт исключен из текущего контракта.
-
-## 10. Эндпоинты core (`http://localhost:8080`)
-Public:
-- `GET /api/public/schedule`
-
-Auth:
-- `GET /api/auth/me`
-
-Users:
-- `GET /api/users`
-- `POST /api/users`
-- `PUT /api/users/{id}`
-
-Groups:
-- `GET /api/groups`
-- `GET /api/groups/{id}`
-- `POST /api/groups`
-- `PUT /api/groups/{id}`
-- `DELETE /api/groups/{id}`
-
-Lessons:
-- `GET /api/lessons`
-- `GET /api/lessons/{id}`
-- `POST /api/lessons`
-- `PUT /api/lessons/{id}`
-- `DELETE /api/lessons/{id}?version=...`
-- `GET /api/lessons/{id}/history`
-
-Workload:
-- `GET /api/workload`
-
-Import:
-- `POST /api/import/csv`
-
-## 11. Эндпоинты API facade (`http://localhost:8081`)
-Проксируются те же сценарии:
+## 11. Р­РЅРґРїРѕРёРЅС‚С‹
+### 11.1 API Gateway (`http://localhost:8081`)
 - `GET /api/public/schedule`
 - `GET /api/auth/me`
 - `GET/POST/PUT /api/users`
@@ -168,40 +151,77 @@ Import:
 - `GET /api/workload`
 - `POST /api/import/csv`
 
-## 12. Авторизация
-Текущий механизм: `Basic Auth`.
+### 11.2 identity-service (`http://localhost:8082`)
+- `GET /api/auth/me`
+- `GET /api/users`
+- `POST /api/users`
+- `PUT /api/users/{id}`
+- `GET /internal/users/by-username/{username}`
 
-Тестовые учетки:
+### 11.3 schedule-service (`http://localhost:8080`)
+- `GET /api/public/schedule`
+- `GET /api/groups`
+- `GET /api/groups/{id}`
+- `POST /api/groups`
+- `PUT /api/groups/{id}`
+- `DELETE /api/groups/{id}`
+- `GET /api/lessons`
+- `GET /api/lessons/{id}`
+- `POST /api/lessons`
+- `PUT /api/lessons/{id}`
+- `DELETE /api/lessons/{id}?version=...`
+- `GET /api/lessons/{id}/history`
+- `GET /api/workload`
+- `POST /internal/import/csv`
+
+### 11.4 import-service (`http://localhost:8083`)
+- `POST /api/import/csv`
+
+## 12. РҐСЂР°РЅРµРЅРёРµ РґР°РЅРЅС‹С…
+### 12.1 Dev
+- Java 21
+- Spring Boot 3.2.5
+- РѕР±С‰РёР№ file-based H2 instance:
+  `jdbc:h2:file:~/atom-shared-db;AUTO_SERVER=TRUE;MODE=PostgreSQL;DB_CLOSE_ON_EXIT=FALSE`
+
+### 12.2 Prod
+- PostgreSQL
+- РѕРґРёРЅ DB instance РґР»СЏ СЃРµСЂРІРёСЃРѕРІ С‚РµРєСѓС‰РµР№ РёС‚РµСЂР°С†РёРё.
+
+## 13. РўРµСЃС‚РѕРІС‹Рµ СѓС‡РµС‚РєРё
 - `admin / admin123`
 - `editor / editor123`
 - `instructor / instructor123`
 
-## 13. Быстрая проверка
+РўРµСЃС‚РѕРІС‹Рµ РїРѕР»СЊР·РѕРІР°С‚РµР»Рё РёРЅРёС†РёР°Р»РёР·РёСЂСѓСЋС‚СЃСЏ РІ `identity-service`.
+
+## 14. РџРѕСЂСЏРґРѕРє Р·Р°РїСѓСЃРєР°
+1. Р—Р°РїСѓСЃС‚РёС‚СЊ `identity-service` РЅР° `8082`
+2. Р—Р°РїСѓСЃС‚РёС‚СЊ `schedule-service` РЅР° `8080`
+3. Р—Р°РїСѓСЃС‚РёС‚СЊ `import-service` РЅР° `8083`
+4. Р—Р°РїСѓСЃС‚РёС‚СЊ `api-gateway` РЅР° `8081`
+
+## 15. Р‘С‹СЃС‚СЂР°СЏ РїСЂРѕРІРµСЂРєР°
 1. `GET http://localhost:8081/api/public/schedule`
-2. `GET http://localhost:8081/api/auth/me` (admin)
-3. `POST http://localhost:8081/api/import/csv` (admin)
-4. `GET http://localhost:8081/api/groups` (admin)
-5. `GET http://localhost:8081/api/workload` (admin)
+2. `GET http://localhost:8081/api/auth/me` c `admin/admin123`
+3. `POST http://localhost:8081/api/import/csv` c `admin/admin123`
+4. `GET http://localhost:8081/api/groups` c `admin/admin123`
+5. `GET http://localhost:8081/api/workload` c `admin/admin123`
 
-## 14. Просмотр БД (dev)
-H2 console:
-- `http://localhost:8080/h2-console`
-- JDBC: `jdbc:h2:mem:schedule;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE`
-- user: `sa`
-- password: пусто
+## 16. РўРµРєСѓС‰РёР№ СЃС‚Р°С‚СѓСЃ
+Р РµР°Р»РёР·РѕРІР°РЅРѕ:
+- gateway + identity-service + schedule-service + import-service;
+- Basic Auth С‡РµСЂРµР· `identity-service`;
+- РїСѓР±Р»РёС‡РЅРѕРµ С‡С‚РµРЅРёРµ СЂР°СЃРїРёСЃР°РЅРёСЏ;
+- CRUD РіСЂСѓРїРї Рё Р·Р°РЅСЏС‚РёР№;
+- Р°СѓРґРёС‚ Рё optimistic locking;
+- РёРјРїРѕСЂС‚ С‚РѕР»СЊРєРѕ CSV;
+- workload РїРѕ РёРЅСЃС‚СЂСѓРєС‚РѕСЂР°Рј;
+- СѓРґР°Р»РµРЅРёРµ JSON-import С…РІРѕСЃС‚РѕРІ РёР· РєРѕРґР° Рё РєРѕРЅС‚СЂР°РєС‚Р°.
 
-## 15. Текущий статус
-Реализовано:
-- core + facade рабочие
-- ролевая модель и ограничения доступа
-- публичное чтение расписания
-- CRUD групп и занятий (для ADMIN/EDITOR)
-- аудит и контроль конфликтов
-- импорт CSV
-- workload по инструкторам
-
-Открытые задачи:
-- JWT вместо Basic Auth
-- Swagger/OpenAPI
-- расширение тестов
-- нормализация маппинга инструкторов при импорте
+РћС‚РєСЂС‹С‚С‹Рµ Р·Р°РґР°С‡Рё:
+- JWT РІРјРµСЃС‚Рѕ Basic Auth;
+- Swagger/OpenAPI;
+- СЂР°СЃС€РёСЂРµРЅРёРµ С‚РµСЃС‚РѕРІ;
+- Р±РѕР»РµРµ СЃС‚СЂРѕРіР°СЏ РёР·РѕР»СЏС†РёСЏ РІР»Р°РґРµРЅРёСЏ С‚Р°Р±Р»РёС†РµР№ `users` РјРµР¶РґСѓ СЃРµСЂРІРёСЃР°РјРё;
+- docker-compose РґР»СЏ Р»РѕРєР°Р»СЊРЅРѕРіРѕ Р·Р°РїСѓСЃРєР°.

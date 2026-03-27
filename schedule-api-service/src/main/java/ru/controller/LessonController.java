@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import ru.client.CoreClient;
+import ru.client.ScheduleClient;
 import ru.dto.ChangeLogDto;
 import ru.dto.LessonDto;
 import ru.dto.ScheduleEntryDto;
@@ -23,10 +23,10 @@ import java.util.UUID;
 @RequestMapping("/api/lessons")
 public class LessonController {
 
-    private final CoreClient coreClient;
+    private final ScheduleClient scheduleClient;
 
-    public LessonController(CoreClient coreClient) {
-        this.coreClient = coreClient;
+    public LessonController(ScheduleClient scheduleClient) {
+        this.scheduleClient = scheduleClient;
     }
 
     @GetMapping
@@ -35,33 +35,33 @@ public class LessonController {
                                          @RequestParam(required = false) UUID instructorId,
                                          @RequestParam(required = false) LocalDate from,
                                          @RequestParam(required = false) LocalDate to) {
-        return coreClient.getLessons(authorization, groupCode, instructorId, from, to);
+        return scheduleClient.getLessons(authorization, groupCode, instructorId, from, to);
     }
 
     @GetMapping("/{id}")
     public LessonDto getById(@RequestHeader("Authorization") String authorization, @PathVariable UUID id) {
-        return coreClient.getLessonById(authorization, id);
+        return scheduleClient.getLessonById(authorization, id);
     }
 
     @PostMapping
     public LessonDto create(@RequestHeader("Authorization") String authorization, @RequestBody LessonDto dto) {
-        return coreClient.createLesson(authorization, dto);
+        return scheduleClient.createLesson(authorization, dto);
     }
 
     @PutMapping("/{id}")
     public LessonDto update(@RequestHeader("Authorization") String authorization, @PathVariable UUID id, @RequestBody LessonDto dto) {
-        return coreClient.updateLesson(authorization, id, dto);
+        return scheduleClient.updateLesson(authorization, id, dto);
     }
 
     @DeleteMapping("/{id}")
     public void delete(@RequestHeader("Authorization") String authorization,
                        @PathVariable UUID id,
                        @RequestParam Long version) {
-        coreClient.deleteLesson(authorization, id, version);
+        scheduleClient.deleteLesson(authorization, id, version);
     }
 
     @GetMapping("/{id}/history")
     public List<ChangeLogDto> history(@RequestHeader("Authorization") String authorization, @PathVariable UUID id) {
-        return coreClient.getLessonHistory(authorization, id);
+        return scheduleClient.getLessonHistory(authorization, id);
     }
 }

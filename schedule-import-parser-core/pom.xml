@@ -6,19 +6,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
-        <relativePath/>
+        <groupId>ru.atom</groupId>
+        <artifactId>atom-parent</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <groupId>ru.schedule</groupId>
-    <artifactId>schedule-import-parser-core</artifactId>
-    <version>1.0</version>
-
-    <properties>
-        <java.version>21</java.version>
-    </properties>
+    <artifactId>schedule-service</artifactId>
+    <name>schedule-service</name>
 
     <dependencies>
         <dependency>
@@ -50,7 +45,7 @@
         <dependency>
             <groupId>com.opencsv</groupId>
             <artifactId>opencsv</artifactId>
-            <version>5.9</version>
+            <version>${opencsv.version}</version>
         </dependency>
 
         <dependency>
@@ -62,7 +57,6 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <version>42.6.0</version>
             <scope>runtime</scope>
         </dependency>
 
