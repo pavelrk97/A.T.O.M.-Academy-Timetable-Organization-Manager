@@ -21,24 +21,15 @@ public class ImportController {
         this.jsonImportService = jsonImportService;
     }
 
-    @PostMapping("/json")
-    public Map<String, Object> importJson(@RequestParam MultipartFile file, Authentication authentication) throws Exception {
-        int imported = jsonImportService.importFromJson(file.getInputStream());
-        return response("json", imported, authentication.getName());
-    }
-
     @PostMapping("/csv")
     public Map<String, Object> importCsv(@RequestParam MultipartFile file, Authentication authentication) throws Exception {
         int imported = jsonImportService.importFromCsv(file.getInputStream());
-        return response("csv", imported, authentication.getName());
-    }
 
-    private Map<String, Object> response(String source, int imported, String username) {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("status", "ok");
-        response.put("source", source);
+        response.put("source", "csv");
         response.put("importedGroups", imported);
-        response.put("performedBy", username);
+        response.put("performedBy", authentication.getName());
         return response;
     }
 }

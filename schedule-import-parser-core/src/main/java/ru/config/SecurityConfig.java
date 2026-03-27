@@ -28,8 +28,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .requestMatchers("/import/**", "/api/import/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/groups/**", "/api/lessons/**", "/api/workload/**").authenticated()
-                        .requestMatchers("/api/groups/**").hasAnyRole("ADMIN", "EDITOR")
-                        .requestMatchers("/api/lessons/**", "/api/workload/**").hasAnyRole("ADMIN", "EDITOR", "INSTRUCTOR")
+                        .requestMatchers(HttpMethod.POST, "/api/groups/**", "/api/lessons/**").hasAnyRole("ADMIN", "EDITOR")
+                        .requestMatchers(HttpMethod.PUT, "/api/groups/**", "/api/lessons/**").hasAnyRole("ADMIN", "EDITOR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/groups/**", "/api/lessons/**").hasAnyRole("ADMIN", "EDITOR")
+                        .requestMatchers("/api/groups/**", "/api/lessons/**", "/api/workload/**").authenticated()
                         .anyRequest().authenticated())
                 .httpBasic(Customizer.withDefaults());
 
