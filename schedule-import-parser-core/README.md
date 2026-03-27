@@ -1,29 +1,32 @@
-# schedule-import-parser-core
+п»ї# schedule-service
 
-Backend-сервис MVP системы управления расписанием академии.
+РћСЃРЅРѕРІРЅРѕР№ СЃРµСЂРІРёСЃ РґРѕРјРµРЅР° СЂР°СЃРїРёСЃР°РЅРёСЏ.
 
-## Что есть
-- публичный просмотр расписания: `GET /api/public/schedule`
-- Basic Auth
-- роли: `ADMIN`, `EDITOR`, `INSTRUCTOR`
-- пользователи: `GET/POST/PUT /api/users`
-- группы: `GET/POST/PUT/DELETE /api/groups`
-- занятия: `GET/POST/PUT/DELETE /api/lessons`
-- история изменений: `GET /api/lessons/{id}/history`
-- защита от конфликтов по `version`
-- импорт только CSV: `POST /api/import/csv`
+## Р§С‚Рѕ РІРЅСѓС‚СЂРё
+- РїСѓР±Р»РёС‡РЅРѕРµ СЂР°СЃРїРёСЃР°РЅРёРµ: `GET /api/public/schedule`
+- РіСЂСѓРїРїС‹: `GET/POST/PUT/DELETE /api/groups`
+- Р·Р°РЅСЏС‚РёСЏ: `GET/POST/PUT/DELETE /api/lessons`
+- РёСЃС‚РѕСЂРёСЏ РёР·РјРµРЅРµРЅРёР№: `GET /api/lessons/{id}/history`
 - workload: `GET /api/workload`
+- РІРЅСѓС‚СЂРµРЅРЅРёР№ CSV import endpoint: `POST /internal/import/csv`
 
-## Дефолтные пользователи
-- `admin / admin123`
-- `editor / editor123`
-- `instructor / instructor123`
+## Р’Р°Р¶РЅС‹Рµ РїСЂР°РІРёР»Р°
+- СЂРѕР»Рё: `ADMIN`, `EDITOR`, `INSTRUCTOR`
+- `ADMIN` Рё `EDITOR` РјРѕРіСѓС‚ СЃРѕР·РґР°РІР°С‚СЊ, РјРµРЅСЏС‚СЊ Рё СѓРґР°Р»СЏС‚СЊ Р·Р°РЅСЏС‚РёСЏ
+- `INSTRUCTOR` РЅРµ РјРѕР¶РµС‚ СЃРѕР·РґР°РІР°С‚СЊ, РјРµРЅСЏС‚СЊ Рё СѓРґР°Р»СЏС‚СЊ Р·Р°РЅСЏС‚РёСЏ
+- optimistic locking РїРѕ `version`
+- Р°СѓРґРёС‚ РїРёС€РµС‚СЃСЏ РЅР° create/update/delete Р·Р°РЅСЏС‚РёСЏ
+- workload РЅР°С‡РёСЃР»СЏРµС‚ РїРѕР»РЅСѓСЋ `durationHours` РєР°Р¶РґРѕРјСѓ РЅР°Р·РЅР°С‡РµРЅРЅРѕРјСѓ РёРЅСЃС‚СЂСѓРєС‚РѕСЂСѓ
 
-## Правила редактирования
-- `ADMIN` и `EDITOR` могут создавать, менять и удалять занятия
-- `INSTRUCTOR` не может создавать, менять и удалять занятия
-- `PUBLIC` только чтение
+## РђРІС‚РѕСЂРёР·Р°С†РёСЏ
+- СЃРµСЂРІРёСЃ РёСЃРїРѕР»СЊР·СѓРµС‚ `Basic Auth`
+- user details РґР»СЏ Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёРё РїРѕРґС‚СЏРіРёРІР°СЋС‚СЃСЏ РёР· `identity-service`
 
-## Примечания
-- профиль по умолчанию: `dev` (H2 in-memory)
-- Maven wrapper отсутствует
+## РҐСЂР°РЅРµРЅРёРµ РґР°РЅРЅС‹С…
+- dev: РѕР±С‰РёР№ file-based H2 instance
+- prod: PostgreSQL
+
+## РџСЂРёРјРµС‡Р°РЅРёСЏ
+- JSON-import СѓРґР°Р»С‘РЅ РёР· РєРѕРґР°
+- РїСЂРѕС„РёР»СЊ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ: `dev`
+- Maven wrapper РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚

@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import ru.client.CoreClient;
+import ru.client.ScheduleClient;
 import ru.dto.WorkloadDto;
 
 import java.time.LocalDate;
@@ -16,10 +16,10 @@ import java.util.UUID;
 @RequestMapping("/api/workload")
 public class WorkloadController {
 
-    private final CoreClient coreClient;
+    private final ScheduleClient scheduleClient;
 
-    public WorkloadController(CoreClient coreClient) {
-        this.coreClient = coreClient;
+    public WorkloadController(ScheduleClient scheduleClient) {
+        this.scheduleClient = scheduleClient;
     }
 
     @GetMapping
@@ -27,6 +27,6 @@ public class WorkloadController {
                                          @RequestParam(required = false) UUID instructorId,
                                          @RequestParam(required = false) LocalDate from,
                                          @RequestParam(required = false) LocalDate to) {
-        return coreClient.getWorkload(authorization, instructorId, from, to);
+        return scheduleClient.getWorkload(authorization, instructorId, from, to);
     }
 }
