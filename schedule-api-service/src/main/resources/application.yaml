@@ -1,0 +1,20 @@
+server:
+  port: 8081
+
+core:
+  service:
+    url: http://localhost:8080
+
+spring:
+  application:
+    name: schedule-api-service
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
