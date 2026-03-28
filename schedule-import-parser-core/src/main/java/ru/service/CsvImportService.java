@@ -90,9 +90,13 @@ public class CsvImportService {
             names.add(importedLesson.getLecturer());
         }
 
-        return names.stream()
-                .filter(name -> name != null && !name.isBlank())
-                .map(userService::findOrCreateInstructor)
-                .toList();
+        List<User> instructors = new ArrayList<>();
+        for (String name : names) {
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            instructors.add(userService.findOrCreateInstructor(name));
+        }
+        return instructors;
     }
 }
