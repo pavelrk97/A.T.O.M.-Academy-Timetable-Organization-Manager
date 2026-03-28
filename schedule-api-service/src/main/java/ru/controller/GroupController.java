@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.client.CoreClient;
+import ru.client.ScheduleClient;
 import ru.dto.GroupDto;
 
 import java.util.List;
@@ -19,34 +19,34 @@ import java.util.UUID;
 @RequestMapping("/api/groups")
 public class GroupController {
 
-    private final CoreClient coreClient;
+    private final ScheduleClient scheduleClient;
 
-    public GroupController(CoreClient coreClient) {
-        this.coreClient = coreClient;
+    public GroupController(ScheduleClient scheduleClient) {
+        this.scheduleClient = scheduleClient;
     }
 
     @GetMapping
     public List<GroupDto> getAll(@RequestHeader("Authorization") String authorization) {
-        return coreClient.getGroups(authorization);
+        return scheduleClient.getGroups(authorization);
     }
 
     @GetMapping("/{id}")
     public GroupDto getById(@RequestHeader("Authorization") String authorization, @PathVariable UUID id) {
-        return coreClient.getGroupById(authorization, id);
+        return scheduleClient.getGroupById(authorization, id);
     }
 
     @PostMapping
     public GroupDto create(@RequestHeader("Authorization") String authorization, @RequestBody GroupDto dto) {
-        return coreClient.createGroup(authorization, dto);
+        return scheduleClient.createGroup(authorization, dto);
     }
 
     @PutMapping("/{id}")
     public GroupDto update(@RequestHeader("Authorization") String authorization, @PathVariable UUID id, @RequestBody GroupDto dto) {
-        return coreClient.updateGroup(authorization, id, dto);
+        return scheduleClient.updateGroup(authorization, id, dto);
     }
 
     @DeleteMapping("/{id}")
     public void delete(@RequestHeader("Authorization") String authorization, @PathVariable UUID id) {
-        coreClient.deleteGroup(authorization, id);
+        scheduleClient.deleteGroup(authorization, id);
     }
 }

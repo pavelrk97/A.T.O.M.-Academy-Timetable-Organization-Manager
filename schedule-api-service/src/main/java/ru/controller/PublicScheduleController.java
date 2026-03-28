@@ -1,10 +1,11 @@
 package ru.controller;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import ru.client.CoreClient;
+import ru.client.ScheduleClient;
 import ru.dto.ScheduleEntryDto;
 
 import java.time.LocalDate;
@@ -15,19 +16,19 @@ import java.util.UUID;
 @RequestMapping("/api/public")
 public class PublicScheduleController {
 
-    private final CoreClient coreClient;
+    private final ScheduleClient scheduleClient;
 
-    public PublicScheduleController(CoreClient coreClient) {
-        this.coreClient = coreClient;
+    public PublicScheduleController(ScheduleClient scheduleClient) {
+        this.scheduleClient = scheduleClient;
     }
 
     @GetMapping("/schedule")
     public List<ScheduleEntryDto> getSchedule(
             @RequestParam(required = false) String groupCode,
             @RequestParam(required = false) UUID instructorId,
-            @RequestParam(required = false) LocalDate from,
-            @RequestParam(required = false) LocalDate to
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
-        return coreClient.getPublicSchedule(groupCode, instructorId, from, to);
+        return scheduleClient.getPublicSchedule(groupCode, instructorId, from, to);
     }
 }

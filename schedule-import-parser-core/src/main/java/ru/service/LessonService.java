@@ -192,7 +192,7 @@ public class LessonService {
                 ? dto.getInstructorIds().stream().map(userService::findById).toList()
                 : new ArrayList<>();
         lesson.setAssignedInstructors(new ArrayList<>(instructors));
-        lesson.setLecturers(instructors.stream().map(User::getFullName).toList());
+        lesson.setLecturers(new ArrayList<>(instructors.stream().map(User::getFullName).toList()));
         lesson.setLecturer(instructors.isEmpty() ? null : instructors.get(0).getFullName());
     }
 

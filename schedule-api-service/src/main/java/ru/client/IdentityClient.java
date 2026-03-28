@@ -1,0 +1,32 @@
+package ru.client;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import ru.dto.UserDto;
+import ru.dto.UserUpsertRequest;
+
+import java.util.List;
+import java.util.UUID;
+
+@FeignClient(name = "identity-service", url = "${identity.service.url}")
+public interface IdentityClient {
+
+    @GetMapping("/api/auth/me")
+    UserDto getMe(@RequestHeader("Authorization") String authorization);
+
+    @GetMapping("/api/users")
+    List<UserDto> getUsers(@RequestHeader("Authorization") String authorization);
+
+    @PostMapping("/api/users")
+    UserDto createUser(@RequestHeader("Authorization") String authorization, @RequestBody UserUpsertRequest request);
+
+    @PutMapping("/api/users/{id}")
+    UserDto updateUser(@RequestHeader("Authorization") String authorization,
+                       @PathVariable UUID id,
+                       @RequestBody UserUpsertRequest request);
+}
