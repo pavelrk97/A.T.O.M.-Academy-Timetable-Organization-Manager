@@ -55,7 +55,6 @@ class LessonServiceTest {
         when(userService.getCurrentUser(authentication)).thenReturn(admin);
         when(lessonRepository.findAll()).thenReturn(List.of(lesson));
 
-        // тут важное правило: часы не делим между инструкторами
         List<WorkloadDto> workload = lessonService.getWorkload(null, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), authentication);
 
         assertThat(workload).hasSize(2);
