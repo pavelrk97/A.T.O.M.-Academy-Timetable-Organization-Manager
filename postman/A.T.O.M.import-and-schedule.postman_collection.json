@@ -1,0 +1,212 @@
+{
+  "info": {
+    "_postman_id": "f2dfd2d5-7a7d-4c32-9a23-atom-import-schedule",
+    "name": "A.T.O.M. Import And Schedule Test",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Import CSV through api-gateway and verify public schedule queries for a concrete group from the test file."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8081"
+    },
+    {
+      "key": "adminUser",
+      "value": "admin"
+    },
+    {
+      "key": "adminPass",
+      "value": "admin123"
+    },
+    {
+      "key": "csvFilePath",
+      "value": "C:/Users/pavel/Downloads/2026 Schedule.csv"
+    },
+    {
+      "key": "groupCode",
+      "value": "\u0433\u0440.6 ()"
+    },
+    {
+      "key": "dayFrom",
+      "value": "2026-01-05"
+    },
+    {
+      "key": "dayTo",
+      "value": "2026-01-05"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Import CSV",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var json = pm.response.json();",
+              "pm.test('Import completed', function () {",
+              "    pm.expect(json.status).to.eql('ok');",
+              "    pm.expect(json.source).to.eql('csv');",
+              "    pm.expect(json.performedBy).to.eql(pm.collectionVariables.get('adminUser'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPass}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "{{csvFilePath}}"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/import/csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "import",
+            "csv"
+          ]
+        },
+        "description": "Imports the CSV file through api-gateway. Requires ADMIN basic auth."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Public Schedule For One Group",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var json = pm.response.json();",
+              "pm.test('Response is an array', function () {",
+              "    pm.expect(Array.isArray(json)).to.eql(true);",
+              "});",
+              "pm.test('All entries belong to selected group', function () {",
+              "    var groupCode = pm.collectionVariables.get('groupCode');",
+              "    json.forEach(function (item) {",
+              "        pm.expect(item.groupCode).to.eql(groupCode);",
+              "    });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/public/schedule?groupCode={{groupCode}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "public",
+            "schedule"
+          ],
+          "query": [
+            {
+              "key": "groupCode",
+              "value": "{{groupCode}}"
+            }
+          ]
+        },
+        "description": "Reads the whole imported schedule for one group. Public endpoint, auth is not required."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Public Schedule For One Group And One Day",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var json = pm.response.json();",
+              "pm.test('Response is an array', function () {",
+              "    pm.expect(Array.isArray(json)).to.eql(true);",
+              "});",
+              "pm.test('All entries belong to selected group and day', function () {",
+              "    var groupCode = pm.collectionVariables.get('groupCode');",
+              "    var dayFrom = pm.collectionVariables.get('dayFrom');",
+              "    json.forEach(function (item) {",
+              "        pm.expect(item.groupCode).to.eql(groupCode);",
+              "        pm.expect(item.date).to.eql(dayFrom);",
+              "    });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/public/schedule?groupCode={{groupCode}}&from={{dayFrom}}&to={{dayTo}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "public",
+            "schedule"
+          ],
+          "query": [
+            {
+              "key": "groupCode",
+              "value": "{{groupCode}}"
+            },
+            {
+              "key": "from",
+              "value": "{{dayFrom}}"
+            },
+            {
+              "key": "to",
+              "value": "{{dayTo}}"
+            }
+          ]
+        },
+        "description": "Reads the public schedule for one specific group and one exact day. The sample date 2026-01-05 exists in the provided CSV for group '\\u0433\\u0440.6 ()'."
+      },
+      "response": []
+    }
+  ]
+}

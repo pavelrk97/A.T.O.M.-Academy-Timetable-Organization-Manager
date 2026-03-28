@@ -1,6 +1,7 @@
 package ru.client;
 
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,8 +26,8 @@ public interface ScheduleClient {
     @GetMapping("/api/public/schedule")
     List<ScheduleEntryDto> getPublicSchedule(@RequestParam(required = false) String groupCode,
                                              @RequestParam(required = false) UUID instructorId,
-                                             @RequestParam(required = false) LocalDate from,
-                                             @RequestParam(required = false) LocalDate to);
+                                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
 
     @GetMapping("/api/groups")
     List<GroupDto> getGroups(@RequestHeader("Authorization") String authorization);

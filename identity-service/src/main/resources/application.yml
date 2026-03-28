@@ -15,7 +15,7 @@ spring:
       on-profile: dev
 
   datasource:
-    url: jdbc:h2:file:~/atom-shared-db;AUTO_SERVER=TRUE;MODE=PostgreSQL;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:file:~/atom-shared-db;AUTO_SERVER=TRUE;MODE=PostgreSQL
     driver-class-name: org.h2.Driver
     username: sa
     password:
