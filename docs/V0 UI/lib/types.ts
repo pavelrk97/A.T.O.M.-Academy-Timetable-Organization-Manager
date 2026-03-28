@@ -1,4 +1,11 @@
 export type UserRole = 'ADMIN' | 'EDITOR' | 'INSTRUCTOR'
+export type LessonType =
+  | 'LECTURE'
+  | 'SEMINAR'
+  | 'LAB'
+  | 'PRACTICE'
+  | 'SELF_STUDY'
+  | 'ASSESSMENT'
 
 export interface User {
   id: string
@@ -40,10 +47,25 @@ export interface LessonEditorDto {
   lecturers?: string[]
   durationHours: number
   note?: string | null
-  type?: string | null
+  type?: LessonType | null
   dayId?: string | null
   groupId?: string | null
   instructorIds?: string[]
+  instructorNames?: string[]
+}
+
+export interface LessonMutationPayload {
+  version?: number | null
+  orderNumber?: number | null
+  title: string
+  lecturer?: string | null
+  lecturers?: string[]
+  durationHours: number
+  note?: string | null
+  type?: LessonType | null
+  dayId: string
+  groupId: string
+  instructorIds: string[]
   instructorNames?: string[]
 }
 
@@ -162,4 +184,17 @@ export interface MyProfileUpdateRequest {
   phone?: string | null
   position?: string | null
   department?: string | null
+}
+
+export interface UserUpsertRequest {
+  username: string
+  password: string
+  fullName: string
+  email?: string | null
+  phone?: string | null
+  position?: string | null
+  department?: string | null
+  role: UserRole
+  active: boolean
+  canTeach: boolean
 }

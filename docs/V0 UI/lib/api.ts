@@ -3,11 +3,13 @@ import type {
   GroupDto,
   ImportResult,
   LessonEditorDto,
+  LessonMutationPayload,
   LessonHistoryEntry,
   Notification,
   ScheduleEntry,
   ScheduleGridData,
   User,
+  UserUpsertRequest,
   WorkloadCalendar,
   WorkloadSummary,
   MyProfileUpdateRequest,
@@ -99,6 +101,16 @@ export const publicApi = {
 
 export const usersApi = {
   getAll: () => fetchApi<User[]>('/users'),
+  create: (payload: UserUpsertRequest) =>
+    fetchApi<User>('/users', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  update: (id: string, payload: UserUpsertRequest) =>
+    fetchApi<User>(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
 }
 
 export const groupsApi = {
@@ -122,6 +134,20 @@ export const lessonsApi = {
   },
   getById: (id: string) => fetchApi<LessonEditorDto>(`/lessons/${id}`),
   getHistory: (id: string) => fetchApi<LessonHistoryEntry[]>(`/lessons/${id}/history`),
+  create: (payload: LessonMutationPayload) =>
+    fetchApi<LessonEditorDto>('/lessons', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  update: (id: string, payload: LessonMutationPayload) =>
+    fetchApi<LessonEditorDto>(`/lessons/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  delete: (id: string, version: number) =>
+    fetchApi<void>(`/lessons/${id}?version=${version}`, {
+      method: 'DELETE',
+    }),
 }
 
 export const meApi = {
