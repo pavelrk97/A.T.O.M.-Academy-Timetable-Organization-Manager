@@ -10,6 +10,7 @@ import ru.exception.ResourceNotFoundException;
 import ru.model.User;
 import ru.repository.UserRepository;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -62,17 +63,19 @@ public class UserService {
     }
 
     public User findOrCreateInstructor(String fullName) {
-        return userRepository.findByFullNameIgnoreCase(fullName)
-                .orElseGet(() -> {
-                    User user = new User();
-                    user.setUsername(generateUsername());
-                    user.setPassword(passwordEncoder.encode("imported-user"));
-                    user.setFullName(fullName);
-                    user.setRole(ru.model.Role.INSTRUCTOR);
-                    user.setCanTeach(true);
-                    user.setActive(false);
-                    return userRepository.save(user);
-                });
+        List<User> matches = userRepository.findAllByFullNameIgnoreCase(fullName);
+        if (!matches.isEmpty()) {
+            return pickBestInstructorMatch(matches);
+        }
+
+        User user = new User();
+        user.setUsername(generateUsername());
+        user.setPassword(passwordEncoder.encode("imported-user"));
+        user.setFullName(fullName);
+        user.setRole(ru.model.Role.INSTRUCTOR);
+        user.setCanTeach(true);
+        user.setActive(false);
+        return userRepository.save(user);
     }
 
     private void apply(User user, UserUpsertRequest request) {
@@ -99,5 +102,21 @@ public class UserService {
 
     private String generateUsername() {
         return "imported-" + UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    private User pickBestInstructorMatch(List<User> matches) {
+        return matches.stream()
+                .sorted(Comparator
+                        .comparing(User::isActive).reversed()
+                        .thenComparing(user -> user.getRole() == ru.model.Role.INSTRUCTOR, Comparator.reverseOrder())
+                        .thenComparing(User::isCanTeach, Comparator.reverseOrder())
+                        .thenComparing(user -> !isImportedUsername(user.getUsername()), Comparator.reverseOrder())
+                        .thenComparing(User::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private boolean isImportedUsername(String username) {
+        return username != null && username.startsWith("imported-");
     }
 }

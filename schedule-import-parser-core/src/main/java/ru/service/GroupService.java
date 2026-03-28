@@ -22,12 +22,17 @@ public class GroupService {
         this.groupRepository = groupRepository;
     }
 
+    @Transactional(Transactional.TxType.SUPPORTS)
     public List<GroupDto> getAll() {
-        return groupRepository.findAll().stream().map(GroupMapper::toDto).toList();
+        return groupRepository.findAllByOrderByCodeAsc().stream()
+                .map(GroupMapper::toDto)
+                .toList();
     }
 
+    @Transactional(Transactional.TxType.SUPPORTS)
     public GroupDto getById(UUID id) {
-        return GroupMapper.toDto(findEntity(id));
+        return GroupMapper.toDto(groupRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found: " + id)));
     }
 
     @Transactional

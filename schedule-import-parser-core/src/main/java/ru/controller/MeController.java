@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ru.dto.MyDashboardDataDto;
 import ru.dto.MyNotificationDto;
 import ru.dto.ScheduleGridDto;
 import ru.dto.WorkloadCalendarDto;
@@ -53,5 +54,13 @@ public class MeController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return myCabinetService.getMyNotifications(authentication, from, to);
+    }
+
+    @GetMapping("/dashboard")
+    public MyDashboardDataDto getMyDashboard(
+            Authentication authentication,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return myCabinetService.getDashboard(authentication, from, to);
     }
 }
