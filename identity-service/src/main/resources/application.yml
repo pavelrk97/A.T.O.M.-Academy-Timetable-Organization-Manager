@@ -1,13 +1,9 @@
 server:
-  port: 8080
-
-identity:
-  service:
-    url: http://localhost:8082
+  port: 8082
 
 spring:
   application:
-    name: schedule-service
+    name: identity-service
   profiles:
     active: dev
 
@@ -39,11 +35,6 @@ spring:
       enabled: true
       path: /h2-console
 
-  servlet:
-    multipart:
-      max-file-size: 200MB
-      max-request-size: 200MB
-
 ---
 
 spring:
@@ -66,11 +57,6 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         jdbc:
           time_zone: UTC
-
-  servlet:
-    multipart:
-      max-file-size: 200MB
-      max-request-size: 200MB
 
 logging:
   level:

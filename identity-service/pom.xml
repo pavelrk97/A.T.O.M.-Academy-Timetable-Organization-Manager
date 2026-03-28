@@ -12,8 +12,8 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>schedule-service</artifactId>
-    <name>schedule-service</name>
+    <artifactId>identity-service</artifactId>
+    <name>identity-service</name>
 
     <dependencies>
         <dependency>
@@ -40,12 +40,6 @@
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.opencsv</groupId>
-            <artifactId>opencsv</artifactId>
-            <version>${opencsv.version}</version>
         </dependency>
 
         <dependency>
@@ -77,5 +71,3 @@
     </build>
 
 </project>
-
-

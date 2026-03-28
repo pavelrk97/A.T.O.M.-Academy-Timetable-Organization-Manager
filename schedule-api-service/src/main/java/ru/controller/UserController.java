@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.client.CoreClient;
+import ru.client.IdentityClient;
 import ru.dto.UserDto;
 import ru.dto.UserUpsertRequest;
 
@@ -20,27 +20,27 @@ import java.util.UUID;
 @RequestMapping("/api/users")
 public class UserController {
 
-    private final CoreClient coreClient;
+    private final IdentityClient identityClient;
 
-    public UserController(CoreClient coreClient) {
-        this.coreClient = coreClient;
+    public UserController(IdentityClient identityClient) {
+        this.identityClient = identityClient;
     }
 
     @GetMapping
     public List<UserDto> getAll(@RequestHeader("Authorization") String authorization) {
-        return coreClient.getUsers(authorization);
+        return identityClient.getUsers(authorization);
     }
 
     @PostMapping
     public UserDto create(@RequestHeader("Authorization") String authorization,
                           @Valid @RequestBody UserUpsertRequest request) {
-        return coreClient.createUser(authorization, request);
+        return identityClient.createUser(authorization, request);
     }
 
     @PutMapping("/{id}")
     public UserDto update(@RequestHeader("Authorization") String authorization,
                           @PathVariable UUID id,
                           @Valid @RequestBody UserUpsertRequest request) {
-        return coreClient.updateUser(authorization, id, request);
+        return identityClient.updateUser(authorization, id, request);
     }
 }
