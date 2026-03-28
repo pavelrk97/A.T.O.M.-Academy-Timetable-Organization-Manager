@@ -1,9 +1,17 @@
 'use client'
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { FileSpreadsheet, RefreshCcw, ShieldCheck, UploadCloud, UsersRound } from 'lucide-react'
+import {
+  FileSpreadsheet,
+  RefreshCcw,
+  Rows3,
+  ShieldCheck,
+  UploadCloud,
+  UsersRound,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { LessonAdminEditor } from '@/components/cabinet/lesson-admin-editor'
 import type { GroupDto, ImportResult, User } from '@/lib/types'
 
 interface AdminWorkspaceProps {
@@ -24,14 +32,29 @@ export function AdminWorkspace({
   onRefresh,
 }: AdminWorkspaceProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+
   const teacherCount = useMemo(
     () => users.filter((user) => user.canTeach).length,
     [users]
   )
 
+  const lessonCount = useMemo(
+    () =>
+      groups.reduce(
+        (sum, group) =>
+          sum +
+          (group.days || []).reduce(
+            (daySum, day) => daySum + (day.lessons?.length || 0),
+            0
+          ),
+        0
+      ),
+    [groups]
+  )
+
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-4">
         <InfoTile
           icon={<UsersRound className="h-5 w-5 text-primary" />}
           label="Пользователи"
@@ -42,13 +65,19 @@ export function AdminWorkspace({
           icon={<ShieldCheck className="h-5 w-5 text-primary" />}
           label="Группы"
           value={groups.length}
-          helper="справочник и сетка расписания"
+          helper="справочник академии"
+        />
+        <InfoTile
+          icon={<Rows3 className="h-5 w-5 text-primary" />}
+          label="Занятия"
+          value={lessonCount}
+          helper="текущая сетка в базе"
         />
         <InfoTile
           icon={<FileSpreadsheet className="h-5 w-5 text-primary" />}
           label="CSV импорт"
           value={importResult ? 'OK' : '—'}
-          helper="ручной запуск из кабинета"
+          helper="ручной перезапуск из кабинета"
         />
       </div>
 
@@ -57,7 +86,7 @@ export function AdminWorkspace({
           <div>
             <h3 className="text-lg font-semibold text-slate-950">Операционный блок</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Здесь оставил живые сценарии администратора: обновить справочники и переимпортировать CSV.
+              Импорт, справочники и ручное редактирование расписания без ухода в Postman.
             </p>
           </div>
           <Button variant="outline" onClick={onRefresh}>
@@ -70,7 +99,7 @@ export function AdminWorkspace({
           <div className="rounded-2xl border border-border bg-slate-50 p-4">
             <div className="text-sm font-semibold text-slate-950">Импорт CSV</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Работает через `POST /api/import/csv`, backend не менялся.
+              Работает через `POST /api/import/csv`, backend не меняется.
             </p>
             <div className="mt-4 space-y-3">
               <Input
@@ -147,6 +176,8 @@ export function AdminWorkspace({
           </div>
         </div>
       </section>
+
+      <LessonAdminEditor groups={groups} users={users} onChanged={onRefresh} />
     </div>
   )
 }
