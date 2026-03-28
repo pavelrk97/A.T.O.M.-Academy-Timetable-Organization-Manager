@@ -11,7 +11,10 @@ import ru.repository.GroupRepository;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -35,14 +38,15 @@ public class CsvImportService {
     @Transactional
     public int importGroups(List<Group> groups) {
         int imported = 0;
+        Map<String, User> instructorCache = new HashMap<>();
         for (Group importedGroup : groups) {
-            upsertGroup(importedGroup);
+            upsertGroup(importedGroup, instructorCache);
             imported++;
         }
         return imported;
     }
 
-    private void upsertGroup(Group importedGroup) {
+    private void upsertGroup(Group importedGroup, Map<String, User> instructorCache) {
         Optional<Group> existingGroupOpt = groupRepository.findByCode(importedGroup.getCode());
         Group group = existingGroupOpt.orElseGet(Group::new);
 
@@ -68,7 +72,7 @@ public class CsvImportService {
                 lesson.setLecturers(importedLesson.getLecturers() != null
                         ? new ArrayList<>(importedLesson.getLecturers())
                         : new ArrayList<>());
-                lesson.setAssignedInstructors(resolveInstructors(importedLesson));
+                lesson.setAssignedInstructors(resolveInstructors(importedLesson, instructorCache));
                 lesson.setDay(day);
                 day.getLessons().add(lesson);
             }
@@ -79,7 +83,7 @@ public class CsvImportService {
         groupRepository.save(group);
     }
 
-    private List<User> resolveInstructors(Lesson importedLesson) {
+    private List<User> resolveInstructors(Lesson importedLesson, Map<String, User> instructorCache) {
         List<String> names = new ArrayList<>();
         if (importedLesson.getLecturers() != null) {
             names.addAll(importedLesson.getLecturers());
@@ -95,7 +99,8 @@ public class CsvImportService {
             if (name == null || name.isBlank()) {
                 continue;
             }
-            instructors.add(userService.findOrCreateInstructor(name));
+            String key = name.trim().toLowerCase(Locale.ROOT);
+            instructors.add(instructorCache.computeIfAbsent(key, ignored -> userService.findOrCreateInstructor(name)));
         }
         return instructors;
     }

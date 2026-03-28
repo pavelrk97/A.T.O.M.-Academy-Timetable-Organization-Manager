@@ -4,6 +4,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.dto.InternalUserDetailsDto;
+import ru.dto.MyDashboardDataDto;
 import ru.dto.MyNotificationDto;
 import ru.dto.ScheduleGridDayCellDto;
 import ru.dto.ScheduleGridDto;
@@ -13,11 +14,10 @@ import ru.dto.WorkloadCalendarDayDto;
 import ru.dto.WorkloadCalendarDto;
 import ru.dto.WorkloadCalendarLessonDto;
 import ru.exception.ResourceNotFoundException;
-import ru.model.Day;
 import ru.model.Group;
 import ru.model.Lesson;
 import ru.model.NotificationType;
-import ru.repository.GroupRepository;
+import ru.repository.LessonRepository;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -26,108 +26,95 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
 public class MyCabinetService {
 
-    private final GroupRepository groupRepository;
+    private final LessonRepository lessonRepository;
     private final IdentityDirectoryService identityDirectoryService;
 
-    public MyCabinetService(GroupRepository groupRepository, IdentityDirectoryService identityDirectoryService) {
-        this.groupRepository = groupRepository;
+    public MyCabinetService(LessonRepository lessonRepository,
+                            IdentityDirectoryService identityDirectoryService) {
+        this.lessonRepository = lessonRepository;
         this.identityDirectoryService = identityDirectoryService;
     }
 
     public ScheduleGridDto getFullScheduleGrid(LocalDate from, LocalDate to) {
-        List<Group> groups = groupRepository.findAll();
-        List<LocalDate> dates = groups.stream()
-                .flatMap(group -> group.getDays().stream())
-                .map(Day::getDate)
-                .filter(date -> matchesDate(date, from, to))
-                .distinct()
-                .sorted()
-                .toList();
-
-        List<ScheduleGridGroupRowDto> rows = groups.stream()
-                .sorted(Comparator.comparing(Group::getCode, String.CASE_INSENSITIVE_ORDER))
-                .map(group -> toGroupRow(group, dates, null))
-                .filter(row -> row.getDays().stream().anyMatch(day -> !day.getLessons().isEmpty()))
-                .toList();
-
-        return ScheduleGridDto.builder()
-                .dates(dates)
-                .groups(rows)
-                .build();
+        return buildGrid(lessonRepository.findForDateRange(from, to));
     }
 
     public ScheduleGridDto getInstructorScheduleGrid(Authentication authentication, LocalDate from, LocalDate to) {
-        InternalUserDetailsDto currentUser = currentUser(authentication);
-        String instructorName = currentUser.getFullName();
-
-        List<Group> groups = groupRepository.findAll();
-        List<LocalDate> dates = groups.stream()
-                .flatMap(group -> group.getDays().stream())
-                .filter(day -> matchesDate(day.getDate(), from, to))
-                .filter(day -> day.getLessons().stream().anyMatch(lesson -> matchesInstructor(lesson, instructorName)))
-                .map(Day::getDate)
-                .distinct()
-                .sorted()
-                .toList();
-
-        List<ScheduleGridGroupRowDto> rows = groups.stream()
-                .sorted(Comparator.comparing(Group::getCode, String.CASE_INSENSITIVE_ORDER))
-                .map(group -> toGroupRow(group, dates, instructorName))
-                .filter(row -> row.getDays().stream().anyMatch(day -> !day.getLessons().isEmpty()))
-                .toList();
-
-        return ScheduleGridDto.builder()
-                .dates(dates)
-                .groups(rows)
-                .build();
+        DashboardSeed seed = buildDashboardSeed(authentication, from, to);
+        return buildGrid(seed.lessons());
     }
 
     public WorkloadCalendarDto getMyWorkloadCalendar(Authentication authentication, LocalDate from, LocalDate to) {
-        InternalUserDetailsDto currentUser = currentUser(authentication);
-        String instructorName = currentUser.getFullName();
+        DashboardSeed seed = buildDashboardSeed(authentication, from, to);
+        return buildWorkload(seed.currentUser(), seed.lessons(), from, to);
+    }
 
+    public List<MyNotificationDto> getMyNotifications(Authentication authentication, LocalDate from, LocalDate to) {
+        DashboardSeed seed = buildDashboardSeed(authentication, from, to);
+        return buildNotifications(seed.lessons());
+    }
+
+    public MyDashboardDataDto getDashboard(Authentication authentication, LocalDate from, LocalDate to) {
+        DashboardSeed seed = buildDashboardSeed(authentication, from, to);
+        return MyDashboardDataDto.builder()
+                .instructorSchedule(buildGrid(seed.lessons()))
+                .workload(buildWorkload(seed.currentUser(), seed.lessons(), from, to))
+                .notifications(buildNotifications(seed.lessons()))
+                .build();
+    }
+
+    private List<MyNotificationDto> buildNotifications(List<Lesson> lessons) {
+        Map<UUID, NotificationSeed> notifications = new LinkedHashMap<>();
+        for (Lesson lesson : lessons) {
+            UUID dayId = lesson.getDay().getId();
+            Group group = lesson.getDay().getGroup();
+            LocalDate date = lesson.getDay().getDate();
+
+            notifications.computeIfAbsent(dayId, ignored -> new NotificationSeed(dayId, date, group.getCode()));
+        }
+
+        return notifications.values().stream()
+                .map(seed -> MyNotificationDto.builder()
+                        .type(NotificationType.LESSON_ADDED)
+                        .dayId(seed.dayId())
+                        .date(seed.date())
+                        .message("На " + seed.date() + " есть занятия у группы " + seed.groupCode())
+                        .link("/api/me/schedule/instructor-grid?from=" + seed.date() + "&to=" + seed.date())
+                        .build())
+                .sorted(Comparator.comparing(MyNotificationDto::getDate))
+                .toList();
+    }
+
+    private WorkloadCalendarDto buildWorkload(InternalUserDetailsDto currentUser, List<Lesson> lessons, LocalDate from, LocalDate to) {
         Map<LocalDate, WorkloadCalendarDayDto> totalsByDay = new LinkedHashMap<>();
         int totalHours = 0;
 
-        for (Group group : groupRepository.findAll()) {
-            for (Day day : group.getDays()) {
-                if (!matchesDate(day.getDate(), from, to)) {
-                    continue;
-                }
+        for (Lesson lesson : lessons) {
+            WorkloadCalendarDayDto dayDto = totalsByDay.computeIfAbsent(lesson.getDay().getDate(), ignored -> WorkloadCalendarDayDto.builder()
+                    .dayId(lesson.getDay().getId())
+                    .date(lesson.getDay().getDate())
+                    .totalHours(0)
+                    .lessons(new ArrayList<>())
+                    .build());
 
-                for (Lesson lesson : day.getLessons()) {
-                    if (!matchesInstructor(lesson, instructorName)) {
-                        continue;
-                    }
-
-                    WorkloadCalendarDayDto dayDto = totalsByDay.computeIfAbsent(day.getDate(), ignored -> WorkloadCalendarDayDto.builder()
-                            .dayId(day.getId())
-                            .date(day.getDate())
-                            .totalHours(0)
-                            .lessons(new ArrayList<>())
-                            .build());
-
-                    dayDto.setTotalHours(dayDto.getTotalHours() + lesson.getDurationHours());
-                    dayDto.getLessons().add(WorkloadCalendarLessonDto.builder()
-                            .lessonId(lesson.getId())
-                            .groupCode(group.getCode())
-                            .title(lesson.getTitle())
-                            .durationHours(lesson.getDurationHours())
-                            .build());
-                    totalHours += lesson.getDurationHours();
-                }
-            }
+            dayDto.setTotalHours(dayDto.getTotalHours() + lesson.getDurationHours());
+            dayDto.getLessons().add(WorkloadCalendarLessonDto.builder()
+                    .lessonId(lesson.getId())
+                    .groupCode(lesson.getDay().getGroup().getCode())
+                    .title(lesson.getTitle())
+                    .durationHours(lesson.getDurationHours())
+                    .build());
+            totalHours += lesson.getDurationHours();
         }
 
         return WorkloadCalendarDto.builder()
                 .instructorId(currentUser.getId())
-                .instructorName(instructorName)
+                .instructorName(currentUser.getFullName())
                 .from(from)
                 .to(to)
                 .totalHours(totalHours)
@@ -137,76 +124,69 @@ public class MyCabinetService {
                 .build();
     }
 
-    public List<MyNotificationDto> getMyNotifications(Authentication authentication, LocalDate from, LocalDate to) {
-        InternalUserDetailsDto currentUser = currentUser(authentication);
-        String instructorName = currentUser.getFullName();
+    private ScheduleGridDto buildGrid(List<Lesson> lessons) {
+        List<Lesson> sortedLessons = lessons.stream()
+                .sorted(Comparator.comparing((Lesson lesson) -> lesson.getDay().getGroup().getCode(), String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(lesson -> lesson.getDay().getDate())
+                        .thenComparing(Lesson::getOrderNumber)
+                        .thenComparing(Lesson::getId))
+                .toList();
 
-        List<MyNotificationDto> notifications = new ArrayList<>();
-        for (Group group : groupRepository.findAll()) {
-            for (Day day : group.getDays()) {
-                if (!matchesDate(day.getDate(), from, to)) {
-                    continue;
-                }
+        List<LocalDate> dates = sortedLessons.stream()
+                .map(lesson -> lesson.getDay().getDate())
+                .distinct()
+                .sorted()
+                .toList();
 
-                List<Lesson> lessons = day.getLessons().stream()
-                        .filter(lesson -> matchesInstructor(lesson, instructorName))
-                        .sorted(Comparator.comparing(Lesson::getOrderNumber))
-                        .toList();
+        Map<UUID, Group> groupsById = new LinkedHashMap<>();
+        Map<UUID, Map<LocalDate, ScheduleGridDayCellDto>> cellsByGroup = new LinkedHashMap<>();
 
-                if (lessons.isEmpty()) {
-                    continue;
-                }
+        for (Lesson lesson : sortedLessons) {
+            Group group = lesson.getDay().getGroup();
+            groupsById.putIfAbsent(group.getId(), group);
 
-                notifications.add(MyNotificationDto.builder()
-                        .type(NotificationType.LESSON_ADDED)
-                        .dayId(day.getId())
-                        .date(day.getDate())
-                        .message("На " + day.getDate() + " есть занятия у группы " + group.getCode())
-                        .link("/api/me/schedule/instructor-grid?from=" + day.getDate() + "&to=" + day.getDate())
-                        .build());
-            }
+            Map<LocalDate, ScheduleGridDayCellDto> dayCells = cellsByGroup.computeIfAbsent(group.getId(), ignored -> new LinkedHashMap<>());
+            ScheduleGridDayCellDto dayCell = dayCells.computeIfAbsent(lesson.getDay().getDate(), ignored -> ScheduleGridDayCellDto.builder()
+                    .dayId(lesson.getDay().getId())
+                    .date(lesson.getDay().getDate())
+                    .lessons(new ArrayList<>())
+                    .build());
+            dayCell.getLessons().add(toLessonCell(lesson));
         }
 
-        return notifications.stream()
-                .sorted(Comparator.comparing(MyNotificationDto::getDate))
-                .toList();
-    }
+        List<ScheduleGridGroupRowDto> rows = groupsById.values().stream()
+                .sorted(Comparator.comparing(Group::getCode, String.CASE_INSENSITIVE_ORDER))
+                .map(group -> {
+                    Map<LocalDate, ScheduleGridDayCellDto> dayCells = cellsByGroup.getOrDefault(group.getId(), Map.of());
+                    List<ScheduleGridDayCellDto> orderedDays = dates.stream()
+                            .map(date -> {
+                                ScheduleGridDayCellDto existing = dayCells.get(date);
+                                if (existing != null) {
+                                    existing.getLessons().sort(Comparator.comparing(ScheduleGridLessonCellDto::getOrderNumber, Comparator.nullsLast(Integer::compareTo)));
+                                    return existing;
+                                }
 
-    private ScheduleGridGroupRowDto toGroupRow(Group group, List<LocalDate> dates, String instructorName) {
-        Map<LocalDate, Day> daysByDate = group.getDays().stream()
-                .collect(Collectors.toMap(Day::getDate, day -> day, (left, right) -> left, LinkedHashMap::new));
-
-        List<ScheduleGridDayCellDto> dayCells = dates.stream()
-                .map(date -> {
-                    Day day = daysByDate.get(date);
-                    if (day == null) {
-                        return ScheduleGridDayCellDto.builder()
-                                .dayId(null)
-                                .date(date)
-                                .lessons(new ArrayList<>())
-                                .build();
-                    }
-
-                    List<ScheduleGridLessonCellDto> lessons = day.getLessons().stream()
-                            .filter(lesson -> instructorName == null || matchesInstructor(lesson, instructorName))
-                            .sorted(Comparator.comparing(Lesson::getOrderNumber))
-                            .map(this::toLessonCell)
+                                return ScheduleGridDayCellDto.builder()
+                                        .dayId(null)
+                                        .date(date)
+                                        .lessons(new ArrayList<>())
+                                        .build();
+                            })
                             .toList();
 
-                    return ScheduleGridDayCellDto.builder()
-                            .dayId(day.getId())
-                            .date(date)
-                            .lessons(lessons)
+                    return ScheduleGridGroupRowDto.builder()
+                            .groupId(group.getId())
+                            .groupCode(group.getCode())
+                            .location(group.getLocation())
+                            .course(group.getCourse())
+                            .days(orderedDays)
                             .build();
                 })
                 .toList();
 
-        return ScheduleGridGroupRowDto.builder()
-                .groupId(group.getId())
-                .groupCode(group.getCode())
-                .location(group.getLocation())
-                .course(group.getCourse())
-                .days(dayCells)
+        return ScheduleGridDto.builder()
+                .dates(dates)
+                .groups(rows)
                 .build();
     }
 
@@ -230,30 +210,15 @@ public class MyCabinetService {
                     .toList();
         }
 
-        if (lesson.getLecturers() != null && !lesson.getLecturers().isEmpty()) {
-            return lesson.getLecturers();
-        }
-
         if (lesson.getLecturer() != null && !lesson.getLecturer().isBlank()) {
             return List.of(lesson.getLecturer());
         }
 
-        return new ArrayList<>();
-    }
-
-    private boolean matchesInstructor(Lesson lesson, String instructorName) {
-        if (instructorName == null || instructorName.isBlank()) {
-            return false;
+        if (lesson.getLecturers() != null && !lesson.getLecturers().isEmpty()) {
+            return lesson.getLecturers();
         }
 
-        return resolveInstructorNames(lesson).stream()
-                .anyMatch(name -> instructorName.equalsIgnoreCase(name));
-    }
-
-    private boolean matchesDate(LocalDate date, LocalDate from, LocalDate to) {
-        boolean fromOk = from == null || !date.isBefore(from);
-        boolean toOk = to == null || !date.isAfter(to);
-        return fromOk && toOk;
+        return new ArrayList<>();
     }
 
     private InternalUserDetailsDto currentUser(Authentication authentication) {
@@ -262,5 +227,17 @@ public class MyCabinetService {
         }
 
         return identityDirectoryService.getByUsername(authentication.getName());
+    }
+
+    private DashboardSeed buildDashboardSeed(Authentication authentication, LocalDate from, LocalDate to) {
+        InternalUserDetailsDto currentUser = currentUser(authentication);
+        List<Lesson> lessons = lessonRepository.findForInstructorNameAndDateRange(currentUser.getFullName(), from, to);
+        return new DashboardSeed(currentUser, lessons);
+    }
+
+    private record NotificationSeed(UUID dayId, LocalDate date, String groupCode) {
+    }
+
+    private record DashboardSeed(InternalUserDetailsDto currentUser, List<Lesson> lessons) {
     }
 }

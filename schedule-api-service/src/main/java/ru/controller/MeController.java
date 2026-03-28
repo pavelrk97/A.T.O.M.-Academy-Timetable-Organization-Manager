@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ru.client.IdentityClient;
 import ru.client.ScheduleClient;
 import ru.dto.ChangePasswordRequest;
+import ru.dto.MyDashboardDataDto;
 import ru.dto.MyDashboardDto;
 import ru.dto.MyNotificationDto;
 import ru.dto.MyProfileUpdateRequest;
@@ -83,11 +84,12 @@ public class MeController {
     public MyDashboardDto getDashboard(@RequestHeader("Authorization") String authorization,
                                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        MyDashboardDataDto dashboardData = scheduleClient.getMyDashboard(authorization, from, to);
         return MyDashboardDto.builder()
                 .profile(identityClient.getMyProfile(authorization))
-                .instructorSchedule(scheduleClient.getMyInstructorScheduleGrid(authorization, from, to))
-                .workload(scheduleClient.getMyWorkloadCalendar(authorization, from, to))
-                .notifications(scheduleClient.getMyNotifications(authorization, from, to))
+                .instructorSchedule(dashboardData.getInstructorSchedule())
+                .workload(dashboardData.getWorkload())
+                .notifications(dashboardData.getNotifications())
                 .build();
     }
 }

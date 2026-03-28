@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import ru.dto.ChangeLogDto;
 import ru.dto.GroupDto;
 import ru.dto.LessonDto;
+import ru.dto.MyDashboardDataDto;
 import ru.dto.MyNotificationDto;
 import ru.dto.ScheduleEntryDto;
 import ru.dto.ScheduleGridDto;
@@ -96,4 +97,9 @@ public interface ScheduleClient {
     List<MyNotificationDto> getMyNotifications(@RequestHeader("Authorization") String authorization,
                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
+
+    @GetMapping("/api/me/dashboard")
+    MyDashboardDataDto getMyDashboard(@RequestHeader("Authorization") String authorization,
+                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
 }

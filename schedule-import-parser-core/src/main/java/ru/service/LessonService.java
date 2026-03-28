@@ -50,10 +50,9 @@ public class LessonService {
     }
 
     public List<ScheduleEntryDto> getSchedule(String groupCode, UUID instructorId, LocalDate from, LocalDate to) {
-        return lessonRepository.findAll().stream()
-                .filter(lesson -> matches(lesson, groupCode, instructorId, from, to))
-                .sorted(Comparator.comparing((Lesson lesson) -> lesson.getDay().getDate())
-                        .thenComparing(Lesson::getOrderNumber))
+        String normalizedGroupCode = normalizeGroupCode(groupCode);
+
+        return lessonRepository.findForSchedule(normalizedGroupCode, instructorId, from, to).stream()
                 .map(this::toScheduleEntry)
                 .toList();
     }
@@ -128,11 +127,7 @@ public class LessonService {
         UUID effectiveInstructorId = instructorId != null ? instructorId : (actor.getRole() == Role.INSTRUCTOR ? actor.getId() : null);
 
         Map<UUID, WorkloadDto> totals = new LinkedHashMap<>();
-        for (Lesson lesson : lessonRepository.findAll()) {
-            if (!matches(lesson, null, effectiveInstructorId, from, to)) {
-                continue;
-            }
-
+        for (Lesson lesson : lessonRepository.findForSchedule(null, effectiveInstructorId, from, to)) {
             for (User instructor : lesson.getAssignedInstructors()) {
                 if (effectiveInstructorId != null && !effectiveInstructorId.equals(instructor.getId())) {
                     continue;
@@ -155,14 +150,6 @@ public class LessonService {
                 .orElseThrow(() -> new ResourceNotFoundException("Lesson not found: " + id));
     }
 
-    private boolean matches(Lesson lesson, String groupCode, UUID instructorId, LocalDate from, LocalDate to) {
-        boolean groupMatches = groupCode == null || groupCode.isBlank() || groupCode.equalsIgnoreCase(lesson.getDay().getGroup().getCode());
-        boolean dateFromMatches = from == null || !lesson.getDay().getDate().isBefore(from);
-        boolean dateToMatches = to == null || !lesson.getDay().getDate().isAfter(to);
-        boolean instructorMatches = instructorId == null || lesson.getAssignedInstructors().stream().anyMatch(user -> user.getId().equals(instructorId));
-        return groupMatches && dateFromMatches && dateToMatches && instructorMatches;
-    }
-
     private ScheduleEntryDto toScheduleEntry(Lesson lesson) {
         LessonDto dto = LessonMapper.toDto(lesson);
         return ScheduleEntryDto.builder()
@@ -180,6 +167,15 @@ public class LessonService {
                 .instructorIds(dto.getInstructorIds())
                 .instructorNames(dto.getInstructorNames())
                 .build();
+    }
+
+    private String normalizeGroupCode(String groupCode) {
+        if (groupCode == null) {
+            return null;
+        }
+
+        String trimmed = groupCode.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private void applyFullEdit(Lesson lesson, LessonDto dto) {

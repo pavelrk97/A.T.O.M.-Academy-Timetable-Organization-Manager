@@ -1,6 +1,9 @@
 package ru.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -30,6 +33,8 @@ public class Day extends BaseEntity {
     @CollectionTable(name = "day_meta", joinColumns = @JoinColumn(name = "day_id"))
     @MapKeyColumn(name = "meta_key")
     @Column(name = "meta_value")
+    @Fetch(FetchMode.SUBSELECT)
+    @BatchSize(size = 64)
     private Map<String, String> meta = new HashMap<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -37,6 +42,8 @@ public class Day extends BaseEntity {
     private Group group;
 
     @OneToMany(mappedBy = "day", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Fetch(FetchMode.SUBSELECT)
+    @BatchSize(size = 64)
     private List<Lesson> lessons = new ArrayList<>();
 
     public LocalDate getDate() { return date; }
