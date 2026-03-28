@@ -6,7 +6,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import ru.dto.ChangePasswordRequest;
 import ru.dto.InternalUserDetailsDto;
+import ru.dto.MyProfileUpdateRequest;
 import ru.dto.UserDto;
 import ru.dto.UserUpsertRequest;
 import ru.model.User;
@@ -48,11 +50,39 @@ public class UserService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + username));
 
         return InternalUserDetailsDto.builder()
+                .id(user.getId())
                 .username(user.getUsername())
                 .password(user.getPassword())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .position(user.getPosition())
+                .department(user.getDepartment())
                 .role(user.getRole())
                 .active(user.isActive())
                 .build();
+    }
+
+    @Transactional
+    public UserDto updateCurrentProfile(Authentication authentication, MyProfileUpdateRequest request) {
+        User user = getCurrentUser(authentication);
+        user.setFullName(request.getFullName());
+        user.setEmail(request.getEmail());
+        user.setPhone(request.getPhone());
+        user.setPosition(request.getPosition());
+        user.setDepartment(request.getDepartment());
+        return toDto(userRepository.save(user));
+    }
+
+    @Transactional
+    public void changeCurrentPassword(Authentication authentication, ChangePasswordRequest request) {
+        User user = getCurrentUser(authentication);
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 
     @Transactional
@@ -79,6 +109,9 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
+        user.setPhone(request.getPhone());
+        user.setPosition(request.getPosition());
+        user.setDepartment(request.getDepartment());
         user.setRole(request.getRole());
         user.setActive(request.isActive());
         user.setCanTeach(request.isCanTeach());
@@ -90,6 +123,9 @@ public class UserService {
                 .username(user.getUsername())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
+                .phone(user.getPhone())
+                .position(user.getPosition())
+                .department(user.getDepartment())
                 .role(user.getRole())
                 .active(user.isActive())
                 .canTeach(user.isCanTeach())

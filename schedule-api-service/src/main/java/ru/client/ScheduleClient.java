@@ -13,7 +13,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import ru.dto.ChangeLogDto;
 import ru.dto.GroupDto;
 import ru.dto.LessonDto;
+import ru.dto.MyNotificationDto;
 import ru.dto.ScheduleEntryDto;
+import ru.dto.ScheduleGridDto;
+import ru.dto.WorkloadCalendarDto;
 import ru.dto.WorkloadDto;
 
 import java.time.LocalDate;
@@ -48,8 +51,8 @@ public interface ScheduleClient {
     List<ScheduleEntryDto> getLessons(@RequestHeader("Authorization") String authorization,
                                       @RequestParam(required = false) String groupCode,
                                       @RequestParam(required = false) UUID instructorId,
-                                      @RequestParam(required = false) LocalDate from,
-                                      @RequestParam(required = false) LocalDate to);
+                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
 
     @GetMapping("/api/lessons/{id}")
     LessonDto getLessonById(@RequestHeader("Authorization") String authorization, @PathVariable UUID id);
@@ -71,6 +74,26 @@ public interface ScheduleClient {
     @GetMapping("/api/workload")
     List<WorkloadDto> getWorkload(@RequestHeader("Authorization") String authorization,
                                   @RequestParam(required = false) UUID instructorId,
-                                  @RequestParam(required = false) LocalDate from,
-                                  @RequestParam(required = false) LocalDate to);
+                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
+
+    @GetMapping("/api/me/schedule/grid")
+    ScheduleGridDto getMyFullScheduleGrid(@RequestHeader("Authorization") String authorization,
+                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
+
+    @GetMapping("/api/me/schedule/instructor-grid")
+    ScheduleGridDto getMyInstructorScheduleGrid(@RequestHeader("Authorization") String authorization,
+                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
+
+    @GetMapping("/api/me/workload/calendar")
+    WorkloadCalendarDto getMyWorkloadCalendar(@RequestHeader("Authorization") String authorization,
+                                              @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                              @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
+
+    @GetMapping("/api/me/notifications")
+    List<MyNotificationDto> getMyNotifications(@RequestHeader("Authorization") String authorization,
+                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
 }

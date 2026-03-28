@@ -24,6 +24,7 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/internal/users/**").permitAll()
                         .requestMatchers("/api/auth/me").authenticated()
+                        .requestMatchers("/api/me/**").authenticated()
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .httpBasic(Customizer.withDefaults());

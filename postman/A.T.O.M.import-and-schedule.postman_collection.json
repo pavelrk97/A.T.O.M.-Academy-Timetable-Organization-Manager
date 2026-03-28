@@ -1,212 +1,853 @@
 {
   "info": {
     "_postman_id": "f2dfd2d5-7a7d-4c32-9a23-atom-import-schedule",
-    "name": "A.T.O.M. Import And Schedule Test",
+    "name": "A.T.O.M. Full API Checks",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Import CSV through api-gateway and verify public schedule queries for a concrete group from the test file."
+    "description": "Full Postman checks for current api-gateway: old public/admin endpoints plus new personal cabinet endpoints."
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8081"
-    },
-    {
-      "key": "adminUser",
-      "value": "admin"
-    },
-    {
-      "key": "adminPass",
-      "value": "admin123"
-    },
-    {
-      "key": "csvFilePath",
-      "value": "C:/Users/pavel/Downloads/2026 Schedule.csv"
-    },
-    {
-      "key": "groupCode",
-      "value": "\u0433\u0440.6 ()"
-    },
-    {
-      "key": "dayFrom",
-      "value": "2026-01-05"
-    },
-    {
-      "key": "dayTo",
-      "value": "2026-01-05"
-    }
+    { "key": "baseUrl", "value": "http://localhost:8081" },
+    { "key": "adminUser", "value": "admin" },
+    { "key": "adminPass", "value": "admin123" },
+    { "key": "instructorUser", "value": "instructor" },
+    { "key": "instructorPass", "value": "instructor123" },
+    { "key": "tempInstructorPass", "value": "instructor123-temp" },
+    { "key": "csvFilePath", "value": "C:/Users/pavel/Downloads/2026 Schedule.csv" },
+    { "key": "groupCode", "value": "\u0433\u0440.6 ()" },
+    { "key": "dayFrom", "value": "2026-01-05" },
+    { "key": "dayTo", "value": "2026-01-05" },
+    { "key": "cabinetFrom", "value": "2026-01-01" },
+    { "key": "cabinetTo", "value": "2026-12-31" },
+    { "key": "lessonId", "value": "" },
+    { "key": "profileFullName", "value": "\u041c\u0435\u043d\u044f\u0439\u043b\u043e" },
+    { "key": "profileEmail", "value": "instructor+cabinet@atom.local" },
+    { "key": "profilePhone", "value": "+7-999-100-20-30" },
+    { "key": "profilePosition", "value": "\u0412\u0435\u0434\u0443\u0449\u0438\u0439 \u0438\u043d\u0441\u0442\u0440\u0443\u043a\u0442\u043e\u0440" },
+    { "key": "profileDepartment", "value": "\u041a\u0430\u0444\u0435\u0434\u0440\u0430 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0438\u0438" }
   ],
   "item": [
     {
-      "name": "1. Import CSV",
-      "event": [
+      "name": "1. Public And Import",
+      "description": "Import test data and check public schedule endpoints.",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Status code is 200', function () {",
-              "    pm.response.to.have.status(200);",
-              "});",
-              "var json = pm.response.json();",
-              "pm.test('Import completed', function () {",
-              "    pm.expect(json.status).to.eql('ok');",
-              "    pm.expect(json.source).to.eql('csv');",
-              "    pm.expect(json.performedBy).to.eql(pm.collectionVariables.get('adminUser'));",
-              "});"
-            ]
+          "name": "1.1 Import CSV",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('import ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('csv import result looks sane', function () {",
+                  "    pm.expect(json.status).to.eql('ok');",
+                  "    pm.expect(json.source).to.eql('csv');",
+                  "    pm.expect(json.importedGroups).to.be.a('number');",
+                  "    pm.expect(json.importedGroups).to.be.above(0);",
+                  "    pm.expect(json.performedBy).to.eql(pm.collectionVariables.get('adminUser'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{adminUser}}", "type": "string" },
+                { "key": "password", "value": "{{adminPass}}", "type": "string" }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "{{csvFilePath}}" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/import/csv",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "import", "csv"]
+            }
+          }
+        },
+        {
+          "name": "1.2 Public Schedule By Group",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('public group schedule ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "var groupCode = pm.collectionVariables.get('groupCode');",
+                  "pm.test('response is non-empty array', function () {",
+                  "    pm.expect(Array.isArray(json)).to.eql(true);",
+                  "    pm.expect(json.length).to.be.above(0);",
+                  "});",
+                  "pm.test('all entries belong to chosen group', function () {",
+                  "    json.forEach(function (item) { pm.expect(item.groupCode).to.eql(groupCode); });",
+                  "});",
+                  "if (json[0] && json[0].lessonId) { pm.collectionVariables.set('lessonId', json[0].lessonId); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/public/schedule?groupCode={{groupCode}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "public", "schedule"],
+              "query": [
+                { "key": "groupCode", "value": "{{groupCode}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.3 Public Schedule By Group And Day",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('public day schedule ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "var groupCode = pm.collectionVariables.get('groupCode');",
+                  "var day = pm.collectionVariables.get('dayFrom');",
+                  "pm.test('response is array', function () { pm.expect(Array.isArray(json)).to.eql(true); });",
+                  "pm.test('entries belong to chosen day and group', function () {",
+                  "    json.forEach(function (item) {",
+                  "        pm.expect(item.groupCode).to.eql(groupCode);",
+                  "        pm.expect(item.date).to.eql(day);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/public/schedule?groupCode={{groupCode}}&from={{dayFrom}}&to={{dayTo}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "public", "schedule"],
+              "query": [
+                { "key": "groupCode", "value": "{{groupCode}}" },
+                { "key": "from", "value": "{{dayFrom}}" },
+                { "key": "to", "value": "{{dayTo}}" }
+              ]
+            }
           }
         }
-      ],
-      "request": {
-        "auth": {
-          "type": "basic",
-          "basic": [
-            {
-              "key": "username",
-              "value": "{{adminUser}}",
-              "type": "string"
-            },
-            {
-              "key": "password",
-              "value": "{{adminPass}}",
-              "type": "string"
-            }
-          ]
-        },
-        "method": "POST",
-        "header": [],
-        "body": {
-          "mode": "formdata",
-          "formdata": [
-            {
-              "key": "file",
-              "type": "file",
-              "src": "{{csvFilePath}}"
-            }
-          ]
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/import/csv",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "import",
-            "csv"
-          ]
-        },
-        "description": "Imports the CSV file through api-gateway. Requires ADMIN basic auth."
-      },
-      "response": []
+      ]
     },
     {
-      "name": "2. Public Schedule For One Group",
-      "event": [
+      "name": "2. Legacy Admin API",
+      "description": "Old gateway endpoints still used by admin flows.",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Status code is 200', function () {",
-              "    pm.response.to.have.status(200);",
-              "});",
-              "var json = pm.response.json();",
-              "pm.test('Response is an array', function () {",
-              "    pm.expect(Array.isArray(json)).to.eql(true);",
-              "});",
-              "pm.test('All entries belong to selected group', function () {",
-              "    var groupCode = pm.collectionVariables.get('groupCode');",
-              "    json.forEach(function (item) {",
-              "        pm.expect(item.groupCode).to.eql(groupCode);",
-              "    });",
-              "});"
-            ]
+          "name": "2.1 Auth Me (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('auth me admin ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('admin payload has expected shape', function () {",
+                  "    pm.expect(json.username).to.eql(pm.collectionVariables.get('adminUser'));",
+                  "    pm.expect(json.role).to.eql('ADMIN');",
+                  "    pm.expect(json.active).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{adminUser}}", "type": "string" },
+                { "key": "password", "value": "{{adminPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "2.2 Get Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('users list ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('users list contains admin', function () {",
+                  "    pm.expect(Array.isArray(json)).to.eql(true);",
+                  "    pm.expect(json.some(function (user) { return user.username === pm.collectionVariables.get('adminUser'); })).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{adminUser}}", "type": "string" },
+                { "key": "password", "value": "{{adminPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            }
+          }
+        },
+        {
+          "name": "2.3 Get Groups",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('groups list ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "var groupCode = pm.collectionVariables.get('groupCode');",
+                  "pm.test('groups list contains imported group', function () {",
+                  "    pm.expect(Array.isArray(json)).to.eql(true);",
+                  "    pm.expect(json.some(function (group) { return group.code === groupCode; })).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{adminUser}}", "type": "string" },
+                { "key": "password", "value": "{{adminPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/groups",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "groups"]
+            }
+          }
+        },
+        {
+          "name": "2.4 Get Lessons By Group",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('lessons list ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "var groupCode = pm.collectionVariables.get('groupCode');",
+                  "pm.test('lessons list is non-empty and filtered', function () {",
+                  "    pm.expect(Array.isArray(json)).to.eql(true);",
+                  "    pm.expect(json.length).to.be.above(0);",
+                  "    json.forEach(function (item) { pm.expect(item.groupCode).to.eql(groupCode); });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{adminUser}}", "type": "string" },
+                { "key": "password", "value": "{{adminPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lessons?groupCode={{groupCode}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "lessons"],
+              "query": [
+                { "key": "groupCode", "value": "{{groupCode}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.5 Get Workload",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('workload endpoint ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('workload response is array', function () { pm.expect(Array.isArray(json)).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{adminUser}}", "type": "string" },
+                { "key": "password", "value": "{{adminPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/workload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "workload"]
+            }
+          }
+        },
+        {
+          "name": "2.6 Get Lesson By Id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('lesson by id ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('requested lesson returned', function () {",
+                  "    pm.expect(String(json.id)).to.eql(pm.collectionVariables.get('lessonId'));",
+                  "    pm.expect(json.title).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{adminUser}}", "type": "string" },
+                { "key": "password", "value": "{{adminPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lessons/{{lessonId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "lessons", "{{lessonId}}"]
+            }
+          }
+        },
+        {
+          "name": "2.7 Lesson History",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('lesson history ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('history response is array even if empty', function () { pm.expect(Array.isArray(json)).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{adminUser}}", "type": "string" },
+                { "key": "password", "value": "{{adminPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lessons/{{lessonId}}/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "lessons", "{{lessonId}}", "history"]
+            }
           }
         }
-      ],
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/public/schedule?groupCode={{groupCode}}",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "public",
-            "schedule"
-          ],
-          "query": [
-            {
-              "key": "groupCode",
-              "value": "{{groupCode}}"
-            }
-          ]
-        },
-        "description": "Reads the whole imported schedule for one group. Public endpoint, auth is not required."
-      },
-      "response": []
+      ]
     },
     {
-      "name": "3. Public Schedule For One Group And One Day",
-      "event": [
+      "name": "3. My Profile And Cabinet",
+      "description": "New endpoints for the personal cabinet. Profile update aligns fullName with a lecturer from the imported CSV so instructor-specific checks return data.",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Status code is 200', function () {",
-              "    pm.response.to.have.status(200);",
-              "});",
-              "var json = pm.response.json();",
-              "pm.test('Response is an array', function () {",
-              "    pm.expect(Array.isArray(json)).to.eql(true);",
-              "});",
-              "pm.test('All entries belong to selected group and day', function () {",
-              "    var groupCode = pm.collectionVariables.get('groupCode');",
-              "    var dayFrom = pm.collectionVariables.get('dayFrom');",
-              "    json.forEach(function (item) {",
-              "        pm.expect(item.groupCode).to.eql(groupCode);",
-              "        pm.expect(item.date).to.eql(dayFrom);",
-              "    });",
-              "});"
-            ]
+          "name": "3.1 Auth Me (Instructor)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('auth me instructor ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('instructor account is returned', function () {",
+                  "    pm.expect(json.username).to.eql(pm.collectionVariables.get('instructorUser'));",
+                  "    pm.expect(json.role).to.eql('INSTRUCTOR');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{instructorUser}}", "type": "string" },
+                { "key": "password", "value": "{{instructorPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "3.2 Get My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('my profile ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('profile belongs to current instructor', function () {",
+                  "    pm.expect(json.username).to.eql(pm.collectionVariables.get('instructorUser'));",
+                  "    pm.expect(json.role).to.eql('INSTRUCTOR');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{instructorUser}}", "type": "string" },
+                { "key": "password", "value": "{{instructorPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me", "profile"]
+            }
+          }
+        },
+        {
+          "name": "3.3 Update My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('profile update ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('profile fields saved', function () {",
+                  "    pm.expect(json.fullName).to.eql(pm.collectionVariables.get('profileFullName'));",
+                  "    pm.expect(json.email).to.eql(pm.collectionVariables.get('profileEmail'));",
+                  "    pm.expect(json.phone).to.eql(pm.collectionVariables.get('profilePhone'));",
+                  "    pm.expect(json.position).to.eql(pm.collectionVariables.get('profilePosition'));",
+                  "    pm.expect(json.department).to.eql(pm.collectionVariables.get('profileDepartment'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{instructorUser}}", "type": "string" },
+                { "key": "password", "value": "{{instructorPass}}", "type": "string" }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"\u041c\u0435\u043d\u044f\u0439\u043b\u043e\",\n  \"email\": \"{{profileEmail}}\",\n  \"phone\": \"{{profilePhone}}\",\n  \"position\": \"{{profilePosition}}\",\n  \"department\": \"{{profileDepartment}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me", "profile"]
+            }
+          }
+        },
+        {
+          "name": "3.4 Get My Full Schedule Grid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('full grid ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('grid has dates and groups arrays', function () {",
+                  "    pm.expect(Array.isArray(json.dates)).to.eql(true);",
+                  "    pm.expect(Array.isArray(json.groups)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{instructorUser}}", "type": "string" },
+                { "key": "password", "value": "{{instructorPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/schedule/grid?from={{cabinetFrom}}&to={{cabinetTo}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me", "schedule", "grid"],
+              "query": [
+                { "key": "from", "value": "{{cabinetFrom}}" },
+                { "key": "to", "value": "{{cabinetTo}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.5 Get My Instructor Schedule Grid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('instructor grid ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "var fullName = pm.collectionVariables.get('profileFullName');",
+                  "pm.test('instructor grid has arrays', function () {",
+                  "    pm.expect(Array.isArray(json.dates)).to.eql(true);",
+                  "    pm.expect(Array.isArray(json.groups)).to.eql(true);",
+                  "});",
+                  "var hasOwnLesson = false;",
+                  "(json.groups || []).forEach(function (group) {",
+                  "    (group.days || []).forEach(function (day) {",
+                  "        (day.lessons || []).forEach(function (lesson) {",
+                  "            if ((lesson.instructorNames || []).indexOf(fullName) >= 0) { hasOwnLesson = true; }",
+                  "        });",
+                  "    });",
+                  "});",
+                  "pm.test('grid contains at least one lesson for current instructor', function () {",
+                  "    pm.expect(hasOwnLesson).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{instructorUser}}", "type": "string" },
+                { "key": "password", "value": "{{instructorPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/schedule/instructor-grid?from={{cabinetFrom}}&to={{cabinetTo}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me", "schedule", "instructor-grid"],
+              "query": [
+                { "key": "from", "value": "{{cabinetFrom}}" },
+                { "key": "to", "value": "{{cabinetTo}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.6 Get My Workload Calendar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('workload calendar ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('workload calendar has expected shape', function () {",
+                  "    pm.expect(json.instructorName).to.eql(pm.collectionVariables.get('profileFullName'));",
+                  "    pm.expect(json.totalHours).to.be.a('number');",
+                  "    pm.expect(Array.isArray(json.days)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{instructorUser}}", "type": "string" },
+                { "key": "password", "value": "{{instructorPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/workload/calendar?from={{cabinetFrom}}&to={{cabinetTo}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me", "workload", "calendar"],
+              "query": [
+                { "key": "from", "value": "{{cabinetFrom}}" },
+                { "key": "to", "value": "{{cabinetTo}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.7 Get My Notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('notifications ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('notifications response is array', function () { pm.expect(Array.isArray(json)).to.eql(true); });",
+                  "if (json.length > 0) {",
+                  "    pm.test('notification looks clickable', function () {",
+                  "        pm.expect(json[0].type).to.eql('LESSON_ADDED');",
+                  "        pm.expect(json[0].date).to.be.a('string');",
+                  "        pm.expect(json[0].link).to.include('/api/me/schedule/instructor-grid');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{instructorUser}}", "type": "string" },
+                { "key": "password", "value": "{{instructorPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/notifications?from={{cabinetFrom}}&to={{cabinetTo}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me", "notifications"],
+              "query": [
+                { "key": "from", "value": "{{cabinetFrom}}" },
+                { "key": "to", "value": "{{cabinetTo}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.8 Get My Dashboard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('dashboard ok', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('dashboard contains all main blocks', function () {",
+                  "    pm.expect(json.profile).to.be.an('object');",
+                  "    pm.expect(json.instructorSchedule).to.be.an('object');",
+                  "    pm.expect(json.workload).to.be.an('object');",
+                  "    pm.expect(Array.isArray(json.notifications)).to.eql(true);",
+                  "});",
+                  "pm.test('dashboard profile matches current instructor', function () {",
+                  "    pm.expect(json.profile.username).to.eql(pm.collectionVariables.get('instructorUser'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{instructorUser}}", "type": "string" },
+                { "key": "password", "value": "{{instructorPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/dashboard?from={{cabinetFrom}}&to={{cabinetTo}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me", "dashboard"],
+              "query": [
+                { "key": "from", "value": "{{cabinetFrom}}" },
+                { "key": "to", "value": "{{cabinetTo}}" }
+              ]
+            }
           }
         }
-      ],
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/public/schedule?groupCode={{groupCode}}&from={{dayFrom}}&to={{dayTo}}",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "public",
-            "schedule"
-          ],
-          "query": [
+      ]
+    },
+    {
+      "name": "4. Password Flow",
+      "description": "Optional pair. Run both requests in sequence so password is changed and then rolled back.",
+      "item": [
+        {
+          "name": "4.1 Change My Password",
+          "event": [
             {
-              "key": "groupCode",
-              "value": "{{groupCode}}"
-            },
-            {
-              "key": "from",
-              "value": "{{dayFrom}}"
-            },
-            {
-              "key": "to",
-              "value": "{{dayTo}}"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('password change accepted', function () { pm.expect([200, 204]).to.include(pm.response.code); });",
+                  "pm.collectionVariables.set('instructorPass', pm.collectionVariables.get('tempInstructorPass'));"
+                ]
+              }
             }
-          ]
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{instructorUser}}", "type": "string" },
+                { "key": "password", "value": "{{instructorPass}}", "type": "string" }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"instructor123\",\n  \"newPassword\": \"{{tempInstructorPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me", "password"]
+            }
+          }
         },
-        "description": "Reads the public schedule for one specific group and one exact day. The sample date 2026-01-05 exists in the provided CSV for group '\\u0433\\u0440.6 ()'."
-      },
-      "response": []
+        {
+          "name": "4.2 Get My Profile With New Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('new password works', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('still same instructor', function () { pm.expect(json.username).to.eql(pm.collectionVariables.get('instructorUser')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{instructorUser}}", "type": "string" },
+                { "key": "password", "value": "{{instructorPass}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me", "profile"]
+            }
+          }
+        },
+        {
+          "name": "4.3 Change Password Back",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('password rollback accepted', function () { pm.expect([200, 204]).to.include(pm.response.code); });",
+                  "pm.collectionVariables.set('instructorPass', 'instructor123');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{instructorUser}}", "type": "string" },
+                { "key": "password", "value": "{{instructorPass}}", "type": "string" }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{tempInstructorPass}}\",\n  \"newPassword\": \"instructor123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me", "password"]
+            }
+          }
+        }
+      ]
     }
   ]
 }
