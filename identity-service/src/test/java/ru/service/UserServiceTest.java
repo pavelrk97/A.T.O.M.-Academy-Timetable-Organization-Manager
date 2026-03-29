@@ -40,10 +40,11 @@ class UserServiceTest {
     private UserService userService;
 
     @Test
-    void updateCurrentProfile_updatesOptionalFieldsWithoutTouchingFullName() {
+    void updateCurrentProfile_updatesOptionalFieldsAndDisplayNameWithoutTouchingFullName() {
         Authentication authentication = new UsernamePasswordAuthenticationToken("mentor", "pass");
         User user = user("mentor");
         MyProfileUpdateRequest request = new MyProfileUpdateRequest();
+        request.setDisplayName("Mentor Visible");
         request.setEmail("mentor@example.com");
         request.setPhone("+79990001122");
         request.setPosition("Senior Instructor");
@@ -55,6 +56,7 @@ class UserServiceTest {
         UserDto result = userService.updateCurrentProfile(authentication, request);
 
         assertThat(result.getFullName()).isEqualTo("Mentor QA");
+        assertThat(result.getDisplayName()).isEqualTo("Mentor Visible");
         assertThat(result.getPhone()).isEqualTo("+79990001122");
         assertThat(result.getPosition()).isEqualTo("Senior Instructor");
         assertThat(result.getDepartment()).isEqualTo("Automation");
@@ -100,6 +102,7 @@ class UserServiceTest {
         request.setUsername("editor");
         request.setPassword("plain-pass");
         request.setFullName("Editor QA");
+        request.setDisplayName("Editor Visible");
         request.setEmail("editor@example.com");
         request.setPhone("+79990001123");
         request.setPosition("Coordinator");
@@ -119,6 +122,7 @@ class UserServiceTest {
         UserDto result = userService.create(request);
 
         assertThat(result.getUsername()).isEqualTo("editor");
+        assertThat(result.getDisplayName()).isEqualTo("Editor Visible");
         assertThat(result.getPhone()).isEqualTo("+79990001123");
         assertThat(result.getPosition()).isEqualTo("Coordinator");
         assertThat(result.getDepartment()).isEqualTo("Operations");
@@ -136,6 +140,7 @@ class UserServiceTest {
         request.setUsername("editor");
         request.setPassword("new-pass");
         request.setFullName("Editor Lead");
+        request.setDisplayName("Editor Alias");
         request.setEmail("lead@example.com");
         request.setPhone("+79990001124");
         request.setPosition("Lead");
@@ -152,6 +157,7 @@ class UserServiceTest {
 
         assertThat(result.getId()).isEqualTo(userId);
         assertThat(result.getFullName()).isEqualTo("Editor Lead");
+        assertThat(result.getDisplayName()).isEqualTo("Editor Alias");
         assertThat(result.getDepartment()).isEqualTo("Academy");
         assertThat(result.getRole()).isEqualTo(Role.ADMIN);
         assertThat(result.isCanTeach()).isTrue();
@@ -163,6 +169,7 @@ class UserServiceTest {
         user.setUsername(username);
         user.setPassword("encoded-old");
         user.setFullName("Mentor QA");
+        user.setDisplayName("Mentor QA");
         user.setRole(Role.INSTRUCTOR);
         user.setActive(true);
         user.setCanTeach(true);

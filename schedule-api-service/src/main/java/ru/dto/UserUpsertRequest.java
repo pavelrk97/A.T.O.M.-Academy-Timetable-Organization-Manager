@@ -18,6 +18,8 @@ public class UserUpsertRequest {
     @NotBlank
     private String fullName;
 
+    private String displayName;
+
     private String email;
 
     private String phone;

@@ -31,6 +31,7 @@ export function Header() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { user, isAuthenticated, logout } = useAuth()
+  const visibleName = user ? user.displayName || user.fullName || user.username : ''
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/80 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
@@ -85,11 +86,11 @@ export function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-10 gap-3 rounded-xl px-2 sm:px-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                    {(user.fullName || user.username).charAt(0).toUpperCase()}
+                    {visibleName.charAt(0).toUpperCase()}
                   </div>
                   <div className="hidden text-left sm:block">
                     <div className="max-w-40 truncate text-sm font-medium text-slate-950">
-                      {user.fullName || user.username}
+                      {visibleName}
                     </div>
                     <div className="text-xs text-muted-foreground">{roleLabel(user.role)}</div>
                   </div>
@@ -97,7 +98,7 @@ export function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
                 <div className="px-3 py-2">
-                  <div className="font-medium">{user.fullName || user.username}</div>
+                  <div className="font-medium">{visibleName}</div>
                   <div className="text-xs text-muted-foreground">{user.email || user.username}</div>
                 </div>
                 <DropdownMenuSeparator />
