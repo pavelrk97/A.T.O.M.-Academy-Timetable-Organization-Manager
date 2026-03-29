@@ -1,6 +1,8 @@
 package ru.service;
 
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import ru.model.Day;
 import ru.model.Group;
@@ -20,6 +22,8 @@ import java.util.Optional;
 @Service
 public class CsvImportService {
 
+    private static final Logger log = LoggerFactory.getLogger(CsvImportService.class);
+
     private final GroupRepository groupRepository;
     private final UserService userService;
 
@@ -31,24 +35,35 @@ public class CsvImportService {
 
     @Transactional
     public int importFromCsv(InputStream csvStream) throws Exception {
-        List<Group> groups = ScheduleCsvParser.parse(csvStream);
-        return importGroups(groups);
+        try {
+            List<Group> groups = ScheduleCsvParser.parse(csvStream);
+            log.info("CSV parsed successfully: groups={}", groups.size());
+            int imported = importGroups(groups);
+            log.info("CSV import committed: importedGroups={}", imported);
+            return imported;
+        } catch (Exception ex) {
+            log.error("CSV import failed", ex);
+            throw ex;
+        }
     }
 
     @Transactional
     public int importGroups(List<Group> groups) {
         int imported = 0;
         Map<String, User> instructorCache = new HashMap<>();
+        log.info("Importing group batch: groups={}", groups.size());
         for (Group importedGroup : groups) {
             upsertGroup(importedGroup, instructorCache);
             imported++;
         }
+        log.info("Group batch imported: groups={}, instructorCacheSize={}", imported, instructorCache.size());
         return imported;
     }
 
     private void upsertGroup(Group importedGroup, Map<String, User> instructorCache) {
         Optional<Group> existingGroupOpt = groupRepository.findByCode(importedGroup.getCode());
         Group group = existingGroupOpt.orElseGet(Group::new);
+        boolean existed = existingGroupOpt.isPresent();
 
         group.setCode(importedGroup.getCode());
         group.setLocation(importedGroup.getLocation());
@@ -81,6 +96,11 @@ public class CsvImportService {
         }
 
         groupRepository.save(group);
+        log.info("Group {}: code={}, days={}, lessons={}",
+                existed ? "updated" : "created",
+                group.getCode(),
+                group.getDays().size(),
+                group.getDays().stream().mapToInt(day -> day.getLessons().size()).sum());
     }
 
     private List<User> resolveInstructors(Lesson importedLesson, Map<String, User> instructorCache) {

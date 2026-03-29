@@ -1,6 +1,8 @@
 package ru.service;
 
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import ru.dto.ChangeLogDto;
@@ -30,6 +32,8 @@ import java.util.UUID;
 @Service
 public class LessonService {
 
+    private static final Logger log = LoggerFactory.getLogger(LessonService.class);
+
     private final LessonRepository lessonRepository;
     private final DayRepository dayRepository;
     private final UserService userService;
@@ -51,10 +55,12 @@ public class LessonService {
 
     public List<ScheduleEntryDto> getSchedule(String groupCode, UUID instructorId, LocalDate from, LocalDate to) {
         String normalizedGroupCode = normalizeGroupCode(groupCode);
-
-        return lessonRepository.findForSchedule(normalizedGroupCode, instructorId, from, to).stream()
+        List<ScheduleEntryDto> schedule = lessonRepository.findForSchedule(normalizedGroupCode, instructorId, from, to).stream()
                 .map(this::toScheduleEntry)
                 .toList();
+        log.info("Schedule loaded: groupCode={}, instructorId={}, from={}, to={}, entries={}",
+                normalizedGroupCode, instructorId, from, to, schedule.size());
+        return schedule;
     }
 
     @Transactional
@@ -70,6 +76,8 @@ public class LessonService {
         applyFullEdit(lesson, dto);
         Lesson saved = lessonRepository.save(lesson);
         auditService.logLessonChange(ChangeAction.CREATED, null, snapshot(saved), actor.getUsername(), "Lesson created");
+        log.info("Lesson created: lessonId={}, dayId={}, actor={}, instructors={}",
+                saved.getId(), saved.getDay().getId(), actor.getUsername(), saved.getAssignedInstructors().size());
         return LessonMapper.toDto(saved);
     }
 
@@ -94,6 +102,8 @@ public class LessonService {
 
         Lesson saved = lessonRepository.save(lesson);
         auditService.logLessonChange(ChangeAction.UPDATED, before, snapshot(saved), actor.getUsername(), "Lesson updated");
+        log.info("Lesson updated: lessonId={}, actor={}, version={}",
+                saved.getId(), actor.getUsername(), saved.getVersion());
         return LessonMapper.toDto(saved);
     }
 
@@ -112,6 +122,7 @@ public class LessonService {
         Lesson before = snapshot(lesson);
         lessonRepository.delete(lesson);
         auditService.logLessonChange(ChangeAction.DELETED, before, null, actor.getUsername(), "Lesson deleted");
+        log.info("Lesson deleted: lessonId={}, actor={}", id, actor.getUsername());
     }
 
     public List<ChangeLogDto> getHistory(UUID lessonId) {
@@ -142,7 +153,10 @@ public class LessonService {
             }
         }
 
-        return new ArrayList<>(totals.values());
+        List<WorkloadDto> workload = new ArrayList<>(totals.values());
+        log.info("Workload calculated: requestedInstructorId={}, effectiveInstructorId={}, from={}, to={}, rows={}",
+                instructorId, effectiveInstructorId, from, to, workload.size());
+        return workload;
     }
 
     public Lesson findEntity(UUID id) {

@@ -1,9 +1,14 @@
 server:
   port: 8080
 
+internal:
+  security:
+    api-key: ${SCHEDULE_INTERNAL_API_KEY:dev-schedule-internal-api-key}
+
 identity:
   service:
     url: http://localhost:8082
+    api-key: ${IDENTITY_INTERNAL_API_KEY:dev-internal-api-key}
 
 spring:
   application:

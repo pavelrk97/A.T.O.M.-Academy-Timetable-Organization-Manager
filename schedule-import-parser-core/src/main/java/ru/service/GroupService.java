@@ -1,6 +1,8 @@
 package ru.service;
 
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import ru.dto.GroupDto;
 import ru.exception.ResourceNotFoundException;
@@ -16,6 +18,8 @@ import java.util.UUID;
 @Service
 public class GroupService {
 
+    private static final Logger log = LoggerFactory.getLogger(GroupService.class);
+
     private final GroupRepository groupRepository;
 
     public GroupService(GroupRepository groupRepository) {
@@ -24,22 +28,34 @@ public class GroupService {
 
     @Transactional(Transactional.TxType.SUPPORTS)
     public List<GroupDto> getAll() {
-        return groupRepository.findAllByOrderByCodeAsc().stream()
+        List<GroupDto> groups = groupRepository.findAllByOrderByCodeAsc().stream()
                 .map(GroupMapper::toDto)
                 .toList();
+        log.info("Group catalog loaded: groups={}, days={}, lessons={}",
+                groups.size(),
+                groups.stream().mapToInt(group -> group.getDays() != null ? group.getDays().size() : 0).sum(),
+                groups.stream().flatMap(group -> group.getDays().stream())
+                        .mapToInt(day -> day.getLessons() != null ? day.getLessons().size() : 0)
+                        .sum());
+        return groups;
     }
 
     @Transactional(Transactional.TxType.SUPPORTS)
     public GroupDto getById(UUID id) {
-        return GroupMapper.toDto(groupRepository.findById(id)
+        GroupDto group = GroupMapper.toDto(groupRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found: " + id)));
+        log.info("Group loaded: groupId={}, code={}, days={}",
+                group.getId(), group.getCode(), group.getDays() != null ? group.getDays().size() : 0);
+        return group;
     }
 
     @Transactional
     public GroupDto create(GroupDto dto) {
         Group group = GroupMapper.toEntity(dto);
         link(group);
-        return GroupMapper.toDto(groupRepository.save(group));
+        GroupDto created = GroupMapper.toDto(groupRepository.save(group));
+        log.info("Group created: groupId={}, code={}", created.getId(), created.getCode());
+        return created;
     }
 
     @Transactional
@@ -59,12 +75,16 @@ public class GroupService {
             });
         }
 
-        return GroupMapper.toDto(groupRepository.save(group));
+        GroupDto updated = GroupMapper.toDto(groupRepository.save(group));
+        log.info("Group updated: groupId={}, code={}", updated.getId(), updated.getCode());
+        return updated;
     }
 
     @Transactional
     public void delete(UUID id) {
-        groupRepository.delete(findEntity(id));
+        Group group = findEntity(id);
+        groupRepository.delete(group);
+        log.info("Group deleted: groupId={}, code={}", group.getId(), group.getCode());
     }
 
     public Group findEntity(UUID id) {

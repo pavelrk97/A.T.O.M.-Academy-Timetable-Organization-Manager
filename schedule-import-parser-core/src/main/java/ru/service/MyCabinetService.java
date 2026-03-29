@@ -1,5 +1,7 @@
 package ru.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,8 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class MyCabinetService {
 
+    private static final Logger log = LoggerFactory.getLogger(MyCabinetService.class);
+
     private final LessonRepository lessonRepository;
     private final IdentityDirectoryService identityDirectoryService;
 
@@ -41,31 +45,51 @@ public class MyCabinetService {
     }
 
     public ScheduleGridDto getFullScheduleGrid(LocalDate from, LocalDate to) {
-        return buildGrid(lessonRepository.findForDateRange(from, to));
+        ScheduleGridDto grid = buildGrid(lessonRepository.findForDateRange(from, to));
+        log.info("Full schedule grid built: from={}, to={}, groups={}, dates={}",
+                from, to, grid.getGroups().size(), grid.getDates().size());
+        return grid;
     }
 
     public ScheduleGridDto getInstructorScheduleGrid(Authentication authentication, LocalDate from, LocalDate to) {
         DashboardSeed seed = buildDashboardSeed(authentication, from, to);
-        return buildGrid(seed.lessons());
+        ScheduleGridDto grid = buildGrid(seed.lessons());
+        log.info("Instructor schedule grid built: user={}, from={}, to={}, lessons={}, groups={}",
+                seed.currentUser().getUsername(), from, to, seed.lessons().size(), grid.getGroups().size());
+        return grid;
     }
 
     public WorkloadCalendarDto getMyWorkloadCalendar(Authentication authentication, LocalDate from, LocalDate to) {
         DashboardSeed seed = buildDashboardSeed(authentication, from, to);
-        return buildWorkload(seed.currentUser(), seed.lessons(), from, to);
+        WorkloadCalendarDto workload = buildWorkload(seed.currentUser(), seed.lessons(), from, to);
+        log.info("Workload calendar built: user={}, from={}, to={}, totalHours={}, days={}",
+                seed.currentUser().getUsername(), from, to, workload.getTotalHours(), workload.getDays().size());
+        return workload;
     }
 
     public List<MyNotificationDto> getMyNotifications(Authentication authentication, LocalDate from, LocalDate to) {
         DashboardSeed seed = buildDashboardSeed(authentication, from, to);
-        return buildNotifications(seed.lessons());
+        List<MyNotificationDto> notifications = buildNotifications(seed.lessons());
+        log.info("Notifications built: user={}, from={}, to={}, notifications={}",
+                seed.currentUser().getUsername(), from, to, notifications.size());
+        return notifications;
     }
 
     public MyDashboardDataDto getDashboard(Authentication authentication, LocalDate from, LocalDate to) {
         DashboardSeed seed = buildDashboardSeed(authentication, from, to);
-        return MyDashboardDataDto.builder()
+        MyDashboardDataDto dashboard = MyDashboardDataDto.builder()
                 .instructorSchedule(buildGrid(seed.lessons()))
                 .workload(buildWorkload(seed.currentUser(), seed.lessons(), from, to))
                 .notifications(buildNotifications(seed.lessons()))
                 .build();
+        log.info("Dashboard built: user={}, from={}, to={}, lessons={}, notifications={}, workloadHours={}",
+                seed.currentUser().getUsername(),
+                from,
+                to,
+                seed.lessons().size(),
+                dashboard.getNotifications().size(),
+                dashboard.getWorkload().getTotalHours());
+        return dashboard;
     }
 
     private List<MyNotificationDto> buildNotifications(List<Lesson> lessons) {

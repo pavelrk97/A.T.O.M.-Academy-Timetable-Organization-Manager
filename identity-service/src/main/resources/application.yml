@@ -1,6 +1,10 @@
 server:
   port: 8082
 
+internal:
+  security:
+    api-key: ${IDENTITY_INTERNAL_API_KEY:dev-internal-api-key}
+
 spring:
   application:
     name: identity-service

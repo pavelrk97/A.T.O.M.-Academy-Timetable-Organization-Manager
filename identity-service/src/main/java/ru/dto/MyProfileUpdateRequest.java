@@ -1,15 +1,13 @@
 package ru.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class MyProfileUpdateRequest {
-
-    @NotBlank
-    private String fullName;
 
     private String email;
 

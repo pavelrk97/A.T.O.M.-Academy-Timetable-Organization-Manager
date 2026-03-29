@@ -1,5 +1,7 @@
 package ru.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,6 +21,8 @@ import java.util.UUID;
 
 @Service
 public class UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -48,16 +52,13 @@ public class UserService {
     public InternalUserDetailsDto getInternalByUsername(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + username));
+        log.debug("Internal user lookup completed: username={}, userId={}", username, user.getId());
 
         return InternalUserDetailsDto.builder()
                 .id(user.getId())
                 .username(user.getUsername())
                 .password(user.getPassword())
                 .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .position(user.getPosition())
-                .department(user.getDepartment())
                 .role(user.getRole())
                 .active(user.isActive())
                 .build();
@@ -66,12 +67,13 @@ public class UserService {
     @Transactional
     public UserDto updateCurrentProfile(Authentication authentication, MyProfileUpdateRequest request) {
         User user = getCurrentUser(authentication);
-        user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
         user.setPosition(request.getPosition());
         user.setDepartment(request.getDepartment());
-        return toDto(userRepository.save(user));
+        UserDto updated = toDto(userRepository.save(user));
+        log.info("Profile updated: username={}", updated.getUsername());
+        return updated;
     }
 
     @Transactional
@@ -83,6 +85,7 @@ public class UserService {
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+        log.info("Password changed: username={}", user.getUsername());
     }
 
     @Transactional
@@ -93,7 +96,9 @@ public class UserService {
 
         User user = new User();
         apply(user, request);
-        return toDto(userRepository.save(user));
+        UserDto created = toDto(userRepository.save(user));
+        log.info("User created: username={}, role={}", created.getUsername(), created.getRole());
+        return created;
     }
 
     @Transactional
@@ -101,7 +106,9 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + id));
         apply(user, request);
-        return toDto(userRepository.save(user));
+        UserDto updated = toDto(userRepository.save(user));
+        log.info("User updated: userId={}, username={}, role={}", updated.getId(), updated.getUsername(), updated.getRole());
+        return updated;
     }
 
     private void apply(User user, UserUpsertRequest request) {
