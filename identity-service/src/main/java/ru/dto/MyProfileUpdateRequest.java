@@ -9,6 +9,8 @@ import lombok.Setter;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class MyProfileUpdateRequest {
 
+    private String displayName;
+
     private String email;
 
     private String phone;

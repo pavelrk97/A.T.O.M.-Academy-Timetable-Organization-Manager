@@ -34,6 +34,7 @@ public class DataInitializer {
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(rawPassword));
         user.setFullName(fullName);
+        user.setDisplayName(fullName);
         user.setRole(role);
         user.setActive(true);
         user.setCanTeach(canTeach);

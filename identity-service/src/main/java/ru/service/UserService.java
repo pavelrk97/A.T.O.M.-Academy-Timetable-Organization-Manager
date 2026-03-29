@@ -67,6 +67,9 @@ public class UserService {
     @Transactional
     public UserDto updateCurrentProfile(Authentication authentication, MyProfileUpdateRequest request) {
         User user = getCurrentUser(authentication);
+        if (request.getDisplayName() != null) {
+            user.setDisplayName(normalizeDisplayName(request.getDisplayName(), user.getFullName()));
+        }
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
         user.setPosition(request.getPosition());
@@ -115,6 +118,7 @@ public class UserService {
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFullName(request.getFullName());
+        user.setDisplayName(normalizeDisplayName(request.getDisplayName(), request.getFullName()));
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
         user.setPosition(request.getPosition());
@@ -129,6 +133,7 @@ public class UserService {
                 .id(user.getId())
                 .username(user.getUsername())
                 .fullName(user.getFullName())
+                .displayName(resolveDisplayName(user))
                 .email(user.getEmail())
                 .phone(user.getPhone())
                 .position(user.getPosition())
@@ -137,5 +142,16 @@ public class UserService {
                 .active(user.isActive())
                 .canTeach(user.isCanTeach())
                 .build();
+    }
+
+    private String resolveDisplayName(User user) {
+        return normalizeDisplayName(user.getDisplayName(), user.getFullName());
+    }
+
+    private String normalizeDisplayName(String displayName, String fallbackFullName) {
+        if (displayName != null && !displayName.isBlank()) {
+            return displayName.trim();
+        }
+        return fallbackFullName;
     }
 }

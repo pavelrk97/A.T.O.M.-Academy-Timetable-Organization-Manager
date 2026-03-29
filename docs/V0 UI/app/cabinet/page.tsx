@@ -233,7 +233,7 @@ function CabinetPageContent() {
   }, [activeTab, isAdminLike, users.length, groups.length])
 
   async function handleProfileUpdate(payload: {
-    fullName: string
+    displayName?: string | null
     email?: string | null
     phone?: string | null
     position?: string | null
@@ -288,7 +288,7 @@ function CabinetPageContent() {
                 Личный кабинет
               </div>
               <div className="mt-2 text-lg font-semibold text-slate-950">
-                {user.fullName || user.username}
+                {user.displayName || user.fullName || user.username}
               </div>
               <div className="text-sm text-muted-foreground">{user.role}</div>
             </div>

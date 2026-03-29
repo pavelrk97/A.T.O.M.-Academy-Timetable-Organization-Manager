@@ -17,6 +17,7 @@ public class User extends BaseEntity {
     private String password;
 
     private String fullName;
+    private String displayName;
 
     private String email;
 
@@ -56,6 +57,14 @@ public class User extends BaseEntity {
 
     public void setFullName(String fullName) {
         this.fullName = fullName;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
     public String getEmail() {

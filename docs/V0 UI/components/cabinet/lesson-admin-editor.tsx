@@ -107,7 +107,10 @@ export function LessonAdminEditor({
       [...users]
         .filter((user) => user.canTeach)
         .sort((left, right) =>
-          (left.fullName || left.username).localeCompare(right.fullName || right.username, 'ru')
+          (left.displayName || left.fullName || left.username).localeCompare(
+            right.displayName || right.fullName || right.username,
+            'ru'
+          )
         ),
     [users]
   )
@@ -607,7 +610,7 @@ export function LessonAdminEditor({
                     />
                     <div>
                       <div className="text-sm font-medium text-slate-950">
-                        {user.fullName || user.username}
+                        {user.displayName || user.fullName || user.username}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {user.position || user.role}

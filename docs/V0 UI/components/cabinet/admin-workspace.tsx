@@ -139,7 +139,9 @@ export function AdminWorkspace({
                       <tr key={user.id} className="border-t border-border">
                         <td className="px-3 py-2">
                           <div className="font-medium text-slate-950">{user.username}</div>
-                          <div className="text-xs text-muted-foreground">{user.fullName}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {user.displayName || user.fullName}
+                          </div>
                         </td>
                         <td className="px-3 py-2">{user.role}</td>
                         <td className="px-3 py-2 text-muted-foreground">{user.email || '—'}</td>

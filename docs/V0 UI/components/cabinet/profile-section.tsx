@@ -14,9 +14,9 @@ interface ProfileSectionProps {
 }
 
 function roleLabel(role: string) {
-  if (role === 'ADMIN') return 'Администратор'
-  if (role === 'EDITOR') return 'Редактор'
-  return 'Инструктор'
+  if (role === 'ADMIN') return 'Administrator'
+  if (role === 'EDITOR') return 'Editor'
+  return 'Instructor'
 }
 
 export function ProfileSection({
@@ -24,10 +24,11 @@ export function ProfileSection({
   onUpdate,
   isEditable = true,
 }: ProfileSectionProps) {
+  const visibleName = user.displayName || user.fullName || user.username
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<MyProfileUpdateRequest>({
-    fullName: user.fullName || '',
+    displayName: user.displayName || user.fullName || '',
     email: user.email || '',
     phone: user.phone || '',
     position: user.position || '',
@@ -36,7 +37,7 @@ export function ProfileSection({
 
   useEffect(() => {
     setForm({
-      fullName: user.fullName || '',
+      displayName: user.displayName || user.fullName || '',
       email: user.email || '',
       phone: user.phone || '',
       position: user.position || '',
@@ -56,7 +57,7 @@ export function ProfileSection({
 
   const reset = () => {
     setForm({
-      fullName: user.fullName || '',
+      displayName: user.displayName || user.fullName || '',
       email: user.email || '',
       phone: user.phone || '',
       position: user.position || '',
@@ -66,20 +67,21 @@ export function ProfileSection({
   }
 
   const fields = [
-    { key: 'fullName', label: 'ФИО', icon: UserRound, type: 'text' },
+    { key: 'displayName', label: 'Display name', icon: UserRound, type: 'text' },
     { key: 'email', label: 'Email', icon: Mail, type: 'email' },
-    { key: 'phone', label: 'Телефон', icon: Phone, type: 'tel' },
-    { key: 'position', label: 'Должность', icon: BriefcaseBusiness, type: 'text' },
-    { key: 'department', label: 'Подразделение', icon: Building2, type: 'text' },
+    { key: 'phone', label: 'Phone', icon: Phone, type: 'tel' },
+    { key: 'position', label: 'Position', icon: BriefcaseBusiness, type: 'text' },
+    { key: 'department', label: 'Department', icon: Building2, type: 'text' },
   ] as const
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-950">Профиль пользователя</h3>
+          <h3 className="text-lg font-semibold text-slate-950">Profile</h3>
           <p className="text-sm text-muted-foreground">
-            Здесь можно обновить контактные данные и рабочую роль в интерфейсе.
+            Update the display name and contact data shown in the cabinet. The system name used by
+            imports stays managed separately.
           </p>
         </div>
         {isEditable ? (
@@ -87,17 +89,17 @@ export function ProfileSection({
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={reset} disabled={saving}>
                 <X className="mr-2 h-4 w-4" />
-                Отмена
+                Cancel
               </Button>
               <Button size="sm" onClick={save} disabled={saving}>
                 <Check className="mr-2 h-4 w-4" />
-                {saving ? 'Сохраняю...' : 'Сохранить'}
+                {saving ? 'Saving...' : 'Save'}
               </Button>
             </div>
           ) : (
             <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
               <PencilLine className="mr-2 h-4 w-4" />
-              Редактировать
+              Edit
             </Button>
           )
         ) : null}
@@ -106,20 +108,21 @@ export function ProfileSection({
       <div className="grid gap-6 px-5 py-5 lg:grid-cols-[280px_1fr]">
         <div className="rounded-2xl border border-border bg-slate-50 p-5">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-2xl font-semibold text-primary">
-            {(user.fullName || user.username).charAt(0).toUpperCase()}
+            {visibleName.charAt(0).toUpperCase()}
           </div>
           <div className="mt-4">
-            <div className="text-lg font-semibold text-slate-950">
-              {user.fullName || user.username}
-            </div>
+            <div className="text-lg font-semibold text-slate-950">{visibleName}</div>
             <div className="text-sm text-muted-foreground">@{user.username}</div>
+            {user.fullName && user.fullName !== visibleName ? (
+              <div className="mt-1 text-xs text-slate-500">System name: {user.fullName}</div>
+            ) : null}
           </div>
           <div className="mt-4 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
             {roleLabel(user.role)}
           </div>
           <div className="mt-6 space-y-2 text-sm text-muted-foreground">
-            <div>Аккаунт: {user.active ? 'активен' : 'выключен'}</div>
-            <div>Может вести занятия: {user.canTeach ? 'да' : 'нет'}</div>
+            <div>Account: {user.active ? 'active' : 'disabled'}</div>
+            <div>Can teach: {user.canTeach ? 'yes' : 'no'}</div>
           </div>
         </div>
 

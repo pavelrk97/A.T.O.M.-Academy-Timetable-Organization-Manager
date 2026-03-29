@@ -11,6 +11,7 @@ export interface User {
   id: string
   username: string
   fullName: string
+  displayName?: string | null
   email?: string | null
   phone?: string | null
   position?: string | null
@@ -179,7 +180,7 @@ export interface ImportResult {
 }
 
 export interface MyProfileUpdateRequest {
-  fullName: string
+  displayName?: string | null
   email?: string | null
   phone?: string | null
   position?: string | null
@@ -190,6 +191,7 @@ export interface UserUpsertRequest {
   username: string
   password: string
   fullName: string
+  displayName?: string | null
   email?: string | null
   phone?: string | null
   position?: string | null
