@@ -31,9 +31,6 @@ interface LessonAdminEditorProps {
 
 const LESSON_TYPE_OPTIONS: LessonType[] = [
   'LECTURE',
-  'SEMINAR',
-  'LAB',
-  'PRACTICE',
   'SELF_STUDY',
   'ASSESSMENT',
 ]
@@ -42,12 +39,6 @@ function lessonTypeLabel(type: LessonType) {
   switch (type) {
     case 'LECTURE':
       return 'Лекция'
-    case 'SEMINAR':
-      return 'Семинар'
-    case 'LAB':
-      return 'Лабораторная'
-    case 'PRACTICE':
-      return 'Практика'
     case 'SELF_STUDY':
       return 'Самостоятельная работа'
     case 'ASSESSMENT':

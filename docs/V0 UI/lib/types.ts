@@ -1,9 +1,6 @@
 export type UserRole = 'ADMIN' | 'EDITOR' | 'INSTRUCTOR'
 export type LessonType =
   | 'LECTURE'
-  | 'SEMINAR'
-  | 'LAB'
-  | 'PRACTICE'
   | 'SELF_STUDY'
   | 'ASSESSMENT'
 

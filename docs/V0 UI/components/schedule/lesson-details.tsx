@@ -23,9 +23,6 @@ function formatDate(date: string) {
 
 function lessonTypeLabel(type?: string | null) {
   if (type === 'LECTURE') return 'Лекция'
-  if (type === 'SEMINAR') return 'Семинар'
-  if (type === 'LAB') return 'Лабораторная'
-  if (type === 'PRACTICE') return 'Практика'
   if (type === 'SELF_STUDY') return 'Самостоятельная работа'
   if (type === 'ASSESSMENT') return 'Контроль'
   return 'Занятие'
