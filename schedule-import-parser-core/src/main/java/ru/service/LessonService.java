@@ -33,6 +33,8 @@ import java.util.UUID;
 public class LessonService {
 
     private static final Logger log = LoggerFactory.getLogger(LessonService.class);
+    private static final LocalDate MIN_FILTER_DATE = LocalDate.of(1900, 1, 1);
+    private static final LocalDate MAX_FILTER_DATE = LocalDate.of(3000, 12, 31);
 
     private final LessonRepository lessonRepository;
     private final DayRepository dayRepository;
@@ -55,11 +57,16 @@ public class LessonService {
 
     public List<ScheduleEntryDto> getSchedule(String groupCode, UUID instructorId, LocalDate from, LocalDate to) {
         String normalizedGroupCode = normalizeGroupCode(groupCode);
-        List<ScheduleEntryDto> schedule = lessonRepository.findForSchedule(normalizedGroupCode, instructorId, from, to).stream()
+        LocalDate effectiveFrom = normalizeFrom(from);
+        LocalDate effectiveTo = normalizeTo(to);
+        List<ScheduleEntryDto> schedule = lessonRepository.findForSchedule(normalizedGroupCode, instructorId, effectiveFrom, effectiveTo).stream()
+                .sorted(Comparator.comparing((Lesson lesson) -> lesson.getDay().getDate())
+                        .thenComparing(Lesson::getOrderNumber)
+                        .thenComparing(Lesson::getId))
                 .map(this::toScheduleEntry)
                 .toList();
         log.info("Schedule loaded: groupCode={}, instructorId={}, from={}, to={}, entries={}",
-                normalizedGroupCode, instructorId, from, to, schedule.size());
+                normalizedGroupCode, instructorId, effectiveFrom, effectiveTo, schedule.size());
         return schedule;
     }
 
@@ -136,9 +143,11 @@ public class LessonService {
         }
 
         UUID effectiveInstructorId = instructorId != null ? instructorId : (actor.getRole() == Role.INSTRUCTOR ? actor.getId() : null);
+        LocalDate effectiveFrom = normalizeFrom(from);
+        LocalDate effectiveTo = normalizeTo(to);
 
         Map<UUID, WorkloadDto> totals = new LinkedHashMap<>();
-        for (Lesson lesson : lessonRepository.findForSchedule(null, effectiveInstructorId, from, to)) {
+        for (Lesson lesson : lessonRepository.findForSchedule(null, effectiveInstructorId, effectiveFrom, effectiveTo)) {
             for (User instructor : lesson.getAssignedInstructors()) {
                 if (effectiveInstructorId != null && !effectiveInstructorId.equals(instructor.getId())) {
                     continue;
@@ -155,7 +164,7 @@ public class LessonService {
 
         List<WorkloadDto> workload = new ArrayList<>(totals.values());
         log.info("Workload calculated: requestedInstructorId={}, effectiveInstructorId={}, from={}, to={}, rows={}",
-                instructorId, effectiveInstructorId, from, to, workload.size());
+                instructorId, effectiveInstructorId, effectiveFrom, effectiveTo, workload.size());
         return workload;
     }
 
@@ -190,6 +199,14 @@ public class LessonService {
 
         String trimmed = groupCode.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private LocalDate normalizeFrom(LocalDate from) {
+        return from != null ? from : MIN_FILTER_DATE;
+    }
+
+    private LocalDate normalizeTo(LocalDate to) {
+        return to != null ? to : MAX_FILTER_DATE;
     }
 
     private void applyFullEdit(Lesson lesson, LessonDto dto) {

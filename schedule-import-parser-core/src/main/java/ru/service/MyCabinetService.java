@@ -34,6 +34,8 @@ import java.util.UUID;
 public class MyCabinetService {
 
     private static final Logger log = LoggerFactory.getLogger(MyCabinetService.class);
+    private static final LocalDate MIN_FILTER_DATE = LocalDate.of(1900, 1, 1);
+    private static final LocalDate MAX_FILTER_DATE = LocalDate.of(3000, 12, 31);
 
     private final LessonRepository lessonRepository;
     private final IdentityDirectoryService identityDirectoryService;
@@ -45,9 +47,11 @@ public class MyCabinetService {
     }
 
     public ScheduleGridDto getFullScheduleGrid(LocalDate from, LocalDate to) {
-        ScheduleGridDto grid = buildGrid(lessonRepository.findForDateRange(from, to));
+        LocalDate effectiveFrom = normalizeFrom(from);
+        LocalDate effectiveTo = normalizeTo(to);
+        ScheduleGridDto grid = buildGrid(lessonRepository.findForDateRange(effectiveFrom, effectiveTo));
         log.info("Full schedule grid built: from={}, to={}, groups={}, dates={}",
-                from, to, grid.getGroups().size(), grid.getDates().size());
+                effectiveFrom, effectiveTo, grid.getGroups().size(), grid.getDates().size());
         return grid;
     }
 
@@ -55,15 +59,15 @@ public class MyCabinetService {
         DashboardSeed seed = buildDashboardSeed(authentication, from, to);
         ScheduleGridDto grid = buildGrid(seed.lessons());
         log.info("Instructor schedule grid built: user={}, from={}, to={}, lessons={}, groups={}",
-                seed.currentUser().getUsername(), from, to, seed.lessons().size(), grid.getGroups().size());
+                seed.currentUser().getUsername(), seed.from(), seed.to(), seed.lessons().size(), grid.getGroups().size());
         return grid;
     }
 
     public WorkloadCalendarDto getMyWorkloadCalendar(Authentication authentication, LocalDate from, LocalDate to) {
         DashboardSeed seed = buildDashboardSeed(authentication, from, to);
-        WorkloadCalendarDto workload = buildWorkload(seed.currentUser(), seed.lessons(), from, to);
+        WorkloadCalendarDto workload = buildWorkload(seed.currentUser(), seed.lessons(), seed.from(), seed.to());
         log.info("Workload calendar built: user={}, from={}, to={}, totalHours={}, days={}",
-                seed.currentUser().getUsername(), from, to, workload.getTotalHours(), workload.getDays().size());
+                seed.currentUser().getUsername(), seed.from(), seed.to(), workload.getTotalHours(), workload.getDays().size());
         return workload;
     }
 
@@ -71,7 +75,7 @@ public class MyCabinetService {
         DashboardSeed seed = buildDashboardSeed(authentication, from, to);
         List<MyNotificationDto> notifications = buildNotifications(seed.lessons());
         log.info("Notifications built: user={}, from={}, to={}, notifications={}",
-                seed.currentUser().getUsername(), from, to, notifications.size());
+                seed.currentUser().getUsername(), seed.from(), seed.to(), notifications.size());
         return notifications;
     }
 
@@ -79,13 +83,13 @@ public class MyCabinetService {
         DashboardSeed seed = buildDashboardSeed(authentication, from, to);
         MyDashboardDataDto dashboard = MyDashboardDataDto.builder()
                 .instructorSchedule(buildGrid(seed.lessons()))
-                .workload(buildWorkload(seed.currentUser(), seed.lessons(), from, to))
+                .workload(buildWorkload(seed.currentUser(), seed.lessons(), seed.from(), seed.to()))
                 .notifications(buildNotifications(seed.lessons()))
                 .build();
         log.info("Dashboard built: user={}, from={}, to={}, lessons={}, notifications={}, workloadHours={}",
                 seed.currentUser().getUsername(),
-                from,
-                to,
+                seed.from(),
+                seed.to(),
                 seed.lessons().size(),
                 dashboard.getNotifications().size(),
                 dashboard.getWorkload().getTotalHours());
@@ -255,13 +259,23 @@ public class MyCabinetService {
 
     private DashboardSeed buildDashboardSeed(Authentication authentication, LocalDate from, LocalDate to) {
         InternalUserDetailsDto currentUser = currentUser(authentication);
-        List<Lesson> lessons = lessonRepository.findForInstructorNameAndDateRange(currentUser.getFullName(), from, to);
-        return new DashboardSeed(currentUser, lessons);
+        LocalDate effectiveFrom = normalizeFrom(from);
+        LocalDate effectiveTo = normalizeTo(to);
+        List<Lesson> lessons = lessonRepository.findForInstructorNameAndDateRange(currentUser.getFullName(), effectiveFrom, effectiveTo);
+        return new DashboardSeed(currentUser, lessons, effectiveFrom, effectiveTo);
+    }
+
+    private LocalDate normalizeFrom(LocalDate from) {
+        return from != null ? from : MIN_FILTER_DATE;
+    }
+
+    private LocalDate normalizeTo(LocalDate to) {
+        return to != null ? to : MAX_FILTER_DATE;
     }
 
     private record NotificationSeed(UUID dayId, LocalDate date, String groupCode) {
     }
 
-    private record DashboardSeed(InternalUserDetailsDto currentUser, List<Lesson> lessons) {
+    private record DashboardSeed(InternalUserDetailsDto currentUser, List<Lesson> lessons, LocalDate from, LocalDate to) {
     }
 }

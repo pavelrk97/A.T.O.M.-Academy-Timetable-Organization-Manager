@@ -3,15 +3,15 @@ server:
 
 schedule:
   service:
-    url: http://localhost:8080
+    url: ${SCHEDULE_SERVICE_URL:http://localhost:8080}
 
 identity:
   service:
-    url: http://localhost:8082
+    url: ${IDENTITY_SERVICE_URL:http://localhost:8082}
 
 import:
   service:
-    url: http://localhost:8083
+    url: ${IMPORT_SERVICE_URL:http://localhost:8083}
 
 spring:
   application:

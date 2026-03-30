@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -130,9 +131,7 @@ public class CsvImportService {
                 lesson.setDurationHours(importedLesson.getDurationHours());
                 lesson.setNote(importedLesson.getNote());
                 lesson.setType(importedLesson.getType());
-                lesson.setLecturers(importedLesson.getLecturers() != null
-                        ? new ArrayList<>(importedLesson.getLecturers())
-                        : new ArrayList<>());
+                lesson.setLecturers(resolveLecturerNames(importedLesson));
                 lesson.setAssignedInstructors(resolveInstructors(importedLesson, instructorCache));
                 lesson.setDay(day);
                 day.getLessons().add(lesson);
@@ -149,25 +148,33 @@ public class CsvImportService {
                 group.getDays().stream().mapToInt(day -> day.getLessons().size()).sum());
     }
 
-    private List<User> resolveInstructors(Lesson importedLesson, Map<String, User> instructorCache) {
-        List<String> names = new ArrayList<>();
+    private List<String> resolveLecturerNames(Lesson importedLesson) {
+        Map<String, String> uniqueNames = new LinkedHashMap<>();
         if (importedLesson.getLecturers() != null) {
-            names.addAll(importedLesson.getLecturers());
-        }
-        if (importedLesson.getLecturer() != null
-                && !importedLesson.getLecturer().isBlank()
-                && !names.contains(importedLesson.getLecturer())) {
-            names.add(importedLesson.getLecturer());
-        }
-
-        List<User> instructors = new ArrayList<>();
-        for (String name : names) {
-            if (name == null || name.isBlank()) {
-                continue;
+            for (String name : importedLesson.getLecturers()) {
+                addUniqueName(uniqueNames, name);
             }
-            String key = name.trim().toLowerCase(Locale.ROOT);
-            instructors.add(instructorCache.computeIfAbsent(key, ignored -> userService.findOrCreateInstructor(name)));
         }
-        return instructors;
+        addUniqueName(uniqueNames, importedLesson.getLecturer());
+        return new ArrayList<>(uniqueNames.values());
+    }
+
+    private List<User> resolveInstructors(Lesson importedLesson, Map<String, User> instructorCache) {
+        Map<String, User> uniqueInstructors = new LinkedHashMap<>();
+        for (String name : resolveLecturerNames(importedLesson)) {
+            String key = name.trim().toLowerCase(Locale.ROOT);
+            uniqueInstructors.computeIfAbsent(
+                    key,
+                    ignored -> instructorCache.computeIfAbsent(key, anotherIgnored -> userService.findOrCreateInstructor(name))
+            );
+        }
+        return new ArrayList<>(uniqueInstructors.values());
+    }
+
+    private void addUniqueName(Map<String, String> uniqueNames, String name) {
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        uniqueNames.putIfAbsent(name.trim().toLowerCase(Locale.ROOT), name.trim());
     }
 }
