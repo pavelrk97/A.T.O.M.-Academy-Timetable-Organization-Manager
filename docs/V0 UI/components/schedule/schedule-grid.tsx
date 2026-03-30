@@ -30,9 +30,6 @@ function formatDateLabel(date: string) {
 
 function lessonTypeLabel(type?: string | null) {
   if (type === 'LECTURE') return 'Лекция'
-  if (type === 'SEMINAR') return 'Семинар'
-  if (type === 'LAB') return 'Лабораторная'
-  if (type === 'PRACTICE') return 'Практика'
   if (type === 'SELF_STUDY') return 'Самостоятельно'
   if (type === 'ASSESSMENT') return 'Контроль'
   return 'Занятие'
@@ -40,9 +37,6 @@ function lessonTypeLabel(type?: string | null) {
 
 function typeBadgeClass(type?: string | null) {
   if (type === 'LECTURE') return 'bg-primary/10 text-primary'
-  if (type === 'SEMINAR') return 'bg-sky-100 text-sky-700'
-  if (type === 'LAB') return 'bg-cyan-100 text-cyan-700'
-  if (type === 'PRACTICE') return 'bg-emerald-100 text-emerald-700'
   if (type === 'SELF_STUDY') return 'bg-slate-200 text-slate-700'
   if (type === 'ASSESSMENT') return 'bg-amber-100 text-amber-700'
   return 'bg-slate-100 text-slate-700'
