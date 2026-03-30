@@ -1,6 +1,7 @@
 package ru.service;
 
 import jakarta.transaction.Transactional;
+import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,8 @@ import ru.parser.ScheduleCsvParser;
 import ru.repository.GroupRepository;
 
 import java.io.InputStream;
+import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,23 +29,41 @@ public class CsvImportService {
 
     private final GroupRepository groupRepository;
     private final UserService userService;
+    private final CsvImportArchiveService csvImportArchiveService;
+    private final EntityManager entityManager;
 
     public CsvImportService(GroupRepository groupRepository,
-                            UserService userService) {
+                            UserService userService,
+                            CsvImportArchiveService csvImportArchiveService,
+                            EntityManager entityManager) {
         this.groupRepository = groupRepository;
         this.userService = userService;
+        this.csvImportArchiveService = csvImportArchiveService;
+        this.entityManager = entityManager;
     }
 
     @Transactional
     public int importFromCsv(InputStream csvStream) throws Exception {
+        Path stagedFile = null;
         try {
-            List<Group> groups = ScheduleCsvParser.parse(csvStream);
-            log.info("CSV parsed successfully: groups={}", groups.size());
-            int imported = importGroups(groups);
-            log.info("CSV import committed: importedGroups={}", imported);
-            return imported;
+            stagedFile = csvImportArchiveService.stageUpload(csvStream);
+            csvImportArchiveService.backupCurrentSource();
+            clearScheduleData();
+
+            try (InputStream stagedInputStream = Files.newInputStream(stagedFile)) {
+                List<Group> groups = ScheduleCsvParser.parse(stagedInputStream);
+                log.info("CSV parsed successfully: groups={}", groups.size());
+                int imported = importGroups(groups);
+                csvImportArchiveService.promoteToCurrent(stagedFile);
+                log.info("CSV import committed: importedGroups={}, currentFile={}, previousFile={}",
+                        imported,
+                        csvImportArchiveService.getCurrentFile(),
+                        csvImportArchiveService.getPreviousFile());
+                return imported;
+            }
         } catch (Exception ex) {
             log.error("CSV import failed", ex);
+            csvImportArchiveService.cleanupStaged(stagedFile);
             throw ex;
         }
     }
@@ -58,6 +79,31 @@ public class CsvImportService {
         }
         log.info("Group batch imported: groups={}, instructorCacheSize={}", imported, instructorCache.size());
         return imported;
+    }
+
+    private void clearScheduleData() {
+        int deletedNotifications = entityManager.createNativeQuery("delete from notifications").executeUpdate();
+        int deletedUserGroups = entityManager.createNativeQuery("delete from user_groups").executeUpdate();
+        int deletedLessonInstructors = entityManager.createNativeQuery("delete from lesson_instructors").executeUpdate();
+        int deletedLessonLecturers = entityManager.createNativeQuery("delete from lesson_lecturers").executeUpdate();
+        int deletedDayMeta = entityManager.createNativeQuery("delete from day_meta").executeUpdate();
+        int deletedLessons = entityManager.createNativeQuery("delete from lessons").executeUpdate();
+        int deletedDays = entityManager.createNativeQuery("delete from days").executeUpdate();
+        int deletedGroups = entityManager.createNativeQuery("delete from groups").executeUpdate();
+        int deletedChangeLogs = entityManager.createNativeQuery("delete from change_logs").executeUpdate();
+
+        entityManager.clear();
+
+        log.info("Schedule data cleared before CSV import: groups={}, days={}, lessons={}, dayMeta={}, lessonLecturers={}, lessonInstructors={}, userGroups={}, notifications={}, changeLogs={}",
+                deletedGroups,
+                deletedDays,
+                deletedLessons,
+                deletedDayMeta,
+                deletedLessonLecturers,
+                deletedLessonInstructors,
+                deletedUserGroups,
+                deletedNotifications,
+                deletedChangeLogs);
     }
 
     private void upsertGroup(Group importedGroup, Map<String, User> instructorCache) {

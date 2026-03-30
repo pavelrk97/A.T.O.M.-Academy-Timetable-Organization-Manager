@@ -1,6 +1,10 @@
 server:
   port: 8080
 
+atom:
+  import:
+    archive-dir: ${ATOM_IMPORT_ARCHIVE_DIR:${user.home}/atom-import-archive}
+
 internal:
   security:
     api-key: ${SCHEDULE_INTERNAL_API_KEY:dev-schedule-internal-api-key}

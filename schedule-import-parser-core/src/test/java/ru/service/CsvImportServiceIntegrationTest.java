@@ -7,6 +7,8 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import ru.model.Day;
@@ -15,10 +17,17 @@ import ru.model.Lesson;
 import ru.model.LessonType;
 import ru.model.Role;
 import ru.model.User;
+import ru.parser.DateParser;
 import ru.repository.GroupRepository;
 import ru.repository.UserRepository;
 
+import java.lang.reflect.Field;
 import java.time.LocalDate;
+import java.time.Month;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -30,10 +39,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 })
 @Import({
         CsvImportService.class,
+        CsvImportArchiveService.class,
         UserService.class,
         CsvImportServiceIntegrationTest.TestConfig.class
 })
 class CsvImportServiceIntegrationTest {
+
+    private static final Path ARCHIVE_DIR = createArchiveDir();
+
+    @DynamicPropertySource
+    static void registerProperties(DynamicPropertyRegistry registry) {
+        registry.add("atom.import.archive-dir", () -> ARCHIVE_DIR.toString());
+    }
 
     @TestConfiguration
     static class TestConfig {
@@ -54,6 +71,46 @@ class CsvImportServiceIntegrationTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @Test
+    void importFromCsv_replacesScheduleFromScratchAndKeepsSinglePreviousSource() throws Exception {
+        persistCurrentGroup("old-group", "Old Mentor");
+        entityManager.flush();
+        entityManager.clear();
+
+        String firstCsv = csv(
+                "new-group-1",
+                "Mentor One",
+                "I&C02.01.01 Intro (3 ч)"
+        );
+
+        csvImportService.importFromCsv(new java.io.ByteArrayInputStream(firstCsv.getBytes(StandardCharsets.UTF_8)));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(groupRepository.findByCode("old-group")).isEmpty();
+        assertThat(groupRepository.findByCode("new-group-1")).isPresent();
+
+        Path currentFile = ARCHIVE_DIR.resolve("current-schedule.csv");
+        Path previousFile = ARCHIVE_DIR.resolve("previous-schedule.csv");
+        assertThat(Files.exists(currentFile)).isTrue();
+        assertThat(Files.exists(previousFile)).isFalse();
+
+        String secondCsv = csv(
+                "new-group-2",
+                "Mentor Two",
+                "I&C02.01.02 Advanced topic (2 ч)"
+        );
+
+        csvImportService.importFromCsv(new java.io.ByteArrayInputStream(secondCsv.getBytes(StandardCharsets.UTF_8)));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(groupRepository.findByCode("new-group-1")).isEmpty();
+        assertThat(groupRepository.findByCode("new-group-2")).isPresent();
+        assertThat(Files.readString(currentFile)).contains("new-group-2");
+        assertThat(Files.readString(previousFile)).contains("new-group-1");
+    }
 
     @Test
     void importGroups_canReimportSameGroupWithoutBlowingUp() {
@@ -132,5 +189,47 @@ class CsvImportServiceIntegrationTest {
         user.setCanTeach(true);
         user.setActive(active);
         return user;
+    }
+
+    private void persistCurrentGroup(String groupCode, String lecturerName) {
+        csvImportService.importGroups(List.of(buildImportedGroup(groupCode, lecturerName)));
+    }
+
+    private String csv(String groupCode, String instructorName, String lessonLine) {
+        return """
+                h0,%s
+                h1,05.%s
+                "%s\nB201","I&C02\n%s\n%s"
+                """.formatted(
+                groupCode,
+                januaryKey(),
+                groupCode,
+                instructorName,
+                lessonLine
+        );
+    }
+
+    private static Path createArchiveDir() {
+        try {
+            return Files.createTempDirectory("atom-import-archive-test");
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to create temp archive dir", ex);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String januaryKey() {
+        try {
+            Field field = DateParser.class.getDeclaredField("MONTHS");
+            field.setAccessible(true);
+            Map<String, Month> months = (Map<String, Month>) field.get(null);
+            return months.entrySet().stream()
+                    .filter(entry -> entry.getValue() == Month.JANUARY)
+                    .map(Map.Entry::getKey)
+                    .findFirst()
+                    .orElseThrow();
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to resolve January month key for test CSV", ex);
+        }
     }
 }
