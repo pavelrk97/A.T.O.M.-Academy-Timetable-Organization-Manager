@@ -155,6 +155,24 @@ class CsvImportServiceIntegrationTest {
         assertThat(userRepository.findAll()).hasSize(2);
     }
 
+    @Test
+    void importGroups_deduplicatesRepeatedInstructorNamesInsideSingleLesson() {
+        Group importedGroup = buildImportedGroup("group-dupe-instructor", "Mentor Example");
+        Lesson importedLesson = importedGroup.getDays().get(0).getLessons().get(0);
+        importedLesson.setLecturers(new ArrayList<>(List.of("Mentor Example", "Mentor Example")));
+
+        csvImportService.importGroups(List.of(importedGroup));
+        entityManager.flush();
+        entityManager.clear();
+
+        Group group = groupRepository.findByCode("group-dupe-instructor").orElseThrow();
+        Lesson lesson = group.getDays().get(0).getLessons().get(0);
+
+        assertThat(lesson.getLecturers()).containsExactly("Mentor Example");
+        assertThat(lesson.getAssignedInstructors()).hasSize(1);
+        assertThat(userRepository.findAll()).hasSize(1);
+    }
+
     private Group buildImportedGroup(String groupCode, String lecturerName) {
         Group group = new Group();
         group.setCode(groupCode);

@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
 class MyCabinetServiceTest {
@@ -117,6 +118,25 @@ class MyCabinetServiceTest {
         verify(identityDirectoryService, times(1)).getByUsername("mentor");
         verify(lessonRepository, times(1))
                 .findForInstructorNameAndDateRange("Mentor QA", LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+    }
+
+    @Test
+    void fullGridAndDashboard_normalizeNullDatesBeforeRepositoryCall() {
+        MyCabinetService service = new MyCabinetService(lessonRepository, identityDirectoryService);
+        Authentication authentication = new UsernamePasswordAuthenticationToken("mentor", "pass");
+        InternalUserDetailsDto currentUser = internalUser("mentor", "Mentor QA");
+
+        when(identityDirectoryService.getByUsername("mentor")).thenReturn(currentUser);
+        when(lessonRepository.findForDateRange(LocalDate.of(1900, 1, 1), LocalDate.of(3000, 12, 31)))
+                .thenReturn(List.of());
+        when(lessonRepository.findForInstructorNameAndDateRange("Mentor QA", LocalDate.of(1900, 1, 1), LocalDate.of(3000, 12, 31)))
+                .thenReturn(List.of());
+
+        service.getFullScheduleGrid(null, null);
+        service.getDashboard(authentication, null, null);
+
+        verify(lessonRepository).findForDateRange(eq(LocalDate.of(1900, 1, 1)), eq(LocalDate.of(3000, 12, 31)));
+        verify(lessonRepository).findForInstructorNameAndDateRange(eq("Mentor QA"), eq(LocalDate.of(1900, 1, 1)), eq(LocalDate.of(3000, 12, 31)));
     }
 
     private InternalUserDetailsDto internalUser(String username, String fullName) {
