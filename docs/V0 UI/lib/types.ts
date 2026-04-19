@@ -1,8 +1,5 @@
 export type UserRole = 'ADMIN' | 'EDITOR' | 'INSTRUCTOR'
-export type LessonType =
-  | 'LECTURE'
-  | 'SELF_STUDY'
-  | 'ASSESSMENT'
+export type LessonType = 'LECTURE' | 'SELF_STUDY' | 'ASSESSMENT'
 
 export interface User {
   id: string
@@ -16,12 +13,19 @@ export interface User {
   role: UserRole
   active: boolean
   canTeach: boolean
+  editorAccess: boolean
 }
 
 export interface AuthState {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
+}
+
+export interface TokenResponse {
+  tokenType: string
+  accessToken: string
+  expiresAt: string
 }
 
 export interface LessonHistoryEntry {
@@ -68,7 +72,7 @@ export interface LessonMutationPayload {
 }
 
 export interface DayDto {
-  id: string
+  id?: string | null
   date: string
   meta?: Record<string, string>
   lessons: LessonEditorDto[]
@@ -80,6 +84,21 @@ export interface GroupDto {
   location?: string | null
   course?: number | null
   days: DayDto[]
+}
+
+export interface DayMutationPayload {
+  id?: string | null
+  date: string
+  meta?: Record<string, string>
+  lessons: LessonEditorDto[]
+}
+
+export interface GroupMutationPayload {
+  id?: string | null
+  code: string
+  location?: string | null
+  course?: number | null
+  days: DayMutationPayload[]
 }
 
 export interface ScheduleEntry {
@@ -196,4 +215,5 @@ export interface UserUpsertRequest {
   role: UserRole
   active: boolean
   canTeach: boolean
+  editorAccess: boolean
 }

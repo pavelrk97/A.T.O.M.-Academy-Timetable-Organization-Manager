@@ -4,6 +4,7 @@ import {
   Suspense,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ComponentType,
 } from 'react'
@@ -65,7 +66,21 @@ function buildCabinetQuery(tab: CabinetTab, from: string, to: string) {
   return query.toString()
 }
 
-function createTabItems(role?: string) {
+function canUseOperations(user?: User | null) {
+  return Boolean(user && (user.role === 'ADMIN' || user.role === 'EDITOR' || user.editorAccess))
+}
+
+function roleLabel(user?: User | null) {
+  if (!user) {
+    return ''
+  }
+  if (user.role === 'ADMIN') return 'Администратор'
+  if (user.role === 'EDITOR') return 'Редактор'
+  if (user.editorAccess) return 'Инструктор / Редактор'
+  return 'Инструктор'
+}
+
+function createTabItems(user?: User | null) {
   const items: { id: CabinetTab; label: string; icon: ComponentType<{ className?: string }> }[] = [
     { id: 'dashboard', label: 'Обзор', icon: LayoutDashboard },
     { id: 'profile', label: 'Профиль', icon: UserRound },
@@ -75,7 +90,7 @@ function createTabItems(role?: string) {
     { id: 'security', label: 'Безопасность', icon: LockKeyhole },
   ]
 
-  if (role === 'ADMIN' || role === 'EDITOR') {
+  if (canUseOperations(user)) {
     items.push({ id: 'admin', label: 'Операции', icon: FileCog })
   }
 
@@ -108,6 +123,10 @@ function CabinetPageContent() {
   const urlTab = (searchParams.get('tab') as CabinetTab) || 'dashboard'
   const urlFrom = searchParams.get('from') || defaultRange.from
   const urlTo = searchParams.get('to') || defaultRange.to
+  const urlQuery = useMemo(
+    () => buildCabinetQuery(urlTab, urlFrom, urlTo),
+    [urlTab, urlFrom, urlTo]
+  )
 
   const [activeTab, setActiveTab] = useState<CabinetTab>(urlTab)
   const [range, setRange] = useState({ from: urlFrom, to: urlTo })
@@ -121,20 +140,29 @@ function CabinetPageContent() {
   const [adminLoading, setAdminLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const syncingFromUrlRef = useRef(false)
 
   useEffect(() => {
+    if (activeTab === urlTab && range.from === urlFrom && range.to === urlTo) {
+      return
+    }
+
+    syncingFromUrlRef.current = true
     setActiveTab(urlTab)
     setRange({ from: urlFrom, to: urlTo })
   }, [urlTab, urlFrom, urlTo])
 
   useEffect(() => {
-    const nextQuery = buildCabinetQuery(activeTab, range.from, range.to)
-    const currentQuery = searchParams.toString()
+    if (syncingFromUrlRef.current) {
+      syncingFromUrlRef.current = false
+      return
+    }
 
-    if (nextQuery !== currentQuery) {
+    const nextQuery = buildCabinetQuery(activeTab, range.from, range.to)
+    if (nextQuery !== urlQuery) {
       router.replace(`/cabinet?${nextQuery}`, { scroll: false })
     }
-  }, [activeTab, range.from, range.to, router, searchParams])
+  }, [activeTab, range.from, range.to, router, urlQuery])
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -180,12 +208,14 @@ function CabinetPageContent() {
     }
   }, [isAuthenticated, range])
 
-  const isAdminLike = user?.role === 'ADMIN' || user?.role === 'EDITOR'
-  const tabs = createTabItems(user?.role)
+  const operationsEnabled = canUseOperations(user)
+  const canManageUsers = user?.role === 'ADMIN'
+  const canManageGroups = user?.role === 'ADMIN'
+  const tabs = createTabItems(user)
   const currentSchedule = scheduleMode === 'my' ? dashboard?.instructorSchedule : fullSchedule
 
   async function loadFullSchedule() {
-    if (!isAdminLike) {
+    if (!operationsEnabled) {
       return
     }
 
@@ -206,7 +236,7 @@ function CabinetPageContent() {
   }
 
   async function loadAdminData() {
-    if (!isAdminLike) {
+    if (!operationsEnabled) {
       return
     }
 
@@ -219,7 +249,7 @@ function CabinetPageContent() {
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Не удалось загрузить административные данные.'
+          : 'Не удалось загрузить данные операционного блока.'
       )
     } finally {
       setAdminLoading(false)
@@ -227,10 +257,10 @@ function CabinetPageContent() {
   }
 
   useEffect(() => {
-    if (activeTab === 'admin' && isAdminLike && (!users.length || !groups.length)) {
-      loadAdminData()
+    if (activeTab === 'admin' && operationsEnabled && (!users.length || !groups.length)) {
+      void loadAdminData()
     }
-  }, [activeTab, isAdminLike, users.length, groups.length])
+  }, [activeTab, operationsEnabled, users.length, groups.length])
 
   async function handleProfileUpdate(payload: {
     displayName?: string | null
@@ -290,7 +320,7 @@ function CabinetPageContent() {
               <div className="mt-2 text-lg font-semibold text-slate-950">
                 {user.displayName || user.fullName || user.username}
               </div>
-              <div className="text-sm text-muted-foreground">{user.role}</div>
+              <div className="text-sm text-muted-foreground">{roleLabel(user)}</div>
             </div>
 
             <nav className="space-y-1">
@@ -325,9 +355,9 @@ function CabinetPageContent() {
                   Рабочее пространство пользователя
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Профиль, расписание, уведомления, безопасность и нагрузка в одном месте.
-                  Для администратора здесь же открыт операционный блок с импортом и
-                  справочниками.
+                  Профиль, расписание, уведомления, безопасность и нагрузка собраны в одном месте.
+                  Для администратора здесь открыт import, пользователи и управление сеткой.
+                  Для инструктора с editor access остаётся только создание и редактирование занятий.
                 </p>
               </div>
 
@@ -409,7 +439,7 @@ function CabinetPageContent() {
                     <section className="space-y-4">
                       <div className="flex items-center justify-between">
                         <h2 className="text-xl font-semibold text-slate-950">Моя сетка занятий</h2>
-                        {isAdminLike ? (
+                        {operationsEnabled ? (
                           <div className="flex gap-2">
                             <Button
                               variant={scheduleMode === 'my' ? 'default' : 'outline'}
@@ -451,10 +481,10 @@ function CabinetPageContent() {
                     <div>
                       <h2 className="text-xl font-semibold text-slate-950">Сетка расписания</h2>
                       <p className="text-sm text-muted-foreground">
-                        То же табличное представление, но уже внутри личного кабинета.
+                        Табличный вид расписания внутри личного кабинета.
                       </p>
                     </div>
-                    {isAdminLike ? (
+                    {operationsEnabled ? (
                       <div className="flex gap-2">
                         <Button
                           variant={scheduleMode === 'my' ? 'default' : 'outline'}
@@ -492,15 +522,19 @@ function CabinetPageContent() {
                 <ChangePassword onSubmit={handlePasswordChange} />
               ) : null}
 
-              {activeTab === 'admin' && isAdminLike ? (
+              {activeTab === 'admin' && operationsEnabled ? (
                 adminLoading && !users.length && !groups.length ? (
                   <div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-border bg-white shadow-sm">
                     <Loader2 className="h-5 w-5 animate-spin text-primary" />
                   </div>
                 ) : (
                   <AdminWorkspace
+                    currentUser={user}
                     users={users}
                     groups={groups}
+                    canImport={user.role === 'ADMIN'}
+                    canManageUsers={canManageUsers}
+                    canManageGroups={canManageGroups}
                     importing={importing}
                     importResult={importResult}
                     onImport={handleImport}

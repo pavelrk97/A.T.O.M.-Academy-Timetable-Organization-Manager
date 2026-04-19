@@ -63,6 +63,10 @@ public class UserService {
     }
 
     public User findOrCreateInstructor(String fullName) {
+        if (!isMeaningfulInstructorName(fullName)) {
+            throw new ResourceNotFoundException("Instructor name is invalid");
+        }
+
         List<User> matches = userRepository.findAllByFullNameIgnoreCase(fullName);
         if (!matches.isEmpty()) {
             return pickBestInstructorMatch(matches);
@@ -76,6 +80,12 @@ public class UserService {
         user.setCanTeach(true);
         user.setActive(false);
         return userRepository.save(user);
+    }
+
+    public boolean isMeaningfulInstructorName(String fullName) {
+        return fullName != null
+                && !fullName.isBlank()
+                && !"name".equalsIgnoreCase(fullName.trim());
     }
 
     private void apply(User user, UserUpsertRequest request) {

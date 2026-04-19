@@ -1,6 +1,21 @@
 .idea/
 .idea_backup_*/
 *.iml
+
+# Local environment files
 .env
 .env.*
 !.env.example
+
+# Maven / Java build outputs
+**/target/
+*.class
+
+# Frontend dependencies and build outputs
+**/node_modules/
+**/.next/
+
+# Runtime logs
+*.log
+*.out.log
+*.err.log

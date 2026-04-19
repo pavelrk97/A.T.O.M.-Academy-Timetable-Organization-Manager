@@ -9,11 +9,10 @@ import {
   type ReactNode,
 } from 'react'
 import type { AuthState } from './types'
-import { clearAuthCredentials, meApi, setAuthCredentials } from './api'
+import { authApi, clearAccessToken, meApi, setAccessToken } from './api'
 
 interface StoredAuth {
-  username: string
-  password: string
+  accessToken: string
 }
 
 interface AuthContextType extends AuthState {
@@ -55,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem(AUTH_STORAGE_KEY)
     }
-    clearAuthCredentials()
+    clearAccessToken()
     setState({
       user: null,
       isAuthenticated: false,
@@ -84,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    setAuthCredentials(stored.username, stored.password)
+    setAccessToken(stored.accessToken)
     meApi
       .getProfile()
       .then((user) => {
@@ -101,13 +100,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     setState((prev) => ({ ...prev, isLoading: true }))
-    setAuthCredentials(username, password)
 
     try {
+      const tokenResponse = await authApi.login({ username, password })
+      setAccessToken(tokenResponse.accessToken)
       const user = await meApi.getProfile()
       window.localStorage.setItem(
         AUTH_STORAGE_KEY,
-        JSON.stringify({ username, password })
+        JSON.stringify({ accessToken: tokenResponse.accessToken })
       )
       setState({
         user,
@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       return true
     } catch {
-      clearAuthCredentials()
+      clearAccessToken()
       setState({
         user: null,
         isAuthenticated: false,
@@ -127,14 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const updateStoredPassword = useCallback((newPassword: string) => {
-    const stored = readStoredAuth()
-    if (!stored) {
-      return
-    }
-
-    const nextStored = { ...stored, password: newPassword }
-    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextStored))
-    setAuthCredentials(nextStored.username, nextStored.password)
+    void newPassword
   }, [])
 
   return (

@@ -31,15 +31,18 @@ public class CsvImportService {
     private final GroupRepository groupRepository;
     private final UserService userService;
     private final CsvImportArchiveService csvImportArchiveService;
+    private final InstructorIdentitySyncService instructorIdentitySyncService;
     private final EntityManager entityManager;
 
     public CsvImportService(GroupRepository groupRepository,
                             UserService userService,
                             CsvImportArchiveService csvImportArchiveService,
+                            InstructorIdentitySyncService instructorIdentitySyncService,
                             EntityManager entityManager) {
         this.groupRepository = groupRepository;
         this.userService = userService;
         this.csvImportArchiveService = csvImportArchiveService;
+        this.instructorIdentitySyncService = instructorIdentitySyncService;
         this.entityManager = entityManager;
     }
 
@@ -56,6 +59,7 @@ public class CsvImportService {
                 log.info("CSV parsed successfully: groups={}", groups.size());
                 int imported = importGroups(groups);
                 csvImportArchiveService.promoteToCurrent(stagedFile);
+                instructorIdentitySyncService.syncCurrentInstructors();
                 log.info("CSV import committed: importedGroups={}, currentFile={}, previousFile={}",
                         imported,
                         csvImportArchiveService.getCurrentFile(),
@@ -172,7 +176,7 @@ public class CsvImportService {
     }
 
     private void addUniqueName(Map<String, String> uniqueNames, String name) {
-        if (name == null || name.isBlank()) {
+        if (!userService.isMeaningfulInstructorName(name)) {
             return;
         }
         uniqueNames.putIfAbsent(name.trim().toLowerCase(Locale.ROOT), name.trim());

@@ -107,6 +107,47 @@ class LessonControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "instructor", roles = {"INSTRUCTOR", "EDITOR"})
+    void createLesson_returnsSavedLessonForInstructorWithEditorRole() throws Exception {
+        UUID lessonId = UUID.randomUUID();
+        UUID dayId = UUID.randomUUID();
+
+        given(lessonService.create(any(LessonDto.class), any(Authentication.class))).willReturn(
+                LessonDto.builder()
+                        .id(lessonId)
+                        .version(0L)
+                        .dayId(dayId)
+                        .orderNumber(3)
+                        .title("Smoke lesson")
+                        .durationHours(2)
+                        .type(LessonType.ASSESSMENT)
+                        .build()
+        );
+
+        mockMvc.perform(post("/api/lessons")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "dayId": "%s",
+                                  "orderNumber": 3,
+                                  "title": "Smoke lesson",
+                                  "durationHours": 2,
+                                  "type": "ASSESSMENT",
+                                  "instructorIds": []
+                                }
+                                """.formatted(dayId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(lessonId.toString()))
+                .andExpect(jsonPath("$.title").value("Smoke lesson"))
+                .andExpect(jsonPath("$.type").value("ASSESSMENT"));
+
+        verify(lessonService).create(
+                argThat(dto -> "Smoke lesson".equals(dto.getTitle()) && dayId.equals(dto.getDayId())),
+                any(Authentication.class)
+        );
+    }
+
+    @Test
     @WithMockUser(username = "editor", roles = "EDITOR")
     void updateLesson_returnsSavedLessonForEditor() throws Exception {
         UUID lessonId = UUID.randomUUID();

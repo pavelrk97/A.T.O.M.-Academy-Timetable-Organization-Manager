@@ -1,7 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { BriefcaseBusiness, Building2, Check, Mail, PencilLine, Phone, UserRound, X } from 'lucide-react'
+import {
+  BriefcaseBusiness,
+  Building2,
+  Check,
+  Mail,
+  PencilLine,
+  Phone,
+  ShieldCheck,
+  UserRound,
+  X,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,10 +23,11 @@ interface ProfileSectionProps {
   isEditable?: boolean
 }
 
-function roleLabel(role: string) {
-  if (role === 'ADMIN') return 'Administrator'
-  if (role === 'EDITOR') return 'Editor'
-  return 'Instructor'
+function roleLabel(user: User) {
+  if (user.role === 'ADMIN') return 'Администратор'
+  if (user.role === 'EDITOR') return 'Редактор'
+  if (user.editorAccess) return 'Инструктор / Редактор'
+  return 'Инструктор'
 }
 
 export function ProfileSection({
@@ -67,21 +78,21 @@ export function ProfileSection({
   }
 
   const fields = [
-    { key: 'displayName', label: 'Display name', icon: UserRound, type: 'text' },
+    { key: 'displayName', label: 'Отображаемое имя', icon: UserRound, type: 'text' },
     { key: 'email', label: 'Email', icon: Mail, type: 'email' },
-    { key: 'phone', label: 'Phone', icon: Phone, type: 'tel' },
-    { key: 'position', label: 'Position', icon: BriefcaseBusiness, type: 'text' },
-    { key: 'department', label: 'Department', icon: Building2, type: 'text' },
+    { key: 'phone', label: 'Телефон', icon: Phone, type: 'tel' },
+    { key: 'position', label: 'Должность', icon: BriefcaseBusiness, type: 'text' },
+    { key: 'department', label: 'Подразделение', icon: Building2, type: 'text' },
   ] as const
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-950">Profile</h3>
+          <h3 className="text-lg font-semibold text-slate-950">Профиль</h3>
           <p className="text-sm text-muted-foreground">
-            Update the display name and contact data shown in the cabinet. The system name used by
-            imports stays managed separately.
+            Здесь редактируются отображаемое имя и контактные данные. Системное имя для импорта
+            управляется отдельно.
           </p>
         </div>
         {isEditable ? (
@@ -89,17 +100,17 @@ export function ProfileSection({
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={reset} disabled={saving}>
                 <X className="mr-2 h-4 w-4" />
-                Cancel
+                Отмена
               </Button>
               <Button size="sm" onClick={save} disabled={saving}>
                 <Check className="mr-2 h-4 w-4" />
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? 'Сохраняю...' : 'Сохранить'}
               </Button>
             </div>
           ) : (
             <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
               <PencilLine className="mr-2 h-4 w-4" />
-              Edit
+              Редактировать
             </Button>
           )
         ) : null}
@@ -114,15 +125,21 @@ export function ProfileSection({
             <div className="text-lg font-semibold text-slate-950">{visibleName}</div>
             <div className="text-sm text-muted-foreground">@{user.username}</div>
             {user.fullName && user.fullName !== visibleName ? (
-              <div className="mt-1 text-xs text-slate-500">System name: {user.fullName}</div>
+              <div className="mt-1 text-xs text-slate-500">Системное имя: {user.fullName}</div>
             ) : null}
           </div>
           <div className="mt-4 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-            {roleLabel(user.role)}
+            {roleLabel(user)}
           </div>
+          {user.editorAccess && user.role === 'INSTRUCTOR' ? (
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Есть доступ к редакторским операциям
+            </div>
+          ) : null}
           <div className="mt-6 space-y-2 text-sm text-muted-foreground">
-            <div>Account: {user.active ? 'active' : 'disabled'}</div>
-            <div>Can teach: {user.canTeach ? 'yes' : 'no'}</div>
+            <div>Аккаунт: {user.active ? 'активен' : 'отключён'}</div>
+            <div>Может вести занятия: {user.canTeach ? 'да' : 'нет'}</div>
           </div>
         </div>
 

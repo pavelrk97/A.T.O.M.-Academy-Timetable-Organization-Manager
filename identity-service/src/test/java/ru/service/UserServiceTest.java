@@ -18,6 +18,7 @@ import ru.model.Role;
 import ru.model.User;
 import ru.repository.UserRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,6 +39,30 @@ class UserServiceTest {
 
     @InjectMocks
     private UserService userService;
+
+    @Test
+    void getAll_hidesInternalImportedAndInvalidPlaceholderAccounts() {
+        User visibleAdmin = user("admin");
+        visibleAdmin.setRole(Role.ADMIN);
+        visibleAdmin.setFullName("Administrator");
+        visibleAdmin.setDisplayName("Administrator");
+
+        User hiddenImported = user("imported-abc12345");
+        hiddenImported.setRole(Role.INSTRUCTOR);
+        hiddenImported.setFullName("Harper");
+        hiddenImported.setDisplayName("Harper");
+
+        User hiddenPlaceholder = user("Name");
+        hiddenPlaceholder.setRole(Role.INSTRUCTOR);
+        hiddenPlaceholder.setFullName("Name");
+        hiddenPlaceholder.setDisplayName("Name");
+
+        when(userRepository.findAll()).thenReturn(List.of(hiddenImported, hiddenPlaceholder, visibleAdmin));
+
+        List<UserDto> users = userService.getAll();
+
+        assertThat(users).extracting(UserDto::getUsername).containsExactly("admin");
+    }
 
     @Test
     void updateCurrentProfile_updatesOptionalFieldsAndDisplayNameWithoutTouchingFullName() {
@@ -161,6 +186,88 @@ class UserServiceTest {
         assertThat(result.getDepartment()).isEqualTo("Academy");
         assertThat(result.getRole()).isEqualTo(Role.ADMIN);
         assertThat(result.isCanTeach()).isTrue();
+    }
+
+    @Test
+    void syncImportedInstructors_createsImportedAccountsAndRebindsDemoInstructor() {
+        User demoInstructor = user("instructor");
+        demoInstructor.setFullName("Old Name");
+
+        when(userRepository.findAll()).thenReturn(List.of(demoInstructor));
+        when(userRepository.findByUsername("Kharlamova")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("Volkova")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("instructor")).thenReturn(Optional.of(demoInstructor));
+        when(passwordEncoder.encode("12345")).thenReturn("encoded-12345");
+        when(passwordEncoder.encode("123")).thenReturn("encoded-123");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.syncImportedInstructors(List.of("Kharlamova", "Volkova", "Kharlamova"));
+
+        assertThat(demoInstructor.getPassword()).isEqualTo("encoded-123");
+        assertThat(demoInstructor.getFullName()).isEqualTo("Kharlamova");
+        assertThat(demoInstructor.isEditorAccess()).isTrue();
+        assertThat(demoInstructor.isCanTeach()).isTrue();
+        verify(userRepository).save(org.mockito.ArgumentMatchers.argThat(user ->
+                "Kharlamova".equals(user.getUsername()) &&
+                        "encoded-12345".equals(user.getPassword()) &&
+                        !user.isEditorAccess()));
+        verify(userRepository).save(org.mockito.ArgumentMatchers.argThat(user ->
+                "Volkova".equals(user.getUsername()) &&
+                        "encoded-12345".equals(user.getPassword()) &&
+                        !user.isEditorAccess()));
+    }
+
+    @Test
+    void syncImportedInstructors_deactivatesStaleAndPlaceholderInstructorAccounts() {
+        User demoInstructor = user("instructor");
+        demoInstructor.setFullName("Old Demo");
+        demoInstructor.setEditorAccess(true);
+
+        User staleImportedLogin = user("Administrator");
+        staleImportedLogin.setFullName("Administrator");
+        staleImportedLogin.setRole(Role.INSTRUCTOR);
+        staleImportedLogin.setEditorAccess(false);
+        staleImportedLogin.setCanTeach(true);
+        staleImportedLogin.setActive(true);
+
+        User placeholderImported = user("imported-deadbeef");
+        placeholderImported.setFullName("Name");
+        placeholderImported.setRole(Role.INSTRUCTOR);
+        placeholderImported.setEditorAccess(false);
+        placeholderImported.setCanTeach(true);
+        placeholderImported.setActive(true);
+
+        when(userRepository.findAll()).thenReturn(List.of(demoInstructor, staleImportedLogin, placeholderImported));
+        when(userRepository.findByUsername("Harper")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("instructor")).thenReturn(Optional.of(demoInstructor));
+        when(passwordEncoder.encode("12345")).thenReturn("encoded-12345");
+        when(passwordEncoder.encode("123")).thenReturn("encoded-123");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.syncImportedInstructors(List.of("Harper"));
+
+        assertThat(staleImportedLogin.isActive()).isFalse();
+        assertThat(staleImportedLogin.isCanTeach()).isFalse();
+        assertThat(placeholderImported.isActive()).isFalse();
+        assertThat(placeholderImported.isCanTeach()).isFalse();
+        assertThat(demoInstructor.getFullName()).isEqualTo("Harper");
+    }
+
+    @Test
+    void syncImportedInstructors_ignoresEmptyPayload() {
+        User placeholderImported = user("imported-deadbeef");
+        placeholderImported.setFullName("Name");
+        placeholderImported.setRole(Role.INSTRUCTOR);
+        placeholderImported.setEditorAccess(false);
+        placeholderImported.setCanTeach(true);
+        placeholderImported.setActive(true);
+
+        when(userRepository.findAll()).thenReturn(List.of(placeholderImported));
+
+        userService.syncImportedInstructors(java.util.Arrays.asList(" ", null, "Name"));
+
+        assertThat(placeholderImported.isActive()).isFalse();
+        assertThat(placeholderImported.isCanTeach()).isFalse();
     }
 
     private User user(String username) {

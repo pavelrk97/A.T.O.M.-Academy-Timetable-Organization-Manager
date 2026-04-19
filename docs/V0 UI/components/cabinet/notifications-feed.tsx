@@ -51,7 +51,8 @@ export function NotificationsFeed({
           <BellRing className="mb-3 h-8 w-8 text-slate-300" />
           <div className="text-sm font-medium text-slate-950">Уведомлений нет</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Как только у инструктора появятся занятия в выбранном периоде, здесь появятся ссылки.
+            Как только у инструктора появятся занятия в выбранном периоде, здесь появятся ссылки
+            на соответствующие дни.
           </div>
         </div>
       ) : (

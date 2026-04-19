@@ -26,7 +26,7 @@ export default function LoginPage() {
     if (success) {
       router.push('/cabinet')
     } else {
-      setError('Проверяй логин и пароль. Backend ответил отказом на Basic Auth.')
+      setError('Проверь логин и пароль. Backend не выдал JWT access token.')
     }
 
     setSubmitting(false)
@@ -42,7 +42,8 @@ export default function LoginPage() {
             </div>
             <h1 className="mt-6 text-3xl font-semibold text-slate-950">Вход в A.T.O.M.</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Этот экран использует реальный `GET /api/me/profile` и сохраняет Basic Auth локально.
+              Экран логина вызывает `POST /api/auth/login`, сохраняет access token локально и
+              дальше работает с `Authorization: Bearer &lt;jwt&gt;`.
             </p>
 
             <form onSubmit={submit} className="mt-8 space-y-4">
@@ -89,7 +90,7 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-6 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-600">
-              <div className="font-medium text-slate-950">Быстрые данные для теста</div>
+              <div className="font-medium text-slate-950">Быстрые тестовые логины</div>
               <div className="mt-2 space-y-1">
                 <button
                   type="button"
@@ -106,18 +107,22 @@ export default function LoginPage() {
                   className="block text-left text-primary hover:underline"
                   onClick={() => {
                     setUsername('instructor')
-                    setPassword('instructor123')
+                    setPassword('123')
                   }}
                 >
-                  instructor / instructor123
+                  instructor / 123
                 </button>
+              </div>
+              <div className="mt-3 text-xs leading-5 text-muted-foreground">
+                После импорта все преподаватели из расписания получают учётную запись с логином по имени из расписания
+                и временным паролем `12345`, который потом можно сменить в кабинете.
               </div>
             </div>
 
             <div className="mt-6 text-sm text-muted-foreground">
-              Или сразу открой{' '}
+              Или открой{' '}
               <Link href="/schedule" className="font-medium text-primary hover:underline">
-                расписание
+                публичное расписание
               </Link>
               .
             </div>
@@ -126,23 +131,23 @@ export default function LoginPage() {
           <section className="rounded-[28px] border border-border bg-gradient-to-br from-primary/8 via-white to-sky-50 p-8">
             <div className="max-w-xl">
               <div className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                личный кабинет + расписание
+                cabinet + schedule
               </div>
               <h2 className="mt-6 text-4xl font-semibold tracking-tight text-slate-950">
-                Один вход,
+                Один логин,
                 <br />
-                две рабочие зоны
+                два контура работы
               </h2>
               <p className="mt-4 text-lg leading-8 text-slate-600">
-                После авторизации ты попадаешь в личный кабинет с профилем, расписанием,
-                уведомлениями и нагрузкой. Публичная страница расписания остаётся отдельной.
+                После входа открывается личный кабинет с профилем, расписанием, уведомлениями и
+                нагрузкой. Публичная страница расписания остаётся отдельной.
               </p>
               <div className="mt-8 grid gap-4 sm:grid-cols-2">
                 {[
-                  'Моя сетка занятий',
-                  'Нагрузка по дням',
+                  'Личное расписание и workload',
                   'Смена пароля',
-                  'Админ-блок для импорта и справочников',
+                  'Уведомления по дням',
+                  'Операции по роли пользователя',
                 ].map((item) => (
                   <div
                     key={item}

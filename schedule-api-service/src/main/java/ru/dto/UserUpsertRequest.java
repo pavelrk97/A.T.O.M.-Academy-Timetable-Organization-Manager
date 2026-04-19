@@ -31,6 +31,8 @@ public class UserUpsertRequest {
     @NotNull
     private Role role;
 
+    private boolean editorAccess;
+
     private boolean active = true;
     private boolean canTeach = true;
 }

@@ -1,0 +1,453 @@
+{
+  "info": {
+    "_postman_id": "a9e9ad6e-4f64-4d54-8c54-atom-jwt-resource-server",
+    "name": "A.T.O.M. JWT Resource Server Checks",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "JWT-based Postman checks for the resource-server flow: login, cabinet, editor-capable instructor operations, and admin import."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8081" },
+    { "key": "adminUser", "value": "admin" },
+    { "key": "adminPass", "value": "admin123" },
+    { "key": "editorUser", "value": "editor" },
+    { "key": "editorPass", "value": "editor123" },
+    { "key": "instructorUser", "value": "instructor" },
+    { "key": "instructorPass", "value": "123" },
+    { "key": "adminAccessToken", "value": "" },
+    { "key": "editorAccessToken", "value": "" },
+    { "key": "instructorAccessToken", "value": "" },
+    { "key": "myUserId", "value": "" },
+    { "key": "myFullName", "value": "" },
+    { "key": "myDisplayName", "value": "" },
+    { "key": "targetUserId", "value": "" },
+    { "key": "groupCode", "value": "гр.6 ()" },
+    { "key": "dayFrom", "value": "2026-01-01" },
+    { "key": "dayTo", "value": "2026-12-31" },
+    { "key": "cabinetFrom", "value": "2026-01-01" },
+    { "key": "cabinetTo", "value": "2026-12-31" },
+    { "key": "smokeGroupCode", "value": "JWT-SMOKE-01" },
+    { "key": "smokeGroupId", "value": "" },
+    { "key": "smokeDayId", "value": "" },
+    { "key": "smokeLessonId", "value": "" },
+    { "key": "csvFilePath", "value": "C:/Users/pavel/Downloads/2026 Расписание  - Расписание.csv" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "1.1 Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('admin login returns token', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  var body = pm.response.json();",
+                  "  pm.expect(body.tokenType).to.eql('Bearer');",
+                  "  pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
+                  "  pm.collectionVariables.set('adminAccessToken', body.accessToken);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{adminUser}}\",\n  \"password\": \"{{adminPass}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "1.2 Login Editor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('editor login returns token', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  var body = pm.response.json();",
+                  "  pm.collectionVariables.set('editorAccessToken', body.accessToken);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{editorUser}}\",\n  \"password\": \"{{editorPass}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "1.3 Login Instructor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('instructor login returns token', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  var body = pm.response.json();",
+                  "  pm.collectionVariables.set('instructorAccessToken', body.accessToken);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{instructorUser}}\",\n  \"password\": \"{{instructorPass}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "1.4 Get Auth Me As Instructor",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Public",
+      "item": [
+        {
+          "name": "2.1 Get Public Schedule",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/schedule?groupCode={{groupCode}}&from={{dayFrom}}&to={{dayTo}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Cabinet",
+      "item": [
+        {
+          "name": "3.1 Get My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('profile returns editor-capable instructor', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  var body = pm.response.json();",
+                  "  pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "  pm.collectionVariables.set('myUserId', body.id);",
+                  "  pm.collectionVariables.set('myFullName', body.fullName || '');",
+                  "  pm.collectionVariables.set('myDisplayName', body.displayName || '');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/me/profile"
+          }
+        },
+        {
+          "name": "3.2 Get My Dashboard",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/me/dashboard?from={{cabinetFrom}}&to={{cabinetTo}}"
+          }
+        },
+        {
+          "name": "3.3 Get My Schedule Grid",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/me/schedule/grid?from={{cabinetFrom}}&to={{cabinetTo}}"
+          }
+        },
+        {
+          "name": "3.4 Get My Workload Calendar",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/me/workload/calendar?from={{cabinetFrom}}&to={{cabinetTo}}"
+          }
+        },
+        {
+          "name": "3.5 Get My Notifications",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/me/notifications?from={{cabinetFrom}}&to={{cabinetTo}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Instructor With Editor Access",
+      "item": [
+        {
+          "name": "4.1 Get Users Catalog As Instructor Editor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('editor-capable instructor can read users catalog', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  var users = pm.response.json();",
+                  "  pm.expect(users).to.be.an('array').and.not.empty;",
+                  "  var target = users.find(function (user) { return user.username === pm.collectionVariables.get('instructorUser'); }) || users[0];",
+                  "  pm.expect(target.id).to.be.a('string').and.not.empty;",
+                  "  pm.collectionVariables.set('targetUserId', target.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/users"
+          }
+        },
+        {
+          "name": "4.2 Create Smoke Group As Instructor Editor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('group created by editor-capable instructor', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  var body = pm.response.json();",
+                  "  pm.collectionVariables.set('smokeGroupId', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{smokeGroupCode}}\",\n  \"location\": \"JWT Lab\",\n  \"course\": 1,\n  \"days\": []\n}"
+            },
+            "url": "{{baseUrl}}/api/groups"
+          }
+        },
+        {
+          "name": "4.3 Add Day To Smoke Group As Instructor Editor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('day added to smoke group', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  var body = pm.response.json();",
+                  "  pm.expect(body.days).to.be.an('array').and.not.empty;",
+                  "  pm.collectionVariables.set('smokeDayId', body.days[0].id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{smokeGroupId}}\",\n  \"code\": \"{{smokeGroupCode}}\",\n  \"location\": \"JWT Lab\",\n  \"course\": 1,\n  \"days\": [\n    {\n      \"date\": \"2026-05-12\",\n      \"meta\": {},\n      \"lessons\": []\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/groups/{{smokeGroupId}}"
+          }
+        },
+        {
+          "name": "4.4 Create Lesson For Current Instructor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('lesson created for current instructor', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  var body = pm.response.json();",
+                  "  pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "  pm.collectionVariables.set('smokeLessonId', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dayId\": \"{{smokeDayId}}\",\n  \"groupId\": \"{{smokeGroupId}}\",\n  \"orderNumber\": 1,\n  \"title\": \"JWT smoke lesson\",\n  \"durationHours\": 2,\n  \"type\": \"LECTURE\",\n  \"instructorIds\": [\"{{myUserId}}\"]\n}"
+            },
+            "url": "{{baseUrl}}/api/lessons"
+          }
+        },
+        {
+          "name": "4.5 Get Lesson History",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/lessons/{{smokeLessonId}}/history"
+          }
+        },
+        {
+          "name": "4.6 Get Notifications After Editor Change",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/me/notifications?from={{cabinetFrom}}&to={{cabinetTo}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Admin Only",
+      "item": [
+        {
+          "name": "5.1 Import CSV As Admin",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{adminAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "{{csvFilePath}}"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/import/csv"
+          }
+        },
+        {
+          "name": "5.2 Verify Instructor Still Reads Users Catalog",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{instructorAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/users"
+          }
+        }
+      ]
+    }
+  ]
+}

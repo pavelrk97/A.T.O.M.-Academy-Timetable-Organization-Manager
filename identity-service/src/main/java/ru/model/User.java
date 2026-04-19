@@ -31,6 +31,8 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private Role role;
 
+    private boolean editorAccess;
+
     private boolean isActive = true;
 
     private boolean canTeach = true;
@@ -105,6 +107,14 @@ public class User extends BaseEntity {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public boolean isEditorAccess() {
+        return editorAccess;
+    }
+
+    public void setEditorAccess(boolean editorAccess) {
+        this.editorAccess = editorAccess;
     }
 
     public boolean isActive() {

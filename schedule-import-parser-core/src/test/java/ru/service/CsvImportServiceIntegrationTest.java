@@ -33,6 +33,9 @@ import java.util.HashMap;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 
 @DataJpaTest(properties = {
         "spring.jpa.hibernate.ddl-auto=create-drop"
@@ -58,6 +61,11 @@ class CsvImportServiceIntegrationTest {
         PasswordEncoder passwordEncoder() {
             return new BCryptPasswordEncoder();
         }
+
+        @Bean
+        InstructorIdentitySyncService instructorIdentitySyncService() {
+            return mock(InstructorIdentitySyncService.class);
+        }
     }
 
     @Autowired
@@ -71,6 +79,9 @@ class CsvImportServiceIntegrationTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @Autowired
+    private InstructorIdentitySyncService instructorIdentitySyncService;
 
     @Test
     void importFromCsv_replacesScheduleFromScratchAndKeepsSinglePreviousSource() throws Exception {
@@ -110,6 +121,7 @@ class CsvImportServiceIntegrationTest {
         assertThat(groupRepository.findByCode("new-group-2")).isPresent();
         assertThat(Files.readString(currentFile)).contains("new-group-2");
         assertThat(Files.readString(previousFile)).contains("new-group-1");
+        verify(instructorIdentitySyncService, times(2)).syncCurrentInstructors();
     }
 
     @Test
@@ -171,6 +183,25 @@ class CsvImportServiceIntegrationTest {
         assertThat(lesson.getLecturers()).containsExactly("Mentor Example");
         assertThat(lesson.getAssignedInstructors()).hasSize(1);
         assertThat(userRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    void importGroups_ignoresPlaceholderInstructorNames() {
+        Group importedGroup = buildImportedGroup("group-placeholder", "Mentor Example");
+        Lesson importedLesson = importedGroup.getDays().get(0).getLessons().get(0);
+        importedLesson.setLecturer("Name");
+        importedLesson.setLecturers(new ArrayList<>(List.of("Name", "Mentor Example")));
+
+        csvImportService.importGroups(List.of(importedGroup));
+        entityManager.flush();
+        entityManager.clear();
+
+        Group group = groupRepository.findByCode("group-placeholder").orElseThrow();
+        Lesson lesson = group.getDays().get(0).getLessons().get(0);
+
+        assertThat(lesson.getLecturers()).containsExactly("Mentor Example");
+        assertThat(lesson.getAssignedInstructors()).hasSize(1);
+        assertThat(lesson.getAssignedInstructors().get(0).getFullName()).isEqualTo("Mentor Example");
     }
 
     private Group buildImportedGroup(String groupCode, String lecturerName) {

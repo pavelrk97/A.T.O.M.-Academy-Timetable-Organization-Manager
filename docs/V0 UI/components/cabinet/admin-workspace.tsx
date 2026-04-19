@@ -2,9 +2,9 @@
 
 import { useMemo, useState, type ReactNode } from 'react'
 import {
+  CalendarPlus2,
   FileSpreadsheet,
   RefreshCcw,
-  Rows3,
   ShieldCheck,
   UploadCloud,
   UsersRound,
@@ -12,20 +12,55 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { LessonAdminEditor } from '@/components/cabinet/lesson-admin-editor'
+import { UserAdminEditor } from '@/components/cabinet/user-admin-editor'
 import type { GroupDto, ImportResult, User } from '@/lib/types'
 
 interface AdminWorkspaceProps {
+  currentUser: User
   users: User[]
   groups: GroupDto[]
+  canImport: boolean
+  canManageUsers: boolean
+  canManageGroups: boolean
   importing: boolean
   importResult: ImportResult | null
   onImport: (file: File) => Promise<void>
   onRefresh: () => Promise<void>
 }
 
+function workspaceTitle(user: User) {
+  if (user.role === 'ADMIN') {
+    return 'Административный контур'
+  }
+  if (user.role === 'EDITOR') {
+    return 'Редактор расписания'
+  }
+  if (user.editorAccess) {
+    return 'Инструктор с правом редактирования'
+  }
+  return 'Операции'
+}
+
+function workspaceDescription(user: User) {
+  if (user.role === 'ADMIN') {
+    return 'Администратор может импортировать CSV, управлять пользователями, создавать группы, пустые дни и занятия.'
+  }
+  if (user.role === 'EDITOR') {
+    return 'Редактор работает только с расписанием: создаёт группы, дни и занятия, назначает преподавателей.'
+  }
+  if (user.editorAccess) {
+    return 'Инструктору с editor access доступно только создание и редактирование занятий. Пользователи и импорт остаются только у администратора.'
+  }
+  return 'Доступ ограничен.'
+}
+
 export function AdminWorkspace({
+  currentUser,
   users,
   groups,
+  canImport,
+  canManageUsers,
+  canManageGroups,
   importing,
   importResult,
   onImport,
@@ -35,6 +70,14 @@ export function AdminWorkspace({
 
   const teacherCount = useMemo(
     () => users.filter((user) => user.canTeach).length,
+    [users]
+  )
+
+  const editorCapableCount = useMemo(
+    () =>
+      users.filter(
+        (user) => user.role === 'ADMIN' || user.role === 'EDITOR' || user.editorAccess
+      ).length,
     [users]
   )
 
@@ -63,30 +106,34 @@ export function AdminWorkspace({
         />
         <InfoTile
           icon={<ShieldCheck className="h-5 w-5 text-primary" />}
-          label="Группы"
-          value={groups.length}
-          helper="справочник академии"
+          label="Доступ к операциям"
+          value={editorCapableCount}
+          helper="админы, редакторы и инструкторы с editor access"
         />
         <InfoTile
-          icon={<Rows3 className="h-5 w-5 text-primary" />}
+          icon={<CalendarPlus2 className="h-5 w-5 text-primary" />}
           label="Занятия"
           value={lessonCount}
           helper="текущая сетка в базе"
         />
         <InfoTile
           icon={<FileSpreadsheet className="h-5 w-5 text-primary" />}
-          label="CSV импорт"
-          value={importResult ? 'OK' : '—'}
-          helper="ручной перезапуск из кабинета"
+          label="Импорт CSV"
+          value={canImport ? (importResult ? 'OK' : 'ADMIN') : 'ADMIN'}
+          helper={
+            canImport
+              ? 'ручной импорт доступен в этом кабинете'
+              : 'скрыт для редакторов и инструкторов'
+          }
         />
       </div>
 
       <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-950">Операционный блок</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Импорт, справочники и ручное редактирование расписания без ухода в Postman.
+            <h3 className="text-lg font-semibold text-slate-950">{workspaceTitle(currentUser)}</h3>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              {workspaceDescription(currentUser)}
             </p>
           </div>
           <Button variant="outline" onClick={onRefresh}>
@@ -95,17 +142,18 @@ export function AdminWorkspace({
           </Button>
         </div>
 
-        <div className="mt-5 grid gap-6 lg:grid-cols-[420px_1fr]">
-          <div className="rounded-2xl border border-border bg-slate-50 p-4">
+        {canImport ? (
+          <div className="mt-5 rounded-2xl border border-border bg-slate-50 p-4">
             <div className="text-sm font-semibold text-slate-950">Импорт CSV</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Работает через `POST /api/import/csv`, backend не меняется.
+              Вызывает `POST /api/import/csv` через gateway. Большие файлы могут обрабатываться несколько минут.
             </p>
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <Input
                 type="file"
                 accept=".csv,text/csv"
                 onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+                className="max-w-md"
               />
               <Button
                 disabled={!selectedFile || importing}
@@ -114,72 +162,24 @@ export function AdminWorkspace({
                 <UploadCloud className="mr-2 h-4 w-4" />
                 {importing ? 'Импортирую...' : 'Запустить импорт'}
               </Button>
-              {importResult ? (
-                <pre className="max-h-64 overflow-auto rounded-xl border border-border bg-white p-3 text-xs text-slate-700">
-                  {JSON.stringify(importResult, null, 2)}
-                </pre>
-              ) : null}
             </div>
+            {importResult ? (
+              <pre className="mt-4 max-h-64 overflow-auto rounded-xl border border-border bg-white p-3 text-xs text-slate-700">
+                {JSON.stringify(importResult, null, 2)}
+              </pre>
+            ) : null}
           </div>
-
-          <div className="grid gap-6 xl:grid-cols-2">
-            <div className="rounded-2xl border border-border bg-slate-50 p-4">
-              <div className="mb-3 text-sm font-semibold text-slate-950">Пользователи</div>
-              <div className="max-h-80 overflow-auto rounded-xl border border-border bg-white">
-                <table className="min-w-full text-sm">
-                  <thead className="sticky top-0 bg-slate-100">
-                    <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                      <th className="px-3 py-2">Логин</th>
-                      <th className="px-3 py-2">Роль</th>
-                      <th className="px-3 py-2">Email</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((user) => (
-                      <tr key={user.id} className="border-t border-border">
-                        <td className="px-3 py-2">
-                          <div className="font-medium text-slate-950">{user.username}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {user.displayName || user.fullName}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2">{user.role}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{user.email || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-border bg-slate-50 p-4">
-              <div className="mb-3 text-sm font-semibold text-slate-950">Группы</div>
-              <div className="max-h-80 overflow-auto rounded-xl border border-border bg-white">
-                <table className="min-w-full text-sm">
-                  <thead className="sticky top-0 bg-slate-100">
-                    <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                      <th className="px-3 py-2">Код</th>
-                      <th className="px-3 py-2">Локация</th>
-                      <th className="px-3 py-2">Дней</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groups.map((group) => (
-                      <tr key={group.id} className="border-t border-border">
-                        <td className="px-3 py-2 font-medium text-slate-950">{group.code}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{group.location || '—'}</td>
-                        <td className="px-3 py-2">{group.days?.length || 0}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
+        ) : null}
       </section>
 
-      <LessonAdminEditor groups={groups} users={users} onChanged={onRefresh} />
+      {canManageUsers ? <UserAdminEditor users={users} onChanged={onRefresh} /> : null}
+
+      <LessonAdminEditor
+        groups={groups}
+        users={users}
+        canManageGroups={canManageGroups}
+        onChanged={onRefresh}
+      />
     </div>
   )
 }
