@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import ru.dto.ChangePasswordRequest;
+import ru.dto.LoginRequest;
 import ru.dto.MyProfileUpdateRequest;
+import ru.dto.TokenResponse;
 import ru.dto.UserDto;
 import ru.dto.UserUpsertRequest;
 
@@ -17,6 +19,9 @@ import java.util.UUID;
 
 @FeignClient(name = "identity-service", url = "${identity.service.url}")
 public interface IdentityClient {
+
+    @PostMapping("/api/auth/login")
+    TokenResponse login(@RequestBody LoginRequest request);
 
     @GetMapping("/api/auth/me")
     UserDto getMe(@RequestHeader("Authorization") String authorization);

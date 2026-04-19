@@ -1,6 +1,7 @@
 import type {
   DashboardData,
   GroupDto,
+  GroupMutationPayload,
   ImportResult,
   LessonEditorDto,
   LessonMutationPayload,
@@ -8,6 +9,7 @@ import type {
   Notification,
   ScheduleEntry,
   ScheduleGridData,
+  TokenResponse,
   User,
   UserUpsertRequest,
   WorkloadCalendar,
@@ -17,23 +19,23 @@ import type {
 
 const API_BASE = '/api'
 
-let authCredentials: string | null = null
+let accessToken: string | null = null
 
-export function setAuthCredentials(username: string, password: string) {
-  authCredentials = btoa(`${username}:${password}`)
+export function setAccessToken(token: string) {
+  accessToken = token
 }
 
-export function clearAuthCredentials() {
-  authCredentials = null
+export function clearAccessToken() {
+  accessToken = null
 }
 
 function getAuthHeaders(): HeadersInit {
-  if (!authCredentials) {
+  if (!accessToken) {
     return {}
   }
 
   return {
-    Authorization: `Basic ${authCredentials}`,
+    Authorization: `Bearer ${accessToken}`,
   }
 }
 
@@ -80,6 +82,11 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 }
 
 export const authApi = {
+  login: (payload: { username: string; password: string }) =>
+    fetchApi<TokenResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   getMe: () => fetchApi<User>('/auth/me'),
 }
 
@@ -116,6 +123,16 @@ export const usersApi = {
 export const groupsApi = {
   getAll: () => fetchApi<GroupDto[]>('/groups'),
   getById: (id: string) => fetchApi<GroupDto>(`/groups/${id}`),
+  create: (payload: GroupMutationPayload) =>
+    fetchApi<GroupDto>('/groups', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  update: (id: string, payload: GroupMutationPayload) =>
+    fetchApi<GroupDto>(`/groups/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
 }
 
 export const lessonsApi = {

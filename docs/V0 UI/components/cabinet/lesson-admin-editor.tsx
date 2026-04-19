@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
+  CalendarPlus2,
   Clock3,
   History,
   PencilLine,
@@ -13,9 +14,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { lessonsApi } from '@/lib/api'
+import { groupsApi, lessonsApi } from '@/lib/api'
 import type {
+  DayMutationPayload,
   GroupDto,
+  GroupMutationPayload,
   LessonEditorDto,
   LessonHistoryEntry,
   LessonMutationPayload,
@@ -26,14 +29,24 @@ import type {
 interface LessonAdminEditorProps {
   groups: GroupDto[]
   users: User[]
+  canManageGroups: boolean
   onChanged: () => Promise<void>
 }
 
-const LESSON_TYPE_OPTIONS: LessonType[] = [
-  'LECTURE',
-  'SELF_STUDY',
-  'ASSESSMENT',
-]
+interface GroupCreateFormState {
+  code: string
+  location: string
+  course: string
+}
+
+interface PendingSelection {
+  groupId: string
+  date: string
+  lessonId?: string | null
+}
+
+const LESSON_TYPE_OPTIONS: LessonType[] = ['LECTURE', 'SELF_STUDY', 'ASSESSMENT']
+const INTERNAL_IMPORTED_USERNAME_PREFIX = 'imported-'
 
 function lessonTypeLabel(type: LessonType) {
   switch (type) {
@@ -72,6 +85,10 @@ function sortLessons(lessons: LessonEditorDto[]) {
   )
 }
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 function createEmptyForm(groupId?: string, dayId?: string): LessonMutationPayload {
   return {
     title: '',
@@ -88,33 +105,103 @@ function createEmptyForm(groupId?: string, dayId?: string): LessonMutationPayloa
   }
 }
 
+function createEmptyGroupForm(): GroupCreateFormState {
+  return {
+    code: '',
+    location: '',
+    course: '',
+  }
+}
+
+function normalizeInstructorKey(value?: string | null) {
+  return (value || '').trim().toLowerCase()
+}
+
+function instructorLabel(user: User) {
+  return user.displayName || user.fullName || user.username
+}
+
+function comparePreferredInstructor(left: User, right: User) {
+  const leftImported = left.username.startsWith(INTERNAL_IMPORTED_USERNAME_PREFIX)
+  const rightImported = right.username.startsWith(INTERNAL_IMPORTED_USERNAME_PREFIX)
+
+  if (leftImported !== rightImported) {
+    return leftImported ? 1 : -1
+  }
+
+  if (left.role !== right.role) {
+    if (left.role === 'INSTRUCTOR') return -1
+    if (right.role === 'INSTRUCTOR') return 1
+  }
+
+  if (left.active !== right.active) {
+    return left.active ? -1 : 1
+  }
+
+  if (left.editorAccess !== right.editorAccess) {
+    return left.editorAccess ? -1 : 1
+  }
+
+  return instructorLabel(left).localeCompare(instructorLabel(right), 'ru')
+}
+
+function buildGroupPayload(group: GroupDto): GroupMutationPayload {
+  return {
+    id: group.id,
+    code: group.code,
+    location: group.location ?? null,
+    course: group.course ?? null,
+    days: (group.days || []).map<DayMutationPayload>((day) => ({
+      id: day.id ?? null,
+      date: day.date,
+      meta: day.meta || {},
+      lessons: day.lessons || [],
+    })),
+  }
+}
+
+function normalizeCourseValue(value: string) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
 export function LessonAdminEditor({
   groups,
   users,
+  canManageGroups,
   onChanged,
 }: LessonAdminEditorProps) {
   const instructorOptions = useMemo(
-    () =>
-      [...users]
-        .filter((user) => user.canTeach)
-        .sort((left, right) =>
-          (left.displayName || left.fullName || left.username).localeCompare(
-            right.displayName || right.fullName || right.username,
-            'ru'
-          )
-        ),
+    () => {
+      const uniqueUsers = new Map<string, User>()
+
+      for (const user of users.filter((item) => item.canTeach)) {
+        const key = normalizeInstructorKey(user.fullName || user.username)
+        const current = uniqueUsers.get(key)
+        if (!current || comparePreferredInstructor(user, current) < 0) {
+          uniqueUsers.set(key, user)
+        }
+      }
+
+      return [...uniqueUsers.values()].sort((left, right) =>
+        instructorLabel(left).localeCompare(instructorLabel(right), 'ru')
+      )
+    },
     [users]
   )
 
   const [selectedGroupId, setSelectedGroupId] = useState('')
-  const [selectedDayId, setSelectedDayId] = useState('')
+  const [selectedDate, setSelectedDate] = useState(todayIso())
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null)
-  const [pendingLessonId, setPendingLessonId] = useState<string | null>(null)
+  const [pendingSelection, setPendingSelection] = useState<PendingSelection | null>(null)
   const [form, setForm] = useState<LessonMutationPayload>(createEmptyForm())
   const [history, setHistory] = useState<LessonHistoryEntry[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [creatingDay, setCreatingDay] = useState(false)
+  const [creatingGroup, setCreatingGroup] = useState(false)
+  const [groupForm, setGroupForm] = useState<GroupCreateFormState>(createEmptyGroupForm())
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -123,77 +210,73 @@ export function LessonAdminEditor({
     [groups, selectedGroupId]
   )
 
-  const dayOptions = useMemo(
-    () => sortDays(selectedGroup?.days || []),
-    [selectedGroup]
-  )
+  const dayOptions = useMemo(() => sortDays(selectedGroup?.days || []), [selectedGroup])
 
   const selectedDay = useMemo(
-    () => dayOptions.find((day) => day.id === selectedDayId) || dayOptions[0] || null,
-    [dayOptions, selectedDayId]
+    () => dayOptions.find((day) => day.date === selectedDate) || null,
+    [dayOptions, selectedDate]
   )
 
-  const dayLessons = useMemo(
-    () => sortLessons(selectedDay?.lessons || []),
-    [selectedDay]
-  )
+  const dayLessons = useMemo(() => sortLessons(selectedDay?.lessons || []), [selectedDay])
 
   useEffect(() => {
     if (!groups.length) {
       setSelectedGroupId('')
-      setSelectedDayId('')
+      setSelectedDate(todayIso())
       setSelectedLessonId(null)
       setForm(createEmptyForm())
       return
     }
 
-    if (!selectedGroup || selectedGroup.id !== selectedGroupId) {
-      const nextGroup = groups[0]
+    const nextGroup = groups.find((group) => group.id === selectedGroupId) || groups[0]
+    if (nextGroup.id !== selectedGroupId) {
       setSelectedGroupId(nextGroup.id)
-      const nextDay = sortDays(nextGroup.days || [])[0]
-      setSelectedDayId(nextDay?.id || '')
-      setSelectedLessonId(null)
-      setForm(createEmptyForm(nextGroup.id, nextDay?.id))
+      return
     }
-  }, [groups, selectedGroup, selectedGroupId])
+
+    if (!selectedDate) {
+      setSelectedDate(sortDays(nextGroup.days || [])[0]?.date || todayIso())
+    }
+  }, [groups, selectedDate, selectedGroupId])
 
   useEffect(() => {
     if (!selectedGroup) {
       return
     }
 
-    if (!selectedDay || selectedDay.id !== selectedDayId) {
-      const nextDay = sortDays(selectedGroup.days || [])[0]
-      setSelectedDayId(nextDay?.id || '')
-      setSelectedLessonId(null)
-      setForm((current) => ({
-        ...createEmptyForm(selectedGroup.id, nextDay?.id),
-        orderNumber: current.orderNumber || 1,
-        durationHours: current.durationHours || 2,
-      }))
+    if (!selectedDate) {
+      setSelectedDate(sortDays(selectedGroup.days || [])[0]?.date || todayIso())
     }
-  }, [selectedDay, selectedDayId, selectedGroup])
+  }, [selectedDate, selectedGroup])
 
   useEffect(() => {
-    if (!pendingLessonId || !groups.length) {
+    if (!pendingSelection) {
       return
     }
 
-    for (const group of groups) {
-      for (const day of group.days || []) {
-        const lesson = (day.lessons || []).find((item) => item.id === pendingLessonId)
-        if (lesson) {
-          setSelectedGroupId(group.id)
-          setSelectedDayId(day.id)
-          loadLessonIntoForm(lesson, group.id, day.id)
-          setPendingLessonId(null)
-          return
-        }
-      }
+    const group = groups.find((item) => item.id === pendingSelection.groupId)
+    if (!group) {
+      return
     }
 
-    setPendingLessonId(null)
-  }, [groups, pendingLessonId])
+    const day = (group.days || []).find((item) => item.date === pendingSelection.date) || null
+
+    setSelectedGroupId(group.id)
+    setSelectedDate(pendingSelection.date)
+
+    if (pendingSelection.lessonId && day) {
+      const lesson = (day.lessons || []).find((item) => item.id === pendingSelection.lessonId)
+      if (lesson) {
+        loadLessonIntoForm(lesson, group.id, day.id || '', day.date)
+      }
+    } else {
+      setSelectedLessonId(null)
+      setHistory([])
+      setForm(createEmptyForm(group.id, day?.id || ''))
+    }
+
+    setPendingSelection(null)
+  }, [groups, pendingSelection])
 
   useEffect(() => {
     if (!selectedLessonId) {
@@ -228,7 +311,14 @@ export function LessonAdminEditor({
     }
   }, [selectedLessonId])
 
-  function loadLessonIntoForm(lesson: LessonEditorDto, groupId: string, dayId: string) {
+  function loadLessonIntoForm(
+    lesson: LessonEditorDto,
+    groupId: string,
+    dayId: string,
+    dayDate: string
+  ) {
+    setSelectedGroupId(groupId)
+    setSelectedDate(dayDate)
     setSelectedLessonId(lesson.id)
     setForm({
       version: lesson.version,
@@ -251,28 +341,152 @@ export function LessonAdminEditor({
   function startCreate() {
     setSelectedLessonId(null)
     setHistory([])
-    setForm(
-      createEmptyForm(selectedGroup?.id, selectedDay?.id || '')
-    )
+    setForm(createEmptyForm(selectedGroup?.id, selectedDay?.id || ''))
     setError('')
     setSuccess('')
   }
 
   function toggleInstructor(userId: string) {
+    const selectedUser = instructorOptions.find((user) => user.id === userId)
+    if (!selectedUser) {
+      return
+    }
+
+    const targetKey = normalizeInstructorKey(selectedUser.fullName || selectedUser.username)
+
     setForm((current) => {
-      const exists = current.instructorIds.includes(userId)
+      const pairs = current.instructorIds.map((id, index) => ({
+        id,
+        name:
+          current.instructorNames?.[index] ||
+          users.find((user) => user.id === id)?.fullName ||
+          users.find((user) => user.id === id)?.username ||
+          '',
+      }))
+      const exists = pairs.some((pair) => normalizeInstructorKey(pair.name) === targetKey)
+
+      const nextPairs = exists
+        ? pairs.filter((pair) => normalizeInstructorKey(pair.name) !== targetKey)
+        : [
+            ...pairs.filter((pair) => normalizeInstructorKey(pair.name) !== targetKey),
+            {
+              id: selectedUser.id,
+              name: selectedUser.fullName || selectedUser.username,
+            },
+          ]
+
       return {
         ...current,
-        instructorIds: exists
-          ? current.instructorIds.filter((id) => id !== userId)
-          : [...current.instructorIds, userId],
+        instructorIds: nextPairs.map((pair) => pair.id),
+        instructorNames: nextPairs.map((pair) => pair.name),
       }
     })
   }
 
+  async function ensureDayExists(group: GroupDto, date: string) {
+    const existingDay = (group.days || []).find((day) => day.date === date)
+    if (existingDay?.id) {
+      return existingDay.id
+    }
+
+    const payload = buildGroupPayload(group)
+    payload.days = [
+      ...payload.days,
+      {
+        date,
+        meta: {},
+        lessons: [],
+      },
+    ]
+
+    const updatedGroup = await groupsApi.update(group.id, payload)
+    const createdDay = (updatedGroup.days || []).find((day) => day.date === date)
+
+    if (!createdDay?.id) {
+      throw new Error('Не удалось создать день для выбранной даты.')
+    }
+
+    return createdDay.id
+  }
+
+  async function handleCreateGroup() {
+    if (!groupForm.code.trim()) {
+      setError('Код группы обязателен.')
+      return
+    }
+
+    setCreatingGroup(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const createdGroup = await groupsApi.create({
+        code: groupForm.code.trim(),
+        location: groupForm.location.trim() || null,
+        course: normalizeCourseValue(groupForm.course),
+        days: [],
+      })
+
+      await onChanged()
+      setGroupForm(createEmptyGroupForm())
+      setPendingSelection({
+        groupId: createdGroup.id,
+        date: todayIso(),
+      })
+      setSuccess(`Группа ${createdGroup.code} создана.`)
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : 'Не удалось создать группу.'
+      )
+    } finally {
+      setCreatingGroup(false)
+    }
+  }
+
+  async function handleCreateEmptyDay() {
+    if (!selectedGroup) {
+      setError('Сначала выбери группу.')
+      return
+    }
+
+    if (!selectedDate) {
+      setError('Укажи дату дня.')
+      return
+    }
+
+    setCreatingDay(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      await ensureDayExists(selectedGroup, selectedDate)
+      await onChanged()
+      setPendingSelection({
+        groupId: selectedGroup.id,
+        date: selectedDate,
+      })
+      setSuccess('Пустой день создан.')
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : 'Не удалось создать день.'
+      )
+    } finally {
+      setCreatingDay(false)
+    }
+  }
+
   async function handleSubmit() {
-    if (!selectedGroup || !selectedDay) {
-      setError('Сначала выбери группу и день.')
+    if (!selectedGroup) {
+      setError('Сначала выбери группу.')
+      return
+    }
+
+    if (!selectedDate) {
+      setError('Укажи дату занятия.')
       return
     }
 
@@ -290,28 +504,31 @@ export function LessonAdminEditor({
     setError('')
     setSuccess('')
 
-    const payload: LessonMutationPayload = {
-      ...form,
-      title: form.title.trim(),
-      note: form.note?.trim() || null,
-      groupId: selectedGroup.id,
-      dayId: selectedDay.id,
-      durationHours: Number(form.durationHours) || 1,
-      orderNumber: Number(form.orderNumber) || 1,
-      instructorNames: instructorOptions
-        .filter((user) => form.instructorIds.includes(user.id))
-        .map((user) => user.fullName || user.username),
-      lecturers: [],
-      lecturer: null,
-    }
-
     try {
+      const dayId = await ensureDayExists(selectedGroup, selectedDate)
+      const payload: LessonMutationPayload = {
+        ...form,
+        title: form.title.trim(),
+        note: form.note?.trim() || null,
+        groupId: selectedGroup.id,
+        dayId,
+        durationHours: Number(form.durationHours) || 1,
+        orderNumber: Number(form.orderNumber) || 1,
+        instructorNames: form.instructorNames || [],
+        lecturers: [],
+        lecturer: null,
+      }
+
       const savedLesson = selectedLessonId
         ? await lessonsApi.update(selectedLessonId, payload)
         : await lessonsApi.create(payload)
 
-      setPendingLessonId(savedLesson.id)
       await onChanged()
+      setPendingSelection({
+        groupId: selectedGroup.id,
+        date: selectedDate,
+        lessonId: savedLesson.id,
+      })
       setSuccess(
         selectedLessonId
           ? 'Изменения по занятию сохранены.'
@@ -341,9 +558,16 @@ export function LessonAdminEditor({
       await lessonsApi.delete(selectedLessonId, form.version)
       setSelectedLessonId(null)
       setHistory([])
-      setPendingLessonId(null)
       await onChanged()
-      setForm(createEmptyForm(selectedGroup?.id, selectedDay?.id))
+      setPendingSelection(
+        selectedGroup
+          ? {
+              groupId: selectedGroup.id,
+              date: selectedDate,
+            }
+          : null
+      )
+      setForm(createEmptyForm(selectedGroup?.id, selectedDay?.id || ''))
       setSuccess('Занятие удалено.')
     } catch (caught) {
       setError(
@@ -356,14 +580,15 @@ export function LessonAdminEditor({
     }
   }
 
+  const selectedDayExists = Boolean(selectedDay?.id)
+
   return (
     <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold text-slate-950">Редактор расписания</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Выбирай группу и день, загружай существующее занятие в форму или создавай новое
-            прямо из кабинета.
+            Выбирай группу и любую дату, создавай при необходимости пустой день и добавляй занятия с назначением преподавателей.
           </p>
         </div>
         <Button variant="outline" onClick={startCreate}>
@@ -371,6 +596,41 @@ export function LessonAdminEditor({
           Новое занятие
         </Button>
       </div>
+
+      {canManageGroups ? (
+        <div className="mt-5 rounded-2xl border border-border bg-slate-50 p-4">
+          <div className="mb-3 text-sm font-semibold text-slate-950">Новая группа</div>
+          <div className="grid gap-4 md:grid-cols-[1.3fr_1fr_0.7fr_auto]">
+            <Input
+              value={groupForm.code}
+              onChange={(event) =>
+                setGroupForm((current) => ({ ...current, code: event.target.value }))
+              }
+              placeholder="Код группы"
+            />
+            <Input
+              value={groupForm.location}
+              onChange={(event) =>
+                setGroupForm((current) => ({ ...current, location: event.target.value }))
+              }
+              placeholder="Локация"
+            />
+            <Input
+              type="number"
+              min={1}
+              value={groupForm.course}
+              onChange={(event) =>
+                setGroupForm((current) => ({ ...current, course: event.target.value }))
+              }
+              placeholder="Курс"
+            />
+            <Button onClick={handleCreateGroup} disabled={creatingGroup}>
+              <Plus className="mr-2 h-4 w-4" />
+              {creatingGroup ? 'Создаю...' : 'Создать группу'}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-5 grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="space-y-4">
@@ -384,12 +644,16 @@ export function LessonAdminEditor({
                 onChange={(event) => {
                   setSelectedGroupId(event.target.value)
                   setSelectedLessonId(null)
+                  setHistory([])
+                  setError('')
+                  setSuccess('')
                 }}
                 className="h-10 w-full rounded-xl border border-border bg-white px-3 text-sm"
               >
                 {groups.map((group) => (
                   <option key={group.id} value={group.id}>
-                    {group.code} {group.location ? `· ${group.location}` : ''}
+                    {group.code}
+                    {group.location ? ` · ${group.location}` : ''}
                   </option>
                 ))}
               </select>
@@ -397,22 +661,25 @@ export function LessonAdminEditor({
 
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                День
+                День из существующих
               </span>
               <select
-                value={selectedDay?.id || ''}
+                value={selectedDay?.date || ''}
                 onChange={(event) => {
-                  setSelectedDayId(event.target.value)
+                  setSelectedDate(event.target.value)
                   setSelectedLessonId(null)
+                  setHistory([])
                   setForm((current) => ({
                     ...current,
-                    dayId: event.target.value,
+                    dayId:
+                      dayOptions.find((day) => day.date === event.target.value)?.id || '',
                   }))
                 }}
                 className="h-10 w-full rounded-xl border border-border bg-white px-3 text-sm"
               >
+                <option value="">Не выбран</option>
                 {dayOptions.map((day) => (
-                  <option key={day.id} value={day.id}>
+                  <option key={day.id || day.date} value={day.date}>
                     {new Date(day.date).toLocaleDateString('ru-RU', {
                       day: '2-digit',
                       month: 'long',
@@ -424,23 +691,65 @@ export function LessonAdminEditor({
             </label>
           </div>
 
+          <div className="grid gap-4 md:grid-cols-[1fr_auto]">
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Любая дата
+              </span>
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(event) => {
+                  setSelectedDate(event.target.value)
+                  setSelectedLessonId(null)
+                  setHistory([])
+                  setForm((current) => ({ ...current, dayId: '' }))
+                }}
+              />
+            </label>
+
+            {canManageGroups ? (
+              <div className="space-y-2">
+                <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Пустой день
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={handleCreateEmptyDay}
+                  disabled={!selectedGroup || !selectedDate || creatingDay || selectedDayExists}
+                >
+                  <CalendarPlus2 className="mr-2 h-4 w-4" />
+                  {creatingDay ? 'Создаю...' : 'Создать день'}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-xl border border-border bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            {selectedDayExists
+              ? `Для ${selectedDate} уже есть день расписания. Можно создавать или редактировать занятия.`
+              : canManageGroups
+                ? `Для ${selectedDate} дня ещё нет. Администратор может создать пустой день отдельно, а сохранение занятия создаст его автоматически.`
+                : `Для ${selectedDate} дня ещё нет. При сохранении занятия день будет создан автоматически в выбранной группе.`}
+          </div>
+
           <div className="rounded-2xl border border-border bg-slate-50 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-slate-950">Занятия выбранного дня</div>
+                <div className="text-sm font-semibold text-slate-950">Занятия выбранной даты</div>
                 <div className="text-xs text-muted-foreground">
                   Нажми на строку, чтобы загрузить занятие в форму.
                 </div>
               </div>
               <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600">
-                {(selectedDay?.lessons || []).length} шт.
+                {dayLessons.length} шт.
               </div>
             </div>
 
             <div className="max-h-[340px] space-y-2 overflow-auto">
               {dayLessons.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border bg-white px-4 py-6 text-sm text-muted-foreground">
-                  На этот день занятий пока нет.
+                  На эту дату занятий пока нет.
                 </div>
               ) : (
                 dayLessons.map((lesson) => (
@@ -448,7 +757,12 @@ export function LessonAdminEditor({
                     key={lesson.id}
                     type="button"
                     onClick={() =>
-                      loadLessonIntoForm(lesson, selectedGroup?.id || '', selectedDay?.id || '')
+                      loadLessonIntoForm(
+                        lesson,
+                        selectedGroup?.id || '',
+                        selectedDay?.id || '',
+                        selectedDate
+                      )
                     }
                     className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
                       selectedLessonId === lesson.id
@@ -487,7 +801,7 @@ export function LessonAdminEditor({
                   {selectedLessonId ? 'Редактирование занятия' : 'Создание занятия'}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Всё идёт через реальные `/api/lessons` и audit history.
+                  Создание и обновление идут через реальные `/api/lessons`, история берётся из audit trail.
                 </div>
               </div>
               {selectedLessonId ? (
@@ -595,13 +909,20 @@ export function LessonAdminEditor({
                   >
                     <input
                       type="checkbox"
-                      checked={form.instructorIds.includes(user.id)}
+                      checked={
+                        form.instructorIds.includes(user.id) ||
+                        (user.fullName
+                          ? (form.instructorNames || []).some(
+                              (name) => normalizeInstructorKey(name) === normalizeInstructorKey(user.fullName)
+                            )
+                          : false)
+                      }
                       onChange={() => toggleInstructor(user.id)}
                       className="mt-1"
                     />
                     <div>
                       <div className="text-sm font-medium text-slate-950">
-                        {user.displayName || user.fullName || user.username}
+                        {instructorLabel(user)}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {user.position || user.role}
@@ -625,7 +946,7 @@ export function LessonAdminEditor({
             ) : null}
 
             <div className="mt-5 flex flex-wrap gap-2">
-              <Button onClick={handleSubmit} disabled={saving}>
+              <Button onClick={handleSubmit} disabled={saving || !selectedGroup}>
                 <Save className="mr-2 h-4 w-4" />
                 {saving
                   ? 'Сохраняю...'

@@ -38,6 +38,39 @@ public interface LessonRepository extends JpaRepository<Lesson, UUID> {
             join fetch l.day d
             join fetch d.group g
             left join fetch l.assignedInstructors ai
+            where lower(g.code) = lower(:groupCode)
+              and d.date >= :from
+              and d.date <= :to
+            """)
+    List<Lesson> findForGroupCodeAndDateRange(@Param("groupCode") String groupCode,
+                                              @Param("from") LocalDate from,
+                                              @Param("to") LocalDate to);
+
+    @Query("""
+            select distinct l
+            from Lesson l
+            join fetch l.day d
+            join fetch d.group g
+            left join fetch l.assignedInstructors ai
+            where d.date >= :from
+              and d.date <= :to
+              and exists (
+                    select 1
+                    from Lesson l2
+                    join l2.assignedInstructors ai2
+                    where l2.id = l.id and ai2.id = :instructorId
+              )
+            """)
+    List<Lesson> findForInstructorAndDateRange(@Param("instructorId") UUID instructorId,
+                                               @Param("from") LocalDate from,
+                                               @Param("to") LocalDate to);
+
+    @Query("""
+            select distinct l
+            from Lesson l
+            join fetch l.day d
+            join fetch d.group g
+            left join fetch l.assignedInstructors ai
             where d.date >= :from
               and d.date <= :to
             """)

@@ -9,6 +9,10 @@ internal:
   security:
     api-key: ${SCHEDULE_INTERNAL_API_KEY:dev-schedule-internal-api-key}
 
+security:
+  jwt:
+    secret: ${JWT_SECRET:dev-jwt-secret-key-dev-jwt-secret-key-123456}
+
 identity:
   service:
     url: ${IDENTITY_SERVICE_URL:http://localhost:8082}
@@ -19,6 +23,8 @@ spring:
     name: schedule-service
   profiles:
     active: dev
+  flyway:
+    enabled: false
 
 ---
 
@@ -28,30 +34,30 @@ spring:
       on-profile: dev
 
   datasource:
-    url: jdbc:h2:file:~/atom-shared-db;AUTO_SERVER=TRUE;MODE=PostgreSQL
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:atom}
+    username: ${POSTGRES_USER:dbuser}
+    password: ${POSTGRES_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
         jdbc:
           time_zone: UTC
-
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
 
   servlet:
     multipart:
       max-file-size: 200MB
       max-request-size: 200MB
+
+  flyway:
+    enabled: true
+    locations: filesystem:db/migration,filesystem:../db/migration
 
 ---
 

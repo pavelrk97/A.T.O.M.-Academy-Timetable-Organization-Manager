@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, CalendarDays, LogOut, Menu, PanelsTopLeft, UserCircle2 } from 'lucide-react'
+import { Bell, CalendarDays, FileCog, LogOut, Menu, PanelsTopLeft, UserCircle2 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -15,15 +15,25 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
+import type { User } from '@/lib/types'
 
 const navigation = [
   { href: '/schedule', label: 'Расписание', icon: CalendarDays },
   { href: '/cabinet', label: 'Личный кабинет', icon: PanelsTopLeft },
 ]
 
-function roleLabel(role?: string) {
-  if (role === 'ADMIN') return 'Администратор'
-  if (role === 'EDITOR') return 'Редактор'
+function canUseOperations(user?: User | null) {
+  return Boolean(user && (user.role === 'ADMIN' || user.role === 'EDITOR' || user.editorAccess))
+}
+
+function roleLabel(user?: User | null) {
+  if (!user) {
+    return ''
+  }
+
+  if (user.role === 'ADMIN') return 'Администратор'
+  if (user.role === 'EDITOR') return 'Редактор'
+  if (user.editorAccess) return 'Инструктор / Редактор'
   return 'Инструктор'
 }
 
@@ -68,7 +78,7 @@ export function Header() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          {isAuthenticated && (
+          {isAuthenticated ? (
             <Link href="/cabinet?tab=notifications">
               <Button
                 variant="ghost"
@@ -79,7 +89,7 @@ export function Header() {
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" />
               </Button>
             </Link>
-          )}
+          ) : null}
 
           {isAuthenticated && user ? (
             <DropdownMenu>
@@ -92,7 +102,7 @@ export function Header() {
                     <div className="max-w-40 truncate text-sm font-medium text-slate-950">
                       {visibleName}
                     </div>
-                    <div className="text-xs text-muted-foreground">{roleLabel(user.role)}</div>
+                    <div className="text-xs text-muted-foreground">{roleLabel(user)}</div>
                   </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -114,6 +124,14 @@ export function Header() {
                     Уведомления
                   </Link>
                 </DropdownMenuItem>
+                {canUseOperations(user) ? (
+                  <DropdownMenuItem asChild>
+                    <Link href="/cabinet?tab=admin">
+                      <FileCog className="mr-2 h-4 w-4" />
+                      Операции
+                    </Link>
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
@@ -153,6 +171,16 @@ export function Header() {
                     {item.label}
                   </Link>
                 ))}
+                {canUseOperations(user) ? (
+                  <Link
+                    href="/cabinet?tab=admin"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
+                  >
+                    <FileCog className="h-5 w-5" />
+                    Операции
+                  </Link>
+                ) : null}
               </div>
             </SheetContent>
           </Sheet>

@@ -5,9 +5,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.config.SecurityConfig;
+import ru.dto.ImportedInstructorSyncRequest;
 import ru.dto.InternalUserDetailsDto;
 import ru.model.Role;
 import ru.security.InternalApiKeyAuthenticationFilter;
@@ -17,6 +19,7 @@ import java.util.UUID;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -66,5 +69,30 @@ class InternalUserControllerTest {
                 .andExpect(jsonPath("$.phone").doesNotExist())
                 .andExpect(jsonPath("$.position").doesNotExist())
                 .andExpect(jsonPath("$.department").doesNotExist());
+    }
+
+    @Test
+    void syncImportedInstructors_requiresInternalApiKey() throws Exception {
+        mockMvc.perform(post("/internal/users/sync-instructors")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "fullNames": ["Расписенко", "Петров"]
+                                }
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void syncImportedInstructors_acceptsValidInternalApiKey() throws Exception {
+        mockMvc.perform(post("/internal/users/sync-instructors")
+                        .header("X-Internal-Api-Key", "test-internal-key")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "fullNames": ["Расписенко", "Петров"]
+                                }
+                                """))
+                .andExpect(status().isOk());
     }
 }

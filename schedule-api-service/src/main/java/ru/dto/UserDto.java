@@ -24,6 +24,7 @@ public class UserDto {
     private String position;
     private String department;
     private Role role;
+    private boolean editorAccess;
     private boolean active;
     private boolean canTeach;
 }

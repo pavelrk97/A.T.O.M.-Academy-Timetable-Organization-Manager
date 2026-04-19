@@ -4,6 +4,7 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import ru.dto.ChangeLogDto;
 import ru.dto.LessonDto;
@@ -25,6 +26,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -59,7 +61,8 @@ public class LessonService {
         String normalizedGroupCode = normalizeGroupCode(groupCode);
         LocalDate effectiveFrom = normalizeFrom(from);
         LocalDate effectiveTo = normalizeTo(to);
-        List<ScheduleEntryDto> schedule = lessonRepository.findForSchedule(normalizedGroupCode, instructorId, effectiveFrom, effectiveTo).stream()
+        List<Lesson> lessons = loadLessonsForSchedule(normalizedGroupCode, instructorId, effectiveFrom, effectiveTo);
+        List<ScheduleEntryDto> schedule = lessons.stream()
                 .sorted(Comparator.comparing((Lesson lesson) -> lesson.getDay().getDate())
                         .thenComparing(Lesson::getOrderNumber)
                         .thenComparing(Lesson::getId))
@@ -70,12 +73,26 @@ public class LessonService {
         return schedule;
     }
 
+    private List<Lesson> loadLessonsForSchedule(String normalizedGroupCode,
+                                                UUID instructorId,
+                                                LocalDate effectiveFrom,
+                                                LocalDate effectiveTo) {
+        if (normalizedGroupCode == null && instructorId == null) {
+            return lessonRepository.findForDateRange(effectiveFrom, effectiveTo);
+        }
+        if (normalizedGroupCode == null) {
+            return lessonRepository.findForInstructorAndDateRange(instructorId, effectiveFrom, effectiveTo);
+        }
+        if (instructorId == null) {
+            return lessonRepository.findForGroupCodeAndDateRange(normalizedGroupCode, effectiveFrom, effectiveTo);
+        }
+        return lessonRepository.findForSchedule(normalizedGroupCode, instructorId, effectiveFrom, effectiveTo);
+    }
+
     @Transactional
     public LessonDto create(LessonDto dto, Authentication authentication) {
         User actor = userService.getCurrentUser(authentication);
-        if (actor.getRole() == Role.INSTRUCTOR) {
-            throw new ForbiddenEditException("Instructor cannot create lessons");
-        }
+        ensureLessonEditAccess(authentication);
 
         Day day = resolveDay(dto.getDayId());
         Lesson lesson = LessonMapper.toEntity(dto);
@@ -98,9 +115,7 @@ public class LessonService {
             throw new ConflictException("Lesson was changed by another user. Refresh data and retry.");
         }
 
-        if (actor.getRole() == Role.INSTRUCTOR) {
-            throw new ForbiddenEditException("Instructor cannot edit lessons");
-        }
+        ensureLessonEditAccess(authentication);
 
         if (dto.getDayId() != null && !dto.getDayId().equals(lesson.getDay().getId())) {
             lesson.setDay(resolveDay(dto.getDayId()));
@@ -117,9 +132,7 @@ public class LessonService {
     @Transactional
     public void delete(UUID id, Long version, Authentication authentication) {
         User actor = userService.getCurrentUser(authentication);
-        if (actor.getRole() == Role.INSTRUCTOR) {
-            throw new ForbiddenEditException("Instructor cannot delete lessons");
-        }
+        ensureLessonEditAccess(authentication);
 
         Lesson lesson = findEntity(id);
         if (version == null || !version.equals(lesson.getVersion())) {
@@ -215,12 +228,56 @@ public class LessonService {
         lesson.setDurationHours(dto.getDurationHours() != null ? dto.getDurationHours() : 0);
         lesson.setNote(dto.getNote());
         lesson.setType(dto.getType());
-        List<User> instructors = dto.getInstructorIds() != null
-                ? dto.getInstructorIds().stream().map(userService::findById).toList()
-                : new ArrayList<>();
+        List<User> instructors = resolveAssignableInstructors(dto.getInstructorIds());
+        List<String> lecturerNames = resolveLecturerNames(instructors);
         lesson.setAssignedInstructors(new ArrayList<>(instructors));
-        lesson.setLecturers(new ArrayList<>(instructors.stream().map(User::getFullName).toList()));
-        lesson.setLecturer(instructors.isEmpty() ? null : instructors.get(0).getFullName());
+        lesson.setLecturers(new ArrayList<>(lecturerNames));
+        lesson.setLecturer(lecturerNames.isEmpty() ? null : lecturerNames.get(0));
+    }
+
+    private void ensureLessonEditAccess(Authentication authentication) {
+        boolean canEdit = authentication != null
+                && authentication.getAuthorities() != null
+                && authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority) || "ROLE_EDITOR".equals(authority));
+        if (!canEdit) {
+            throw new ForbiddenEditException("Lesson editing requires ADMIN or EDITOR access");
+        }
+    }
+
+    private List<User> resolveAssignableInstructors(List<UUID> instructorIds) {
+        if (instructorIds == null) {
+            return new ArrayList<>();
+        }
+
+        List<User> instructors = instructorIds.stream()
+                .distinct()
+                .map(userService::findById)
+                .toList();
+
+        User invalidAssignee = instructors.stream()
+                .filter(user -> !user.isCanTeach())
+                .findFirst()
+                .orElse(null);
+        if (invalidAssignee != null) {
+            throw new ForbiddenEditException("Only users with canTeach=true can be assigned to lessons");
+        }
+
+        return instructors;
+    }
+
+    private List<String> resolveLecturerNames(List<User> instructors) {
+        return instructors.stream()
+                .map(User::getFullName)
+                .filter(fullName -> fullName != null && !fullName.isBlank())
+                .map(String::trim)
+                .collect(
+                        java.util.stream.Collectors.collectingAndThen(
+                                java.util.stream.Collectors.toCollection(LinkedHashSet::new),
+                                ArrayList::new
+                        )
+                );
     }
 
     private Day resolveDay(UUID dayId) {

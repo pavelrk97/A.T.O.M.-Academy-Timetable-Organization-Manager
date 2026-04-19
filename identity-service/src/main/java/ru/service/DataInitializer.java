@@ -20,22 +20,33 @@ public class DataInitializer {
 
     @PostConstruct
     public void init() {
-        seed("admin", "admin123", "Administrator", Role.ADMIN, true);
-        seed("editor", "editor123", "Schedule Editor", Role.EDITOR, true);
-        seed("instructor", "instructor123", "Main Instructor", Role.INSTRUCTOR, true);
+        seed("admin", "admin123", "Administrator", Role.ADMIN, false, true, false);
+        seed("editor", "editor123", "Schedule Editor", Role.EDITOR, false, true, false);
+        seed("instructor", "123", "Main Instructor", Role.INSTRUCTOR, true, true, true);
     }
 
-    private void seed(String username, String rawPassword, String fullName, Role role, boolean canTeach) {
-        if (userRepository.findByUsername(username).isPresent()) {
-            return;
+    private void seed(String username,
+                      String rawPassword,
+                      String fullName,
+                      Role role,
+                      boolean editorAccess,
+                      boolean canTeach,
+                      boolean resetPasswordOnStartup) {
+        User user = userRepository.findByUsername(username).orElseGet(User::new);
+        boolean isNew = user.getId() == null;
+
+        if (isNew) {
+            user.setUsername(username);
         }
 
-        User user = new User();
-        user.setUsername(username);
-        user.setPassword(passwordEncoder.encode(rawPassword));
+        if (isNew || resetPasswordOnStartup) {
+            user.setPassword(passwordEncoder.encode(rawPassword));
+        }
+
         user.setFullName(fullName);
         user.setDisplayName(fullName);
         user.setRole(role);
+        user.setEditorAccess(editorAccess);
         user.setActive(true);
         user.setCanTeach(canTeach);
         userRepository.save(user);

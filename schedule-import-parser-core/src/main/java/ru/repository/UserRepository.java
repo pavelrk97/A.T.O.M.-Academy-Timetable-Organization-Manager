@@ -1,6 +1,7 @@
 package ru.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import ru.model.Role;
 import ru.model.User;
 
 import java.util.List;
@@ -14,6 +15,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByFullNameIgnoreCase(String fullName);
 
     List<User> findAllByFullNameIgnoreCase(String fullName);
+
+    List<User> findAllByCanTeachTrueOrderByFullNameAsc();
+
+    List<User> findAllByRoleAndCanTeachTrueAndUsernameStartingWithOrderByFullNameAsc(Role role, String usernamePrefix);
 
     boolean existsByUsername(String username);
 }
