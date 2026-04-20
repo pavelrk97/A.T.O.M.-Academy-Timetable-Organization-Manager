@@ -12,8 +12,8 @@ import { useAuth } from '@/lib/auth-context'
 export default function LoginPage() {
   const router = useRouter()
   const { login, isLoading } = useAuth()
-  const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('admin123')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -26,7 +26,7 @@ export default function LoginPage() {
     if (success) {
       router.push('/cabinet')
     } else {
-      setError('Проверь логин и пароль. Backend не выдал JWT access token.')
+      setError('Проверь логин и пароль. Backend не выдал токен доступа.')
     }
 
     setSubmitting(false)
@@ -42,8 +42,10 @@ export default function LoginPage() {
             </div>
             <h1 className="mt-6 text-3xl font-semibold text-slate-950">Вход в A.T.O.M.</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Экран логина вызывает `POST /api/auth/login`, сохраняет access token локально и
-              дальше работает с `Authorization: Bearer &lt;jwt&gt;`.
+              Используй свою учётную запись, чтобы открыть{' '}
+              <span className="font-medium">Academic Timetable Organization Manager</span>. Вход
+              выполняется через <code>POST /api/auth/login</code>, а защищённые запросы идут с
+              bearer-токеном доступа.
             </p>
 
             <form onSubmit={submit} className="mt-8 space-y-4">
@@ -54,6 +56,7 @@ export default function LoginPage() {
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
                   autoComplete="username"
+                  placeholder="Введите логин"
                 />
               </div>
               <div className="space-y-2">
@@ -64,6 +67,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="current-password"
+                  placeholder="Введите пароль"
                 />
               </div>
 
@@ -90,32 +94,11 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-6 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-600">
-              <div className="font-medium text-slate-950">Быстрые тестовые логины</div>
-              <div className="mt-2 space-y-1">
-                <button
-                  type="button"
-                  className="block text-left text-primary hover:underline"
-                  onClick={() => {
-                    setUsername('admin')
-                    setPassword('admin123')
-                  }}
-                >
-                  admin / admin123
-                </button>
-                <button
-                  type="button"
-                  className="block text-left text-primary hover:underline"
-                  onClick={() => {
-                    setUsername('instructor')
-                    setPassword('123')
-                  }}
-                >
-                  instructor / 123
-                </button>
-              </div>
-              <div className="mt-3 text-xs leading-5 text-muted-foreground">
-                После импорта все преподаватели из расписания получают учётную запись с логином по имени из расписания
-                и временным паролем `12345`, который потом можно сменить в кабинете.
+              <div className="font-medium text-slate-950">Управление доступом</div>
+              <div className="mt-2 text-xs leading-5 text-muted-foreground">
+                Учётные записи, роли и временные пароли управляются через backend и
+                административные сценарии. Экран не показывает служебные подсказки и личные
+                данные для входа.
               </div>
             </div>
 
@@ -131,21 +114,22 @@ export default function LoginPage() {
           <section className="rounded-[28px] border border-border bg-gradient-to-br from-primary/8 via-white to-sky-50 p-8">
             <div className="max-w-xl">
               <div className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                cabinet + schedule
+                кабинет + расписание
               </div>
               <h2 className="mt-6 text-4xl font-semibold tracking-tight text-slate-950">
-                Один логин,
+                Один вход,
                 <br />
-                два контура работы
+                две рабочие зоны
               </h2>
               <p className="mt-4 text-lg leading-8 text-slate-600">
-                После входа открывается личный кабинет с профилем, расписанием, уведомлениями и
-                нагрузкой. Публичная страница расписания остаётся отдельной.
+                После входа открывается личный кабинет с профилем, расписанием, уведомлениями,
+                нагрузкой и ролевыми операциями. Публичная страница расписания остаётся отдельной
+                поверхностью только для чтения.
               </p>
               <div className="mt-8 grid gap-4 sm:grid-cols-2">
                 {[
-                  'Личное расписание и workload',
-                  'Смена пароля',
+                  'Личное расписание и нагрузка',
+                  'Пароль и безопасность аккаунта',
                   'Уведомления по дням',
                   'Операции по роли пользователя',
                 ].map((item) => (

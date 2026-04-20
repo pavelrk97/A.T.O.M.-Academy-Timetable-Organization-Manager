@@ -158,6 +158,7 @@ function CabinetPageContent() {
   const [workloadExporting, setWorkloadExporting] = useState(false)
   const [workloadFilter, setWorkloadFilter] = useState('')
   const [scheduleZoom, setScheduleZoom] = useState(100)
+  const [scheduleZoomDraft, setScheduleZoomDraft] = useState(100)
   const syncingFromUrlRef = useRef(false)
 
   useEffect(() => {
@@ -181,6 +182,10 @@ function CabinetPageContent() {
       router.replace(`/cabinet?${nextQuery}`, { scroll: false })
     }
   }, [activeTab, range.from, range.to, router, urlQuery])
+
+  useEffect(() => {
+    setScheduleZoomDraft(scheduleZoom)
+  }, [scheduleZoom])
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -387,59 +392,15 @@ function CabinetPageContent() {
     }
   }
 
+  function commitScheduleZoom(value: number) {
+    const next = clampZoom(value)
+    setScheduleZoom(next)
+    setScheduleZoomDraft(next)
+  }
+
   function renderAdminWorkloadActions() {
     return (
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            value={workloadFilter}
-            onChange={(event) => setWorkloadFilter(event.target.value)}
-            placeholder="Р¤Р°РјРёР»РёСЏ РґР»СЏ С„РёР»СЊС‚СЂР°"
-            className="h-9 w-48"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void handleExportAdminWorkload('filtered')}
-            disabled={
-              workloadExporting ||
-              !workloadFilter.trim() ||
-              (users.length > 0 && adminWorkloadMatches.length === 0)
-            }
-          >
-            <Download className="mr-2 h-4 w-4" />
-            РџРѕ С„Р°РјРёР»РёРё
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void handleExportAdminWorkload('all')}
-            disabled={workloadExporting}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Р’СЃРµ
-          </Button>
-        </div>
-        {workloadFilter.trim() ? (
-          <div className="text-xs text-muted-foreground">
-            {adminWorkloadMatches.length
-              ? `РЎРѕРІРїР°РґРµРЅРёСЏ: ${adminWorkloadMatches
-                  .slice(0, 5)
-                  .map((candidate) => candidate.displayName || candidate.fullName || candidate.username)
-                  .join(', ')}${adminWorkloadMatches.length > 5 ? ` (+${adminWorkloadMatches.length - 5})` : ''}`
-              : 'РџРѕ Р·Р°РїСЂРѕСЃСѓ РЅРµС‚ РёРЅСЃС‚СЂСѓРєС‚РѕСЂРѕРІ СЃ canTeach=true.'}
-          </div>
-        ) : null}
-      </div>
-    )
-  }
-
-  function renderWorkloadActions() {
-    if (user?.role === 'ADMIN') {
-      return renderAdminWorkloadActions()
-    }
-    if (false) {
-      return (
         <div className="flex flex-wrap items-center gap-2">
           <Input
             value={workloadFilter}
@@ -451,7 +412,11 @@ function CabinetPageContent() {
             variant="outline"
             size="sm"
             onClick={() => void handleExportAdminWorkload('filtered')}
-            disabled={workloadExporting || !workloadFilter.trim()}
+            disabled={
+              workloadExporting ||
+              !workloadFilter.trim() ||
+              (users.length > 0 && adminWorkloadMatches.length === 0)
+            }
           >
             <Download className="mr-2 h-4 w-4" />
             По фамилии
@@ -466,7 +431,23 @@ function CabinetPageContent() {
             Все
           </Button>
         </div>
-      )
+        {workloadFilter.trim() ? (
+          <div className="text-xs text-muted-foreground">
+            {adminWorkloadMatches.length
+              ? `Совпадения: ${adminWorkloadMatches
+                  .slice(0, 5)
+                  .map((candidate) => candidate.displayName || candidate.fullName || candidate.username)
+                  .join(', ')}${adminWorkloadMatches.length > 5 ? ` (+${adminWorkloadMatches.length - 5})` : ''}`
+              : 'По запросу нет инструкторов с canTeach=true.'}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  function renderWorkloadActions() {
+    if (user?.role === 'ADMIN') {
+      return renderAdminWorkloadActions()
     }
 
     return (
@@ -491,12 +472,16 @@ function CabinetPageContent() {
           min={80}
           max={140}
           step={5}
-          value={scheduleZoom}
-          onChange={(event) => setScheduleZoom(clampZoom(Number(event.target.value)))}
+          value={scheduleZoomDraft}
+          onChange={(event) => setScheduleZoomDraft(clampZoom(Number(event.target.value)))}
+          onMouseUp={(event) => commitScheduleZoom(Number(event.currentTarget.value))}
+          onTouchEnd={(event) => commitScheduleZoom(Number(event.currentTarget.value))}
+          onKeyUp={(event) => commitScheduleZoom(Number(event.currentTarget.value))}
+          onBlur={(event) => commitScheduleZoom(Number(event.currentTarget.value))}
         />
         <ZoomIn className="h-4 w-4 text-muted-foreground" />
         <span className="min-w-10 text-right text-xs font-medium text-slate-700">
-          {scheduleZoom}%
+          {scheduleZoomDraft}%
         </span>
       </div>
     )
@@ -640,7 +625,7 @@ function CabinetPageContent() {
                         group.days.reduce((daySum, day) => daySum + day.lessons.length, 0),
                       0
                     )}
-                    periodLabel={`${range.from} — ${range.to}`}
+                    periodLabel={`${range.from} - ${range.to}`}
                   />
 
                   <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
@@ -649,7 +634,8 @@ function CabinetPageContent() {
                         <div>
                           <h2 className="text-xl font-semibold text-slate-950">Моя сетка занятий</h2>
                           <p className="text-sm text-muted-foreground">
-                            Масштаб можно менять без выхода за пределы таблицы.
+                            Масштаб применяется после отпускания ползунка и не дёргает таблицу во
+                            время перетаскивания.
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">

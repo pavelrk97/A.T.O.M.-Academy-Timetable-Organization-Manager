@@ -34,7 +34,7 @@ function formatRange(from?: string | null, to?: string | null) {
     month: 'long',
     year: 'numeric',
   })
-  return `${left} — ${right}`
+  return `${left} - ${right}`
 }
 
 export function WorkloadCalendar({
@@ -137,7 +137,7 @@ export function WorkloadCalendar({
                       </div>
                       {onLessonClick ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
-                          В расписание
+                          Открыть день
                           <ExternalLink className="h-3.5 w-3.5" />
                         </span>
                       ) : null}
