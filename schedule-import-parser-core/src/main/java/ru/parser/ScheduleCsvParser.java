@@ -36,6 +36,7 @@ public class ScheduleCsvParser {
     private static final Set<String> ASSESSMENT_TITLES = Set.of(
             "Промежуточный контроль",
             "Intermediate Examination",
+            "Entry Level Test",
             "Entermidiate examination",
             "Examination"
     );
