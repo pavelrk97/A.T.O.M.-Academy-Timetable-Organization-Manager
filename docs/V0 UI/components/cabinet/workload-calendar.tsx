@@ -1,13 +1,15 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { CalendarRange, ChevronLeft, ChevronRight, Clock3 } from 'lucide-react'
+import { CalendarRange, ChevronLeft, ChevronRight, Clock3, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { WorkloadCalendar } from '@/lib/types'
 
 interface WorkloadCalendarProps {
   data: WorkloadCalendar
   onPeriodChange?: (from: string, to: string) => void
+  onLessonClick?: (date: string, lessonId: string) => void
+  actions?: ReactNode
 }
 
 function shiftRange(from: string | null | undefined, to: string | null | undefined, days: number) {
@@ -35,17 +37,23 @@ function formatRange(from?: string | null, to?: string | null) {
   return `${left} — ${right}`
 }
 
-export function WorkloadCalendar({ data, onPeriodChange }: WorkloadCalendarProps) {
+export function WorkloadCalendar({
+  data,
+  onPeriodChange,
+  onLessonClick,
+  actions,
+}: WorkloadCalendarProps) {
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div>
           <h3 className="text-lg font-semibold text-slate-950">Нагрузка по дням</h3>
           <p className="text-sm text-muted-foreground">
-            Период можно листать вперёд и назад. В каждой строке уже есть уроки и часы.
+            По клику на занятие можно перейти в расписание на конкретный день.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {actions}
           <Button
             variant="outline"
             size="icon"
@@ -95,7 +103,7 @@ export function WorkloadCalendar({ data, onPeriodChange }: WorkloadCalendarProps
             <div key={day.dayId} className="px-5 py-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="text-sm font-semibold text-slate-950">
+                  <div className="text-sm font-semibold capitalize text-slate-950">
                     {new Date(day.date).toLocaleDateString('ru-RU', {
                       weekday: 'long',
                       day: '2-digit',
@@ -113,18 +121,28 @@ export function WorkloadCalendar({ data, onPeriodChange }: WorkloadCalendarProps
 
               <div className="mt-4 space-y-2">
                 {day.lessons.map((lesson) => (
-                  <div
+                  <button
                     key={lesson.lessonId}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-slate-50 px-3 py-3"
+                    type="button"
+                    onClick={() => onLessonClick?.(day.date, lesson.lessonId)}
+                    className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-slate-50 px-3 py-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                   >
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-slate-950">{lesson.title}</div>
                       <div className="text-xs text-muted-foreground">{lesson.groupCode}</div>
                     </div>
-                    <div className="rounded-full bg-white px-3 py-1 text-sm font-medium text-slate-700">
-                      {lesson.durationHours} ч.
+                    <div className="flex items-center gap-2">
+                      <div className="rounded-full bg-white px-3 py-1 text-sm font-medium text-slate-700">
+                        {lesson.durationHours} ч.
+                      </div>
+                      {onLessonClick ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                          В расписание
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </span>
+                      ) : null}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>

@@ -208,7 +208,7 @@ class CsvImportServiceIntegrationTest {
         Group group = new Group();
         group.setCode(groupCode);
         group.setLocation("B201");
-        group.setCourse(6);
+        group.setCourse("6A");
 
         Day day = new Day();
         day.setDate(LocalDate.of(2026, 1, 5));

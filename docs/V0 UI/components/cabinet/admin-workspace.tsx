@@ -26,6 +26,10 @@ interface AdminWorkspaceProps {
   importResult: ImportResult | null
   onImport: (file: File) => Promise<void>
   onRefresh: () => Promise<void>
+  range: {
+    from: string
+    to: string
+  }
 }
 
 function workspaceTitle(user: User) {
@@ -43,15 +47,12 @@ function workspaceTitle(user: User) {
 
 function workspaceDescription(user: User) {
   if (user.role === 'ADMIN') {
-    return 'Администратор может импортировать CSV, управлять пользователями, создавать группы, пустые дни и занятия.'
+    return 'Администратор управляет импортом CSV, пользователями, группами, пустыми днями и занятиями.'
   }
-  if (user.role === 'EDITOR') {
-    return 'Редактор работает только с расписанием: создаёт группы, дни и занятия, назначает преподавателей.'
+  if (user.role === 'EDITOR' || user.editorAccess) {
+    return 'Редакторский контур работает с сеткой расписания: создание групп, дней, занятий и назначение преподавателей.'
   }
-  if (user.editorAccess) {
-    return 'Инструктору с editor access доступно только создание и редактирование занятий. Пользователи и импорт остаются только у администратора.'
-  }
-  return 'Доступ ограничен.'
+  return 'Доступ к операциям ограничен.'
 }
 
 export function AdminWorkspace({
@@ -65,6 +66,7 @@ export function AdminWorkspace({
   importResult,
   onImport,
   onRefresh,
+  range,
 }: AdminWorkspaceProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
@@ -179,6 +181,7 @@ export function AdminWorkspace({
         users={users}
         canManageGroups={canManageGroups}
         onChanged={onRefresh}
+        range={range}
       />
     </div>
   )

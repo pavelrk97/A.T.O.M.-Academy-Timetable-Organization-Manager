@@ -1,18 +1,25 @@
 package ru.service;
 
 import jakarta.transaction.Transactional;
+import org.hibernate.collection.spi.PersistentCollection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import ru.dto.DayDto;
 import ru.dto.GroupDto;
 import ru.exception.ResourceNotFoundException;
+import ru.mapper.DayMapper;
 import ru.mapper.GroupMapper;
 import ru.model.Day;
 import ru.model.Group;
 import ru.model.Lesson;
 import ru.repository.GroupRepository;
 
+import java.time.LocalDate;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -66,13 +73,7 @@ public class GroupService {
         group.setCourse(dto.getCourse());
 
         if (dto.getDays() != null) {
-            Group replacement = GroupMapper.toEntity(dto);
-            group.getDays().clear();
-            replacement.getDays().forEach(day -> {
-                day.setGroup(group);
-                day.getLessons().forEach(lesson -> lesson.setDay(day));
-                group.getDays().add(day);
-            });
+            mergeDays(group, dto.getDays());
         }
 
         GroupDto updated = GroupMapper.toDto(groupRepository.save(group));
@@ -99,5 +100,56 @@ public class GroupService {
                 lesson.setDay(day);
             }
         }
+    }
+
+    private void mergeDays(Group group, List<DayDto> incomingDays) {
+        if (!(group.getDays() instanceof PersistentCollection<?>) && !(group.getDays() instanceof java.util.ArrayList<?>)) {
+            group.setDays(new java.util.ArrayList<>(group.getDays()));
+        }
+
+        List<Day> groupDays = group.getDays();
+        Map<UUID, Day> existingById = new HashMap<>();
+        Map<LocalDate, Day> existingByDate = new HashMap<>();
+
+        for (Day existing : groupDays) {
+            if (existing.getId() != null) {
+                existingById.put(existing.getId(), existing);
+            }
+            if (existing.getDate() != null) {
+                existingByDate.put(existing.getDate(), existing);
+            }
+        }
+
+        for (DayDto dayDto : incomingDays) {
+            Day target = null;
+            if (dayDto.getId() != null) {
+                target = existingById.get(dayDto.getId());
+            }
+            if (target == null && dayDto.getDate() != null) {
+                target = existingByDate.get(dayDto.getDate());
+            }
+
+            if (target == null) {
+                Day created = DayMapper.toEntity(dayDto);
+                created.setGroup(group);
+                created.getLessons().forEach(lesson -> lesson.setDay(created));
+                groupDays.add(created);
+                if (created.getId() != null) {
+                    existingById.put(created.getId(), created);
+                }
+                if (created.getDate() != null) {
+                    existingByDate.put(created.getDate(), created);
+                }
+                continue;
+            }
+
+            target.setDate(dayDto.getDate());
+            target.setMeta(dayDto.getMeta());
+            if (target.getDate() != null) {
+                existingByDate.put(target.getDate(), target);
+            }
+        }
+
+        groupDays.sort(Comparator.comparing(Day::getDate, Comparator.nullsLast(LocalDate::compareTo)));
     }
 }

@@ -19,6 +19,7 @@ import ru.dto.WorkloadCalendarDto;
 import ru.service.MyCabinetService;
 
 import java.time.LocalDate;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -63,7 +64,7 @@ class MeControllerTest {
                                         .groupId(groupId)
                                         .groupCode("QA-42")
                                         .location("B201")
-                                        .course(4)
+                                        .course("4A")
                                         .days(List.of(
                                                 ScheduleGridDayCellDto.builder()
                                                         .dayId(dayId)
@@ -169,5 +170,22 @@ class MeControllerTest {
                 .andExpect(jsonPath("$.notifications").isArray());
 
         verify(myCabinetService).getDashboard(any(Authentication.class), eq(LocalDate.of(2026, 4, 1)), eq(LocalDate.of(2026, 4, 30)));
+    }
+
+    @Test
+    @WithMockUser(username = "mentor", roles = "INSTRUCTOR")
+    void exportMyWorkload_returnsExcelAttachment() throws Exception {
+        given(myCabinetService.exportMyWorkloadExcel(any(Authentication.class), eq(LocalDate.of(2026, 5, 1)), eq(LocalDate.of(2026, 5, 31))))
+                .willReturn("csv-data".getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(get("/api/me/workload/export")
+                        .param("from", "2026-05-01")
+                        .param("to", "2026-05-31"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Content-Disposition", "attachment; filename=\"my-workload-2026-05-01-2026-05-31.xlsx\""))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes("csv-data".getBytes(StandardCharsets.UTF_8)));
+
+        verify(myCabinetService).exportMyWorkloadExcel(any(Authentication.class), eq(LocalDate.of(2026, 5, 1)), eq(LocalDate.of(2026, 5, 31)));
     }
 }

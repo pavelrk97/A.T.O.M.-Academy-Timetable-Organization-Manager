@@ -43,6 +43,8 @@ services:
       IDENTITY_INTERNAL_API_KEY: ${IDENTITY_INTERNAL_API_KEY}
     ports:
       - "8082:8082"
+    volumes:
+      - ./db/migration:/app/db/migration:ro
 
   schedule-service:
     build:
@@ -74,6 +76,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
+      - ./db/migration:/app/db/migration:ro
       - schedule-import-archive:/app/data/import-archive
 
   import-service:

@@ -87,6 +87,10 @@ spring:
       max-file-size: 200MB
       max-request-size: 200MB
 
+  flyway:
+    enabled: true
+    locations: filesystem:/app/db/migration
+
 logging:
   level:
     root: INFO

@@ -18,6 +18,7 @@ import ru.model.Role;
 import ru.security.DownstreamAuthHeaderFactory;
 
 import java.time.LocalDate;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -100,5 +101,30 @@ class MeControllerTest {
         verify(scheduleClient, never()).getMyInstructorScheduleGrid(authorization, from, to);
         verify(scheduleClient, never()).getMyWorkloadCalendar(authorization, from, to);
         verify(scheduleClient, never()).getMyNotifications(authorization, from, to);
+    }
+
+    @Test
+    void exportMyWorkload_proxiesCsvResponse() throws Exception {
+        String authorization = "Bearer test-token";
+        LocalDate from = LocalDate.of(2026, 5, 1);
+        LocalDate to = LocalDate.of(2026, 5, 31);
+
+        given(authHeaderFactory.bearerHeader(org.mockito.ArgumentMatchers.any())).willReturn(authorization);
+        given(scheduleClient.exportMyWorkload(eq(authorization), eq(from), eq(to)))
+                .willReturn("csv-data".getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(get("/api/me/workload/export")
+                        .with(jwt().jwt(jwt -> jwt
+                                .tokenValue("test-token")
+                                .subject("mentor")
+                                .claim("roles", java.util.List.of("INSTRUCTOR"))))
+                        .param("from", "2026-05-01")
+                        .param("to", "2026-05-31"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Content-Disposition", "attachment; filename=\"my-workload-2026-05-01-2026-05-31.xlsx\""))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes("csv-data".getBytes(StandardCharsets.UTF_8)));
+
+        verify(scheduleClient).exportMyWorkload(authorization, from, to);
     }
 }

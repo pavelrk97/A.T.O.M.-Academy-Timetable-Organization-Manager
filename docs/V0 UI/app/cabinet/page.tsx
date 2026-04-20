@@ -11,12 +11,15 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Bell,
+  Download,
   FileCog,
   LayoutDashboard,
   Loader2,
   LockKeyhole,
   Rows3,
   UserRound,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 import { Header } from '@/components/header'
 import { DashboardStats } from '@/components/cabinet/dashboard-stats'
@@ -27,8 +30,16 @@ import { WorkloadCalendar } from '@/components/cabinet/workload-calendar'
 import { AdminWorkspace } from '@/components/cabinet/admin-workspace'
 import { ScheduleGrid } from '@/components/schedule/schedule-grid'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
-import { groupsApi, importApi, meApi, usersApi } from '@/lib/api'
+import {
+  groupsApi,
+  importApi,
+  meApi,
+  saveDownload,
+  usersApi,
+  workloadApi,
+} from '@/lib/api'
 import type {
   DashboardData,
   GroupDto,
@@ -64,6 +75,10 @@ function buildCabinetQuery(tab: CabinetTab, from: string, to: string) {
   query.set('from', from)
   query.set('to', to)
   return query.toString()
+}
+
+function clampZoom(value: number) {
+  return Math.min(140, Math.max(80, value))
 }
 
 function canUseOperations(user?: User | null) {
@@ -140,6 +155,9 @@ function CabinetPageContent() {
   const [adminLoading, setAdminLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [workloadExporting, setWorkloadExporting] = useState(false)
+  const [workloadFilter, setWorkloadFilter] = useState('')
+  const [scheduleZoom, setScheduleZoom] = useState(100)
   const syncingFromUrlRef = useRef(false)
 
   useEffect(() => {
@@ -150,7 +168,7 @@ function CabinetPageContent() {
     syncingFromUrlRef.current = true
     setActiveTab(urlTab)
     setRange({ from: urlFrom, to: urlTo })
-  }, [urlTab, urlFrom, urlTo])
+  }, [urlFrom, urlTab, urlTo])
 
   useEffect(() => {
     if (syncingFromUrlRef.current) {
@@ -188,6 +206,7 @@ function CabinetPageContent() {
         }
       } catch (caught) {
         if (!cancelled) {
+          setDashboard(null)
           setError(
             caught instanceof Error && caught.message
               ? caught.message
@@ -201,7 +220,7 @@ function CabinetPageContent() {
       }
     }
 
-    loadDashboard()
+    void loadDashboard()
 
     return () => {
       cancelled = true
@@ -210,9 +229,33 @@ function CabinetPageContent() {
 
   const operationsEnabled = canUseOperations(user)
   const canManageUsers = user?.role === 'ADMIN'
-  const canManageGroups = user?.role === 'ADMIN'
+  const canManageGroups = operationsEnabled
   const tabs = createTabItems(user)
   const currentSchedule = scheduleMode === 'my' ? dashboard?.instructorSchedule : fullSchedule
+  const adminWorkloadMatches = useMemo(() => {
+    if (user?.role !== 'ADMIN') {
+      return []
+    }
+
+    const query = workloadFilter.trim().toLowerCase()
+    if (!query) {
+      return []
+    }
+
+    return users
+      .filter((candidate) => candidate.canTeach)
+      .filter((candidate) =>
+        [candidate.fullName, candidate.displayName, candidate.username]
+          .filter((value): value is string => Boolean(value))
+          .some((value) => value.toLowerCase().includes(query))
+      )
+      .sort((left, right) =>
+        (left.displayName || left.fullName || left.username).localeCompare(
+          right.displayName || right.fullName || right.username,
+          'ru'
+        )
+      )
+  }, [user?.role, users, workloadFilter])
 
   async function loadFullSchedule() {
     if (!operationsEnabled) {
@@ -262,6 +305,12 @@ function CabinetPageContent() {
     }
   }, [activeTab, operationsEnabled, users.length, groups.length])
 
+  useEffect(() => {
+    if (activeTab === 'workload' && user?.role === 'ADMIN' && !users.length) {
+      void loadAdminData()
+    }
+  }, [activeTab, user?.role, users.length])
+
   async function handleProfileUpdate(payload: {
     displayName?: string | null
     email?: string | null
@@ -292,6 +341,165 @@ function CabinetPageContent() {
     } finally {
       setImporting(false)
     }
+  }
+
+  function jumpToScheduleDay(date: string) {
+    setScheduleMode('my')
+    setRange({ from: date, to: date })
+    setActiveTab('schedule')
+  }
+
+  async function handleExportMyWorkload() {
+    setWorkloadExporting(true)
+    setError('')
+    try {
+      const download = await meApi.exportWorkloadCalendar(range)
+      saveDownload(download)
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : 'Не удалось выгрузить нагрузку.'
+      )
+    } finally {
+      setWorkloadExporting(false)
+    }
+  }
+
+  async function handleExportAdminWorkload(mode: 'all' | 'filtered') {
+    setWorkloadExporting(true)
+    setError('')
+    try {
+      const download = await workloadApi.exportCsv({
+        instructorQuery: mode === 'filtered' ? workloadFilter.trim() || undefined : undefined,
+        from: range.from,
+        to: range.to,
+      })
+      saveDownload(download)
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : 'Не удалось выгрузить сводную нагрузку.'
+      )
+    } finally {
+      setWorkloadExporting(false)
+    }
+  }
+
+  function renderAdminWorkloadActions() {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            value={workloadFilter}
+            onChange={(event) => setWorkloadFilter(event.target.value)}
+            placeholder="Р¤Р°РјРёР»РёСЏ РґР»СЏ С„РёР»СЊС‚СЂР°"
+            className="h-9 w-48"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleExportAdminWorkload('filtered')}
+            disabled={
+              workloadExporting ||
+              !workloadFilter.trim() ||
+              (users.length > 0 && adminWorkloadMatches.length === 0)
+            }
+          >
+            <Download className="mr-2 h-4 w-4" />
+            РџРѕ С„Р°РјРёР»РёРё
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleExportAdminWorkload('all')}
+            disabled={workloadExporting}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Р’СЃРµ
+          </Button>
+        </div>
+        {workloadFilter.trim() ? (
+          <div className="text-xs text-muted-foreground">
+            {adminWorkloadMatches.length
+              ? `РЎРѕРІРїР°РґРµРЅРёСЏ: ${adminWorkloadMatches
+                  .slice(0, 5)
+                  .map((candidate) => candidate.displayName || candidate.fullName || candidate.username)
+                  .join(', ')}${adminWorkloadMatches.length > 5 ? ` (+${adminWorkloadMatches.length - 5})` : ''}`
+              : 'РџРѕ Р·Р°РїСЂРѕСЃСѓ РЅРµС‚ РёРЅСЃС‚СЂСѓРєС‚РѕСЂРѕРІ СЃ canTeach=true.'}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  function renderWorkloadActions() {
+    if (user?.role === 'ADMIN') {
+      return renderAdminWorkloadActions()
+    }
+    if (false) {
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            value={workloadFilter}
+            onChange={(event) => setWorkloadFilter(event.target.value)}
+            placeholder="Фамилия для фильтра"
+            className="h-9 w-48"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleExportAdminWorkload('filtered')}
+            disabled={workloadExporting || !workloadFilter.trim()}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            По фамилии
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleExportAdminWorkload('all')}
+            disabled={workloadExporting}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Все
+          </Button>
+        </div>
+      )
+    }
+
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => void handleExportMyWorkload()}
+        disabled={workloadExporting}
+      >
+        <Download className="mr-2 h-4 w-4" />
+        {workloadExporting ? 'Готовлю Excel...' : 'Экспорт Excel'}
+      </Button>
+    )
+  }
+
+  function renderZoomControls() {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2">
+        <ZoomOut className="h-4 w-4 text-muted-foreground" />
+        <input
+          type="range"
+          min={80}
+          max={140}
+          step={5}
+          value={scheduleZoom}
+          onChange={(event) => setScheduleZoom(clampZoom(Number(event.target.value)))}
+        />
+        <ZoomIn className="h-4 w-4 text-muted-foreground" />
+        <span className="min-w-10 text-right text-xs font-medium text-slate-700">
+          {scheduleZoom}%
+        </span>
+      </div>
+    )
   }
 
   if (authLoading) {
@@ -356,8 +564,8 @@ function CabinetPageContent() {
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                   Профиль, расписание, уведомления, безопасность и нагрузка собраны в одном месте.
-                  Для администратора здесь открыт import, пользователи и управление сеткой.
-                  Для инструктора с editor access остаётся только создание и редактирование занятий.
+                  Администратор дополнительно получает импорт, управление пользователями и полную
+                  операционную сетку. Инструктор с editor access может создавать группы и занятия.
                 </p>
               </div>
 
@@ -437,34 +645,49 @@ function CabinetPageContent() {
 
                   <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
                     <section className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-semibold text-slate-950">Моя сетка занятий</h2>
-                        {operationsEnabled ? (
-                          <div className="flex gap-2">
-                            <Button
-                              variant={scheduleMode === 'my' ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => setScheduleMode('my')}
-                            >
-                              Только мои
-                            </Button>
-                            <Button
-                              variant={scheduleMode === 'all' ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={loadFullSchedule}
-                            >
-                              Вся академия
-                            </Button>
-                          </div>
-                        ) : null}
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h2 className="text-xl font-semibold text-slate-950">Моя сетка занятий</h2>
+                          <p className="text-sm text-muted-foreground">
+                            Масштаб можно менять без выхода за пределы таблицы.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {renderZoomControls()}
+                          {operationsEnabled ? (
+                            <div className="flex gap-2">
+                              <Button
+                                variant={scheduleMode === 'my' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setScheduleMode('my')}
+                              >
+                                Только мои
+                              </Button>
+                              <Button
+                                variant={scheduleMode === 'all' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={loadFullSchedule}
+                              >
+                                Вся академия
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
-                      <ScheduleGrid data={currentSchedule || dashboard.instructorSchedule} compact />
+                      <ScheduleGrid
+                        data={currentSchedule || dashboard.instructorSchedule}
+                        compact
+                        zoom={scheduleZoom}
+                      />
                     </section>
+
                     <div className="space-y-6">
                       <NotificationsFeed notifications={dashboard.notifications} maxItems={6} />
                       <WorkloadCalendar
                         data={dashboard.workload}
                         onPeriodChange={(from, to) => setRange({ from, to })}
+                        onLessonClick={(date) => jumpToScheduleDay(date)}
+                        actions={renderWorkloadActions()}
                       />
                     </div>
                   </div>
@@ -481,29 +704,35 @@ function CabinetPageContent() {
                     <div>
                       <h2 className="text-xl font-semibold text-slate-950">Сетка расписания</h2>
                       <p className="text-sm text-muted-foreground">
-                        Табличный вид расписания внутри личного кабинета.
+                        Табличный вид с управляемым масштабом и диапазоном до 100 дней.
                       </p>
                     </div>
-                    {operationsEnabled ? (
-                      <div className="flex gap-2">
-                        <Button
-                          variant={scheduleMode === 'my' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setScheduleMode('my')}
-                        >
-                          Мои занятия
-                        </Button>
-                        <Button
-                          variant={scheduleMode === 'all' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={loadFullSchedule}
-                        >
-                          Полная сетка
-                        </Button>
-                      </div>
-                    ) : null}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {renderZoomControls()}
+                      {operationsEnabled ? (
+                        <div className="flex gap-2">
+                          <Button
+                            variant={scheduleMode === 'my' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setScheduleMode('my')}
+                          >
+                            Мои занятия
+                          </Button>
+                          <Button
+                            variant={scheduleMode === 'all' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={loadFullSchedule}
+                          >
+                            Полная сетка
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
-                  <ScheduleGrid data={currentSchedule || dashboard.instructorSchedule} />
+                  <ScheduleGrid
+                    data={currentSchedule || dashboard.instructorSchedule}
+                    zoom={scheduleZoom}
+                  />
                 </div>
               ) : null}
 
@@ -511,6 +740,8 @@ function CabinetPageContent() {
                 <WorkloadCalendar
                   data={dashboard.workload}
                   onPeriodChange={(from, to) => setRange({ from, to })}
+                  onLessonClick={(date) => jumpToScheduleDay(date)}
+                  actions={renderWorkloadActions()}
                 />
               ) : null}
 
@@ -539,6 +770,7 @@ function CabinetPageContent() {
                     importResult={importResult}
                     onImport={handleImport}
                     onRefresh={loadAdminData}
+                    range={range}
                   />
                 )
               ) : null}

@@ -1,6 +1,8 @@
 package ru.parser;
 
 import com.opencsv.CSVReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.model.Day;
 import ru.model.Group;
 import ru.model.Lesson;
@@ -14,6 +16,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ScheduleCsvParser {
+
+    private static final Logger log = LoggerFactory.getLogger(ScheduleCsvParser.class);
 
     private static final Pattern DURATION = Pattern.compile("\\((\\d+)\\s*ч\\)");
     private static final Pattern COURSE_CODE = Pattern.compile("^[A-Z&]{1,5}\\d{2}$");
@@ -54,6 +58,13 @@ public class ScheduleCsvParser {
 
             for (int c = 1; c < row.length; c++) {
                 if (row[c] == null || row[c].trim().isEmpty()) continue;
+                if (c >= datesRow.length || datesRow[c] == null || datesRow[c].isBlank()) {
+                    log.warn("Skipping CSV cell without date header: group={}, column={}, preview={}",
+                            group.getCode(),
+                            c,
+                            preview(row[c]));
+                    continue;
+                }
 
                 Day day = new Day();
                 day.setDate(parseDate(datesRow[c]));
@@ -174,5 +185,10 @@ public class ScheduleCsvParser {
 
     private static LocalDate parseDate(String s) {
         return DateParser.parse(s);
+    }
+
+    private static String preview(String cell) {
+        String normalized = cell.replace("\r", " ").replace("\n", " ").trim();
+        return normalized.length() <= 120 ? normalized : normalized.substring(0, 120);
     }
 }

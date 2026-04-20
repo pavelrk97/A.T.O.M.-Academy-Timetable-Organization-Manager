@@ -38,9 +38,12 @@ class MyCabinetServiceTest {
     @Mock
     private IdentityDirectoryService identityDirectoryService;
 
+    @Mock
+    private WorkloadExcelExportService workloadExcelExportService;
+
     @Test
     void instructorGrid_usesRepositoryFilterAndBuildsSpreadsheetRows() {
-        MyCabinetService service = new MyCabinetService(lessonRepository, identityDirectoryService);
+        MyCabinetService service = new MyCabinetService(lessonRepository, identityDirectoryService, workloadExcelExportService);
         Authentication authentication = new UsernamePasswordAuthenticationToken("mentor", "pass");
         InternalUserDetailsDto currentUser = internalUser("mentor", "Mentor QA");
 
@@ -65,7 +68,7 @@ class MyCabinetServiceTest {
 
     @Test
     void workloadAndNotifications_areBuiltFromFilteredLessonsInsteadOfFullGroupScan() {
-        MyCabinetService service = new MyCabinetService(lessonRepository, identityDirectoryService);
+        MyCabinetService service = new MyCabinetService(lessonRepository, identityDirectoryService, workloadExcelExportService);
         Authentication authentication = new UsernamePasswordAuthenticationToken("mentor", "pass");
         InternalUserDetailsDto currentUser = internalUser("mentor", "Mentor QA");
 
@@ -92,11 +95,12 @@ class MyCabinetServiceTest {
         assertThat(notifications).hasSize(2);
         assertThat(notifications).extracting(MyNotificationDto::getDate)
                 .containsExactly(LocalDate.of(2026, 1, 12), LocalDate.of(2026, 1, 13));
+        assertThat(notifications.get(0).getLink()).isEqualTo("/cabinet?tab=schedule&from=2026-01-12&to=2026-01-12&focusDate=2026-01-12");
     }
 
     @Test
     void dashboard_buildsWidgetsFromSingleLessonQuery() {
-        MyCabinetService service = new MyCabinetService(lessonRepository, identityDirectoryService);
+        MyCabinetService service = new MyCabinetService(lessonRepository, identityDirectoryService, workloadExcelExportService);
         Authentication authentication = new UsernamePasswordAuthenticationToken("mentor", "pass");
         InternalUserDetailsDto currentUser = internalUser("mentor", "Mentor QA");
 
@@ -122,7 +126,7 @@ class MyCabinetServiceTest {
 
     @Test
     void fullGridAndDashboard_normalizeNullDatesBeforeRepositoryCall() {
-        MyCabinetService service = new MyCabinetService(lessonRepository, identityDirectoryService);
+        MyCabinetService service = new MyCabinetService(lessonRepository, identityDirectoryService, workloadExcelExportService);
         Authentication authentication = new UsernamePasswordAuthenticationToken("mentor", "pass");
         InternalUserDetailsDto currentUser = internalUser("mentor", "Mentor QA");
 
@@ -137,6 +141,25 @@ class MyCabinetServiceTest {
 
         verify(lessonRepository).findForDateRange(eq(LocalDate.of(1900, 1, 1)), eq(LocalDate.of(3000, 12, 31)));
         verify(lessonRepository).findForInstructorNameAndDateRange(eq("Mentor QA"), eq(LocalDate.of(1900, 1, 1)), eq(LocalDate.of(3000, 12, 31)));
+    }
+
+    @Test
+    void exportMyWorkloadExcel_usesSingleCurrentInstructorCalendar() {
+        MyCabinetService service = new MyCabinetService(lessonRepository, identityDirectoryService, workloadExcelExportService);
+        Authentication authentication = new UsernamePasswordAuthenticationToken("mentor", "pass");
+        InternalUserDetailsDto currentUser = internalUser("mentor", "Mentor QA");
+        Lesson lesson = lesson("QA-42", "B201", LocalDate.of(2026, 1, 12), 1, "APCS intro", 4, "Mentor QA");
+
+        when(identityDirectoryService.getByUsername("mentor")).thenReturn(currentUser);
+        when(lessonRepository.findForInstructorNameAndDateRange("Mentor QA", LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .thenReturn(List.of(lesson));
+        when(workloadExcelExportService.exportCalendars(org.mockito.ArgumentMatchers.anyList(), eq(LocalDate.of(2026, 1, 1)), eq(LocalDate.of(2026, 1, 31))))
+                .thenReturn("csv".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        byte[] exported = service.exportMyWorkloadExcel(authentication, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+
+        assertThat(new String(exported, java.nio.charset.StandardCharsets.UTF_8)).isEqualTo("csv");
+        verify(workloadExcelExportService).exportCalendars(org.mockito.ArgumentMatchers.anyList(), eq(LocalDate.of(2026, 1, 1)), eq(LocalDate.of(2026, 1, 31)));
     }
 
     private InternalUserDetailsDto internalUser(String username, String fullName) {
@@ -172,7 +195,7 @@ class MyCabinetServiceTest {
         group.setId(groupId);
         group.setCode(groupCode);
         group.setLocation(location);
-        group.setCourse(4);
+        group.setCourse("4A");
 
         Day day = new Day();
         day.setId(dayId);

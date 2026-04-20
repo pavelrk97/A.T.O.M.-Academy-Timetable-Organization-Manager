@@ -146,7 +146,7 @@ export function ScheduleFilters({
         </div>
 
         <div className="flex items-center gap-3 xl:ml-auto">
-          {showMyLessons && isAuthenticated && (
+          {showMyLessons && isAuthenticated ? (
             <label className="flex items-center gap-2 rounded-xl border border-border bg-slate-50 px-3 py-2 text-sm">
               <Switch
                 checked={values.onlyMyLessons}
@@ -157,14 +157,14 @@ export function ScheduleFilters({
                 Только мои занятия
               </span>
             </label>
-          )}
+          ) : null}
 
-          {hasExtras && (
+          {hasExtras ? (
             <Button variant="ghost" size="sm" onClick={resetFilters}>
               <X className="mr-1 h-4 w-4" />
               Сбросить
             </Button>
-          )}
+          ) : null}
 
           <Popover>
             <PopoverTrigger asChild>
@@ -177,7 +177,7 @@ export function ScheduleFilters({
               <div>
                 <h4 className="font-medium text-slate-950">Панель фильтров</h4>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Держи диапазон в пределах месяца, чтобы таблица оставалась быстрой.
+                  Рабочий диапазон можно держать до 100 дней, но на практике удобнее короче.
                 </p>
               </div>
               <div className="space-y-2">

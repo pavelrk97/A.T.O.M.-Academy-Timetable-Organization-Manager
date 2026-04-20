@@ -13,6 +13,7 @@ import ru.dto.WorkloadDto;
 import ru.service.LessonService;
 
 import java.time.LocalDate;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -71,6 +72,37 @@ class WorkloadControllerTest {
 
         verify(lessonService).getWorkload(
                 eq(instructorId),
+                eq(LocalDate.of(2026, 6, 1)),
+                eq(LocalDate.of(2026, 6, 30)),
+                any(Authentication.class)
+        );
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void export_returnsExcelAttachmentForAdmin() throws Exception {
+        UUID instructorId = UUID.randomUUID();
+        given(lessonService.exportWorkloadExcel(
+                eq(instructorId),
+                eq("расп"),
+                eq(LocalDate.of(2026, 6, 1)),
+                eq(LocalDate.of(2026, 6, 30)),
+                any(Authentication.class)
+        )).willReturn("csv-data".getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(get("/api/workload/export")
+                        .param("instructorId", instructorId.toString())
+                        .param("instructorQuery", "расп")
+                        .param("from", "2026-06-01")
+                        .param("to", "2026-06-30"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Content-Disposition", "attachment; filename=\"workload-single-2026-06-01-2026-06-30.xlsx\""))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes("csv-data".getBytes(StandardCharsets.UTF_8)));
+
+        verify(lessonService).exportWorkloadExcel(
+                eq(instructorId),
+                eq("расп"),
                 eq(LocalDate.of(2026, 6, 1)),
                 eq(LocalDate.of(2026, 6, 30)),
                 any(Authentication.class)

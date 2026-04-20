@@ -19,6 +19,6 @@ public class ScheduleGridGroupRowDto {
     private UUID groupId;
     private String groupCode;
     private String location;
-    private Integer course;
+    private String course;
     private List<ScheduleGridDayCellDto> days;
 }

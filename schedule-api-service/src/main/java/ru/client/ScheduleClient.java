@@ -78,6 +78,13 @@ public interface ScheduleClient {
                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
 
+    @GetMapping(value = "/api/workload/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    byte[] exportWorkload(@RequestHeader("Authorization") String authorization,
+                          @RequestParam(required = false) UUID instructorId,
+                          @RequestParam(required = false) String instructorQuery,
+                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
+
     @GetMapping("/api/me/schedule/grid")
     ScheduleGridDto getMyFullScheduleGrid(@RequestHeader("Authorization") String authorization,
                                           @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -92,6 +99,11 @@ public interface ScheduleClient {
     WorkloadCalendarDto getMyWorkloadCalendar(@RequestHeader("Authorization") String authorization,
                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
+
+    @GetMapping(value = "/api/me/workload/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    byte[] exportMyWorkload(@RequestHeader("Authorization") String authorization,
+                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
 
     @GetMapping("/api/me/notifications")
     List<MyNotificationDto> getMyNotifications(@RequestHeader("Authorization") String authorization,

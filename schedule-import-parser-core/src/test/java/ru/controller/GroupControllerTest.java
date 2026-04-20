@@ -42,7 +42,7 @@ class GroupControllerTest {
                         .id(groupId)
                         .code("QA-42")
                         .location("B201")
-                        .course(4)
+                        .course("4A")
                         .days(List.of())
                         .build()
         ));
@@ -69,12 +69,41 @@ class GroupControllerTest {
                                 {
                                   "code": "QA-43",
                                   "location": "B202",
-                                  "course": 4,
+                                  "course": "4A",
                                   "days": []
                                 }
                                 """))
                 .andExpect(status().isForbidden());
 
         verify(groupService, never()).create(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @WithMockUser(username = "mentor", roles = {"INSTRUCTOR", "EDITOR"})
+    void createGroup_isAllowedForEditorCapableInstructor() throws Exception {
+        UUID groupId = UUID.randomUUID();
+        given(groupService.create(org.mockito.ArgumentMatchers.any(GroupDto.class))).willReturn(
+                GroupDto.builder()
+                        .id(groupId)
+                        .code("QA-43")
+                        .location("B202")
+                        .course("4A")
+                        .days(List.of())
+                        .build()
+        );
+
+        mockMvc.perform(post("/api/groups")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "code": "QA-43",
+                                  "location": "B202",
+                                  "course": "4A",
+                                  "days": []
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(groupId.toString()))
+                .andExpect(jsonPath("$.code").value("QA-43"));
     }
 }
