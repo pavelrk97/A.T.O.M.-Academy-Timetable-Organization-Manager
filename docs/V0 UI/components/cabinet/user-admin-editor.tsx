@@ -98,7 +98,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
       return
     }
 
-    const selectedUser = users.find((user) => user.id === selectedUserId)
+    const selectedUser = users.find((candidate) => candidate.id === selectedUserId)
     if (!selectedUser) {
       setSelectedUserId(null)
       setForm(createEmptyForm())
@@ -147,11 +147,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
         ...current,
         password: '',
       }))
-      setSuccess(
-        selectedUserId
-          ? 'Пользователь обновлён.'
-          : 'Пользователь создан.'
-      )
+      setSuccess(selectedUserId ? 'Пользователь обновлён.' : 'Пользователь создан.')
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
@@ -186,17 +182,17 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
 
       <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
         <div className="max-h-[520px] space-y-2 overflow-auto rounded-xl border border-border bg-white p-3">
-          {sortedUsers.map((user) => (
+          {sortedUsers.map((candidate) => (
             <button
-              key={user.id}
+              key={candidate.id}
               type="button"
               onClick={() => {
-                setSelectedUserId(user.id)
+                setSelectedUserId(candidate.id)
                 setError('')
                 setSuccess('')
               }}
               className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-                selectedUserId === user.id
+                selectedUserId === candidate.id
                   ? 'border-primary bg-primary/5'
                   : 'border-border hover:bg-slate-50'
               }`}
@@ -207,14 +203,14 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
                 </div>
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-slate-950">
-                    {user.displayName || user.fullName || user.username}
+                    {candidate.displayName || candidate.fullName || candidate.username}
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
-                    {user.username}
+                    {candidate.username}
                   </div>
                   <div className="mt-1 text-xs text-slate-600">
-                    {roleLabel(user.role)}
-                    {user.editorAccess && user.role === 'INSTRUCTOR'
+                    {roleLabel(candidate.role)}
+                    {candidate.editorAccess && candidate.role === 'INSTRUCTOR'
                       ? ' • editor access'
                       : ''}
                   </div>
@@ -252,7 +248,11 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
                 onChange={(event) =>
                   setForm((current) => ({ ...current, password: event.target.value }))
                 }
-                placeholder={selectedUserId ? 'Укажи новый пароль для обновления' : 'Например, 12345'}
+                placeholder={
+                  selectedUserId
+                    ? 'Укажи новый пароль для обновления'
+                    : 'Укажи стартовый пароль'
+                }
               />
             </label>
 

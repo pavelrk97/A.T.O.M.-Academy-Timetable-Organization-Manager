@@ -216,7 +216,7 @@ function FragmentRow({
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="text-[11px] font-semibold text-primary">
-                          № {lesson.orderNumber || '—'}
+                          № {lesson.orderNumber || '-'}
                         </div>
                         <div className="line-clamp-2 text-xs font-medium text-slate-950">
                           {lesson.title || 'Без названия'}

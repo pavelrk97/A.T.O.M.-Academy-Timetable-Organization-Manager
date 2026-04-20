@@ -19,16 +19,18 @@ export default function HomePage() {
           <div className="mx-auto grid max-w-[1600px] gap-10 px-4 py-14 lg:grid-cols-[1.2fr_0.8fr] lg:px-8 lg:py-20">
             <div>
               <div className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                Rosatom style / operational UI
+                стиль Росатом / рабочий UI
               </div>
               <h1 className="mt-6 max-w-4xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
                 A.T.O.M. для расписания,
                 <br />
-                нагрузки и личного кабинета преподавателя
+                нагрузки и операций преподавателя
               </h1>
               <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-                Рабочий интерфейс для академии: смотреть расписание как таблицу, быстро
-                находить группы, видеть свою нагрузку и держать все личные настройки в одном месте.
+                <span className="font-medium">Academic Timetable Organization Manager</span> — это
+                рабочий интерфейс для просмотра расписания, нагрузки преподавателей и сценариев
+                личного кабинета. Он соединяет публичную витрину расписания и защищённые ежедневные
+                операции академии.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
@@ -40,14 +42,14 @@ export default function HomePage() {
                 </Link>
                 <Link href={isAuthenticated ? '/cabinet' : '/login'}>
                   <Button variant="outline" size="lg" className="rounded-xl px-6">
-                    {isAuthenticated ? 'Перейти в кабинет' : 'Войти в систему'}
+                    {isAuthenticated ? 'Открыть кабинет' : 'Войти'}
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
               </div>
 
               <div className="mt-6 text-sm text-muted-foreground">
-                Тестовые учётные данные: `admin / admin123`, `instructor / instructor123`
+                Доступ выдаётся через организационные учётные записи и ролевую модель backend.
               </div>
             </div>
 
@@ -55,28 +57,28 @@ export default function HomePage() {
               <div className="grid gap-4">
                 <FeatureCard
                   icon={<CalendarDays className="h-5 w-5 text-primary" />}
-                  title="Spreadsheet-расписание"
-                  description="Липкие заголовки, плотные ячейки, фильтры по периоду и по группе."
+                  title="Табличный вид расписания"
+                  description="Липкие заголовки, компактные ячейки дней, фильтры по периоду и поиск по группам для широких рабочих экранов."
                 />
                 <FeatureCard
                   icon={<UserRound className="h-5 w-5 text-primary" />}
                   title="Личный кабинет"
-                  description="Профиль, пароль, мои занятия, мои уведомления и рабочая нагрузка."
+                  description="Профиль, пароль, личное расписание, уведомления, нагрузка и ролевые операции собраны в одном рабочем пространстве."
                 />
                 <FeatureCard
                   icon={<Clock3 className="h-5 w-5 text-primary" />}
                   title="Нагрузка по дням"
-                  description="Часы, учебные дни и список уроков сразу в одном календарном представлении."
+                  description="Часы, учебные дни и ссылки на занятия собраны в одном календарном представлении."
                 />
                 <FeatureCard
                   icon={<BellRing className="h-5 w-5 text-primary" />}
-                  title="Ссылки на занятия"
-                  description="Уведомления ведут прямо к дню и диапазону, где у инструктора есть пары."
+                  title="Прямой переход к занятиям"
+                  description="Уведомления и элементы нагрузки могут открыть расписание сразу на нужном дне."
                 />
                 <FeatureCard
                   icon={<ShieldCheck className="h-5 w-5 text-primary" />}
-                  title="Роли и доступ"
-                  description="Один UI для администратора, редактора и инструктора без изменений backend."
+                  title="Операции по ролям"
+                  description="Один интерфейс покрывает сценарии администратора, редактора и инструктора без разрыва продукта на отдельные поверхности."
                 />
               </div>
             </div>
@@ -86,16 +88,16 @@ export default function HomePage() {
         <section className="mx-auto max-w-[1600px] px-4 py-12 lg:px-8 lg:py-16">
           <div className="grid gap-4 lg:grid-cols-3">
             <HighlightCard
-              title="Отдельная страница расписания"
-              text="Большая таблица под широкие экраны, отдельная детальная панель и фильтры сверху."
+              title="Отдельная поверхность расписания"
+              text="Широкая сетка для операционного планирования с фильтрацией, навигацией и обзором дней."
             />
             <HighlightCard
-              title="Отдельная страница личного кабинета"
-              text="Профиль, смена пароля, моя сетка занятий, уведомления и админ-блок в одном месте."
+              title="Отдельное рабочее пространство пользователя"
+              text="Профиль, безопасность, уведомления, нагрузка и инструменты преподавателя остаются внутри одного кабинета."
             />
             <HighlightCard
-              title="Живые данные вместо моков"
-              text="UI работает через `/api/*` и может использовать текущий gateway без правок backend."
+              title="Живая интеграция с backend"
+              text="UI работает через существующую поверхность /api и отражает текущую JWT-модель backend, а не мок-данные."
             />
           </div>
         </section>
