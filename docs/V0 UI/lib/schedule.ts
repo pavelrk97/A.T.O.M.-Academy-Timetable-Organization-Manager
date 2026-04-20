@@ -138,7 +138,7 @@ export function filterGridByInstructor(
 
 export function limitGrid(
   grid: ScheduleGridData,
-  limits = { maxGroups: 20, maxDates: 21, maxLessonsPerCell: 4 }
+  limits = { maxGroups: 20, maxDates: 100, maxLessonsPerCell: 8 }
 ) {
   const limitedDates = grid.dates.slice(0, limits.maxDates)
   const limitedGroups = grid.groups.slice(0, limits.maxGroups).map((group) => ({
@@ -168,4 +168,3 @@ export function limitGrid(
 export function toDateInputValue(value?: string | null) {
   return value ? value.slice(0, 10) : ''
 }
-

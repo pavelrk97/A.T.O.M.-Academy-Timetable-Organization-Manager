@@ -19,6 +19,6 @@ public class GroupDto {
     private UUID id;
     private String code;
     private String location;
-    private Integer course;
+    private String course;
     private List<DayDto> days;
 }

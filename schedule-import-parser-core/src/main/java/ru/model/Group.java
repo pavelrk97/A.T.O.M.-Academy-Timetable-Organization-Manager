@@ -24,7 +24,7 @@ public class Group extends BaseEntity {
 
     private String location;
 
-    private Integer course;
+    private String course;
 
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     @Fetch(FetchMode.SUBSELECT)
@@ -40,8 +40,8 @@ public class Group extends BaseEntity {
     public String getLocation() { return location; }
     public void setLocation(String location) { this.location = location; }
 
-    public Integer getCourse() { return course; }
-    public void setCourse(Integer course) { this.course = course; }
+    public String getCourse() { return course; }
+    public void setCourse(String course) { this.course = course; }
 
     public List<Day> getDays() { return days; }
     public void setDays(List<Day> days) { this.days = days; }

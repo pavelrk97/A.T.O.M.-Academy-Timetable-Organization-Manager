@@ -9,6 +9,9 @@ import org.springframework.stereotype.Service;
 import ru.dto.ChangeLogDto;
 import ru.dto.LessonDto;
 import ru.dto.ScheduleEntryDto;
+import ru.dto.WorkloadCalendarDayDto;
+import ru.dto.WorkloadCalendarDto;
+import ru.dto.WorkloadCalendarLessonDto;
 import ru.dto.WorkloadDto;
 import ru.exception.ConflictException;
 import ru.exception.ForbiddenEditException;
@@ -37,20 +40,24 @@ public class LessonService {
     private static final Logger log = LoggerFactory.getLogger(LessonService.class);
     private static final LocalDate MIN_FILTER_DATE = LocalDate.of(1900, 1, 1);
     private static final LocalDate MAX_FILTER_DATE = LocalDate.of(3000, 12, 31);
+    private static final int MAX_LESSONS_PER_DAY = 8;
 
     private final LessonRepository lessonRepository;
     private final DayRepository dayRepository;
     private final UserService userService;
     private final AuditService auditService;
+    private final WorkloadExcelExportService workloadExcelExportService;
 
     public LessonService(LessonRepository lessonRepository,
                          DayRepository dayRepository,
                          UserService userService,
-                         AuditService auditService) {
+                         AuditService auditService,
+                         WorkloadExcelExportService workloadExcelExportService) {
         this.lessonRepository = lessonRepository;
         this.dayRepository = dayRepository;
         this.userService = userService;
         this.auditService = auditService;
+        this.workloadExcelExportService = workloadExcelExportService;
     }
 
     public LessonDto getById(UUID id) {
@@ -95,6 +102,7 @@ public class LessonService {
         ensureLessonEditAccess(authentication);
 
         Day day = resolveDay(dto.getDayId());
+        ensureDayCapacity(day, null);
         Lesson lesson = LessonMapper.toEntity(dto);
         lesson.setDay(day);
         applyFullEdit(lesson, dto);
@@ -118,7 +126,11 @@ public class LessonService {
         ensureLessonEditAccess(authentication);
 
         if (dto.getDayId() != null && !dto.getDayId().equals(lesson.getDay().getId())) {
-            lesson.setDay(resolveDay(dto.getDayId()));
+            Day targetDay = resolveDay(dto.getDayId());
+            ensureDayCapacity(targetDay, lesson);
+            lesson.setDay(targetDay);
+        } else {
+            ensureDayCapacity(lesson.getDay(), lesson);
         }
         applyFullEdit(lesson, dto);
 
@@ -179,6 +191,31 @@ public class LessonService {
         log.info("Workload calculated: requestedInstructorId={}, effectiveInstructorId={}, from={}, to={}, rows={}",
                 instructorId, effectiveInstructorId, effectiveFrom, effectiveTo, workload.size());
         return workload;
+    }
+
+    public byte[] exportWorkloadExcel(UUID instructorId,
+                                      String instructorQuery,
+                                      LocalDate from,
+                                      LocalDate to,
+                                      Authentication authentication) {
+        User actor = userService.getCurrentUser(authentication);
+        if (actor.getRole() != Role.ADMIN) {
+            throw new ForbiddenEditException("Only admin can export workload catalog");
+        }
+
+        LocalDate effectiveFrom = normalizeFrom(from);
+        LocalDate effectiveTo = normalizeTo(to);
+        String normalizedQuery = instructorQuery == null ? null : instructorQuery.trim().toLowerCase();
+        List<Lesson> lessons = lessonRepository.findForDateRange(effectiveFrom, effectiveTo).stream()
+                .sorted(Comparator.comparing((Lesson lesson) -> lesson.getDay().getDate())
+                        .thenComparing(Lesson::getOrderNumber)
+                        .thenComparing(Lesson::getId))
+                .toList();
+
+        List<WorkloadCalendarDto> calendars = buildWorkloadCalendars(lessons, instructorId, normalizedQuery);
+        log.info("Workload export built: requestedInstructorId={}, instructorQuery={}, from={}, to={}, rows={}",
+                instructorId, instructorQuery, effectiveFrom, effectiveTo, calendars.size());
+        return workloadExcelExportService.exportCalendars(calendars, effectiveFrom, effectiveTo);
     }
 
     public Lesson findEntity(UUID id) {
@@ -246,6 +283,16 @@ public class LessonService {
         }
     }
 
+    private void ensureDayCapacity(Day day, Lesson currentLesson) {
+        int existingLessons = day.getLessons() != null ? day.getLessons().size() : 0;
+        if (currentLesson != null && day.getLessons() != null && day.getLessons().stream().anyMatch(lesson -> lesson.getId() != null && lesson.getId().equals(currentLesson.getId()))) {
+            return;
+        }
+        if (existingLessons >= MAX_LESSONS_PER_DAY) {
+            throw new ConflictException("A day can contain at most 8 lessons");
+        }
+    }
+
     private List<User> resolveAssignableInstructors(List<UUID> instructorIds) {
         if (instructorIds == null) {
             return new ArrayList<>();
@@ -278,6 +325,69 @@ public class LessonService {
                                 ArrayList::new
                         )
                 );
+    }
+
+    private List<WorkloadCalendarDto> buildWorkloadCalendars(List<Lesson> lessons,
+                                                             UUID instructorId,
+                                                             String instructorQuery) {
+        Map<UUID, WorkloadCalendarDto> calendars = new LinkedHashMap<>();
+
+        for (Lesson lesson : lessons) {
+            for (User instructor : lesson.getAssignedInstructors()) {
+                if (instructorId != null && !instructorId.equals(instructor.getId())) {
+                    continue;
+                }
+                if (instructorQuery != null && !instructorQuery.isBlank()) {
+                    String fullName = instructor.getFullName() == null ? "" : instructor.getFullName().toLowerCase();
+                    if (!fullName.contains(instructorQuery)) {
+                        continue;
+                    }
+                }
+
+                WorkloadCalendarDto calendar = calendars.computeIfAbsent(instructor.getId(), ignored -> WorkloadCalendarDto.builder()
+                        .instructorId(instructor.getId())
+                        .instructorName(instructor.getFullName())
+                        .from(lesson.getDay().getDate())
+                        .to(lesson.getDay().getDate())
+                        .totalHours(0)
+                        .days(new ArrayList<>())
+                        .build());
+
+                calendar.setFrom(calendar.getFrom() == null || lesson.getDay().getDate().isBefore(calendar.getFrom())
+                        ? lesson.getDay().getDate()
+                        : calendar.getFrom());
+                calendar.setTo(calendar.getTo() == null || lesson.getDay().getDate().isAfter(calendar.getTo())
+                        ? lesson.getDay().getDate()
+                        : calendar.getTo());
+                calendar.setTotalHours(calendar.getTotalHours() + lesson.getDurationHours());
+
+                WorkloadCalendarDayDto day = calendar.getDays().stream()
+                        .filter(item -> item.getDate().equals(lesson.getDay().getDate()))
+                        .findFirst()
+                        .orElseGet(() -> {
+                            WorkloadCalendarDayDto created = WorkloadCalendarDayDto.builder()
+                                    .dayId(lesson.getDay().getId())
+                                    .date(lesson.getDay().getDate())
+                                    .totalHours(0)
+                                    .lessons(new ArrayList<>())
+                                    .build();
+                            calendar.getDays().add(created);
+                            return created;
+                        });
+
+                day.setTotalHours(day.getTotalHours() + lesson.getDurationHours());
+                day.getLessons().add(WorkloadCalendarLessonDto.builder()
+                        .lessonId(lesson.getId())
+                        .groupCode(lesson.getDay().getGroup().getCode())
+                        .title(lesson.getTitle())
+                        .durationHours(lesson.getDurationHours())
+                        .build());
+            }
+        }
+
+        return calendars.values().stream()
+                .peek(calendar -> calendar.getDays().sort(Comparator.comparing(WorkloadCalendarDayDto::getDate)))
+                .toList();
     }
 
     private Day resolveDay(UUID dayId) {

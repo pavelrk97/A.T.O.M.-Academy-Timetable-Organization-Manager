@@ -45,9 +45,12 @@ class LessonServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private WorkloadExcelExportService workloadExcelExportService;
+
     @Test
     void getWorkload_givesFullHoursToEveryAssignedInstructor() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService);
+        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
         Authentication authentication = mock(Authentication.class);
 
         User admin = user("admin", "Admin", Role.ADMIN);
@@ -73,7 +76,7 @@ class LessonServiceTest {
 
     @Test
     void getSchedule_usesDateRangeQueryWhenFiltersAreEmpty() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService);
+        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
         Lesson lesson = lesson("group-1", LocalDate.of(2026, 1, 5), 2, user("inst-1", "Mentor", Role.INSTRUCTOR));
 
         when(lessonRepository.findForDateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
@@ -87,7 +90,7 @@ class LessonServiceTest {
 
     @Test
     void create_rejectsInstructorUser() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService);
+        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 "instructor",
                 "n/a",
@@ -103,7 +106,7 @@ class LessonServiceTest {
 
     @Test
     void create_allowsInstructorWithEditorRoleAndAssignsOtherTeachingUsers() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService);
+        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 "instructor",
                 "n/a",
@@ -148,7 +151,7 @@ class LessonServiceTest {
 
     @Test
     void create_deduplicatesLecturerNamesForDifferentUsersWithSameFullName() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService);
+        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 "admin",
                 "n/a",
@@ -188,7 +191,7 @@ class LessonServiceTest {
 
     @Test
     void create_rejectsUsersWithoutTeachingFlagInInstructorAssignments() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService);
+        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 "editor",
                 "n/a",
@@ -222,7 +225,7 @@ class LessonServiceTest {
 
     @Test
     void getWorkload_doesNotLetInstructorPeekAtAnotherInstructor() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService);
+        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
         Authentication authentication = mock(Authentication.class);
 
         User actor = user("instructor", "Reader", Role.INSTRUCTOR);
@@ -233,6 +236,55 @@ class LessonServiceTest {
         assertThatThrownBy(() -> lessonService.getWorkload(UUID.randomUUID(), null, null, authentication))
                 .isInstanceOf(ForbiddenEditException.class)
                 .hasMessage("Instructor can view only own workload");
+    }
+
+    @Test
+    void create_rejectsDayWithMoreThanEightLessons() {
+        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                "admin",
+                "n/a",
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+        );
+
+        User actor = user("admin", "Administrator", Role.ADMIN);
+        UUID dayId = UUID.randomUUID();
+        Day day = new Day();
+        day.setId(dayId);
+        day.setLessons(java.util.stream.IntStream.range(0, 8)
+                .mapToObj(index -> {
+                    Lesson existing = new Lesson();
+                    existing.setId(UUID.randomUUID());
+                    return existing;
+                })
+                .toList());
+
+        LessonDto dto = LessonDto.builder()
+                .dayId(dayId)
+                .title("Overflow lesson")
+                .durationHours(2)
+                .type(LessonType.LECTURE)
+                .build();
+
+        when(userService.getCurrentUser(authentication)).thenReturn(actor);
+        when(dayRepository.findById(dayId)).thenReturn(java.util.Optional.of(day));
+
+        assertThatThrownBy(() -> lessonService.create(dto, authentication))
+                .isInstanceOf(ru.exception.ConflictException.class)
+                .hasMessage("A day can contain at most 8 lessons");
+    }
+
+    @Test
+    void exportWorkloadExcel_requiresAdmin() {
+        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
+        Authentication authentication = mock(Authentication.class);
+        User actor = user("editor", "Schedule Editor", Role.EDITOR);
+
+        when(userService.getCurrentUser(authentication)).thenReturn(actor);
+
+        assertThatThrownBy(() -> lessonService.exportWorkloadExcel(null, null, null, null, authentication))
+                .isInstanceOf(ForbiddenEditException.class)
+                .hasMessage("Only admin can export workload catalog");
     }
 
     private Lesson lesson(String groupCode, LocalDate date, int hours, User... instructors) {

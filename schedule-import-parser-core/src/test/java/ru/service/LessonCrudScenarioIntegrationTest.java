@@ -47,6 +47,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         LessonService.class,
         UserService.class,
         AuditService.class,
+        WorkloadExcelExportService.class,
         LessonCrudScenarioIntegrationTest.TestConfig.class
 })
 class LessonCrudScenarioIntegrationTest {
@@ -167,7 +168,7 @@ class LessonCrudScenarioIntegrationTest {
         Group group = new Group();
         group.setCode(groupCode);
         group.setLocation("B201");
-        group.setCourse(4);
+        group.setCourse("4A");
 
         Day day = new Day();
         day.setDate(date);

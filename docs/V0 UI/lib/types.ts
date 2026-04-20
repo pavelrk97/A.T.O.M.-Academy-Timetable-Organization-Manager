@@ -82,7 +82,7 @@ export interface GroupDto {
   id: string
   code: string
   location?: string | null
-  course?: number | null
+  course?: string | null
   days: DayDto[]
 }
 
@@ -97,7 +97,7 @@ export interface GroupMutationPayload {
   id?: string | null
   code: string
   location?: string | null
-  course?: number | null
+  course?: string | null
   days: DayMutationPayload[]
 }
 
@@ -138,7 +138,7 @@ export interface ScheduleGridGroupRow {
   groupId: string
   groupCode: string
   location?: string | null
-  course?: number | null
+  course?: string | null
   days: ScheduleGridDayCell[]
 }
 

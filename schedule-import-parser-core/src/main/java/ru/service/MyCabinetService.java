@@ -39,11 +39,14 @@ public class MyCabinetService {
 
     private final LessonRepository lessonRepository;
     private final IdentityDirectoryService identityDirectoryService;
+    private final WorkloadExcelExportService workloadExcelExportService;
 
     public MyCabinetService(LessonRepository lessonRepository,
-                            IdentityDirectoryService identityDirectoryService) {
+                            IdentityDirectoryService identityDirectoryService,
+                            WorkloadExcelExportService workloadExcelExportService) {
         this.lessonRepository = lessonRepository;
         this.identityDirectoryService = identityDirectoryService;
+        this.workloadExcelExportService = workloadExcelExportService;
     }
 
     public ScheduleGridDto getFullScheduleGrid(LocalDate from, LocalDate to) {
@@ -69,6 +72,14 @@ public class MyCabinetService {
         log.info("Workload calendar built: user={}, from={}, to={}, totalHours={}, days={}",
                 seed.currentUser().getUsername(), seed.from(), seed.to(), workload.getTotalHours(), workload.getDays().size());
         return workload;
+    }
+
+    public byte[] exportMyWorkloadExcel(Authentication authentication, LocalDate from, LocalDate to) {
+        DashboardSeed seed = buildDashboardSeed(authentication, from, to);
+        WorkloadCalendarDto workload = buildWorkload(seed.currentUser(), seed.lessons(), seed.from(), seed.to());
+        log.info("Own workload export built: user={}, from={}, to={}, totalHours={}, days={}",
+                seed.currentUser().getUsername(), seed.from(), seed.to(), workload.getTotalHours(), workload.getDays().size());
+        return workloadExcelExportService.exportCalendars(List.of(workload), seed.from(), seed.to());
     }
 
     public List<MyNotificationDto> getMyNotifications(Authentication authentication, LocalDate from, LocalDate to) {
@@ -112,7 +123,7 @@ public class MyCabinetService {
                         .dayId(seed.dayId())
                         .date(seed.date())
                         .message("На " + seed.date() + " есть занятия у группы " + seed.groupCode())
-                        .link("/api/me/schedule/instructor-grid?from=" + seed.date() + "&to=" + seed.date())
+                        .link("/cabinet?tab=schedule&from=" + seed.date() + "&to=" + seed.date() + "&focusDate=" + seed.date())
                         .build())
                 .sorted(Comparator.comparing(MyNotificationDto::getDate))
                 .toList();

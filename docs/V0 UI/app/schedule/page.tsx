@@ -8,7 +8,15 @@ import {
   type ReactNode,
 } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { AlertCircle, CalendarDays, Loader2, Rows3, UsersRound } from 'lucide-react'
+import {
+  AlertCircle,
+  CalendarDays,
+  Loader2,
+  Rows3,
+  UsersRound,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
 import { Header } from '@/components/header'
 import { LessonDetails } from '@/components/schedule/lesson-details'
 import {
@@ -21,6 +29,8 @@ import { useAuth } from '@/lib/auth-context'
 import { meApi, publicApi } from '@/lib/api'
 import { buildGridFromEntries, filterGridByInstructor } from '@/lib/schedule'
 import type { ScheduleGridData, ScheduleGridLessonCell } from '@/lib/types'
+
+const MAX_DAYS = 100
 
 function normalizeFiltersFromUrl(searchParams: URLSearchParams): ScheduleFilterValues {
   const defaults = createDefaultScheduleFilters()
@@ -55,10 +65,14 @@ function buildScheduleQuery(filters: ScheduleFilterValues) {
   return query.toString()
 }
 
-function daysBetween(from: string, to: string) {
+function daysBetweenInclusive(from: string, to: string) {
   const left = new Date(from)
   const right = new Date(to)
-  return Math.ceil((right.getTime() - left.getTime()) / (1000 * 60 * 60 * 24))
+  return Math.floor((right.getTime() - left.getTime()) / (1000 * 60 * 60 * 24)) + 1
+}
+
+function clampZoom(value: number) {
+  return Math.min(140, Math.max(80, value))
 }
 
 function SchedulePageFallback() {
@@ -83,6 +97,7 @@ function SchedulePageContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [grid, setGrid] = useState<ScheduleGridData | null>(null)
+  const [zoom, setZoom] = useState(100)
   const [selected, setSelected] = useState<{
     groupCode: string
     date: string
@@ -107,13 +122,11 @@ function SchedulePageContent() {
     let cancelled = false
 
     async function load() {
-      const rangeDays = daysBetween(filters.from, filters.to)
+      const rangeDays = daysBetweenInclusive(filters.from, filters.to)
 
-      if (rangeDays > 45) {
+      if (rangeDays > MAX_DAYS) {
         setGrid(null)
-        setError(
-          'Для стабильной работы держи диапазон до 45 дней. Иначе таблица становится слишком тяжёлой даже для хорошего браузера.'
-        )
+        setError(`Для стабильной работы держи диапазон до ${MAX_DAYS} дней.`)
         setLoading(false)
         return
       }
@@ -177,7 +190,7 @@ function SchedulePageContent() {
       }
     }
 
-    load()
+    void load()
 
     return () => {
       cancelled = true
@@ -214,9 +227,8 @@ function SchedulePageContent() {
                 Расписание в формате рабочей таблицы
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                Сетка сделана под широкий экран: группы слева, даты сверху, занятия внутри
-                ячеек. Если вход выполнен, можно переключаться между общей сеткой и режимом
-                «только мои занятия».
+                Группы слева, даты сверху, занятия внутри ячеек. Диапазон можно держать до 100
+                дней, а масштаб менять прямо на странице.
               </p>
             </div>
 
@@ -247,6 +259,24 @@ function SchedulePageContent() {
             isAuthenticated={isAuthenticated}
           />
 
+          <div className="flex justify-end">
+            <div className="flex items-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 shadow-sm">
+              <ZoomOut className="h-4 w-4 text-muted-foreground" />
+              <input
+                type="range"
+                min={80}
+                max={140}
+                step={5}
+                value={zoom}
+                onChange={(event) => setZoom(clampZoom(Number(event.target.value)))}
+              />
+              <ZoomIn className="h-4 w-4 text-muted-foreground" />
+              <span className="min-w-10 text-right text-xs font-medium text-slate-700">
+                {zoom}%
+              </span>
+            </div>
+          </div>
+
           {error ? (
             <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -265,6 +295,7 @@ function SchedulePageContent() {
             <ScheduleGrid
               data={grid}
               compact={false}
+              zoom={zoom}
               highlightInstructor={filters.instructorSearch}
               onCellClick={(groupCode, date, lessons, location) =>
                 setSelected({ groupCode, date, lessons, location })
@@ -291,7 +322,7 @@ function SchedulePageContent() {
               <div className="px-5 py-16 text-center">
                 <div className="text-base font-semibold text-slate-950">Выбери ячейку</div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Здесь появятся занятия на выбранный день: состав, часы и примечания.
+                  Здесь появятся занятия выбранного дня: состав, часы и примечания.
                 </p>
               </div>
             )}

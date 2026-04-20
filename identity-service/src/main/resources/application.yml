@@ -70,6 +70,10 @@ spring:
         jdbc:
           time_zone: UTC
 
+  flyway:
+    enabled: true
+    locations: filesystem:/app/db/migration
+
 logging:
   level:
     root: INFO

@@ -17,6 +17,7 @@ interface ScheduleGridProps {
   ) => void
   highlightInstructor?: string
   compact?: boolean
+  zoom?: number
 }
 
 function formatDateLabel(date: string) {
@@ -30,7 +31,7 @@ function formatDateLabel(date: string) {
 
 function lessonTypeLabel(type?: string | null) {
   if (type === 'LECTURE') return 'Лекция'
-  if (type === 'SELF_STUDY') return 'Самостоятельно'
+  if (type === 'SELF_STUDY') return 'Самостоятельная'
   if (type === 'ASSESSMENT') return 'Контроль'
   return 'Занятие'
 }
@@ -47,11 +48,14 @@ export function ScheduleGrid({
   onCellClick,
   highlightInstructor,
   compact = false,
+  zoom = 100,
 }: ScheduleGridProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const { data: limitedData, meta } = limitGrid(data)
   const normalizedInstructor = (highlightInstructor || '').trim().toLowerCase()
+  const groupColumnWidth = Math.round((compact ? 164 : 188) * (zoom / 100))
+  const columnWidth = Math.round((compact ? 118 : 136) * (zoom / 100))
 
   const scrollBy = (offset: number) => {
     viewportRef.current?.scrollBy({ left: offset, behavior: 'smooth' })
@@ -66,7 +70,7 @@ export function ScheduleGrid({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+    <div className="max-w-full overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
       <div className="flex items-center justify-between gap-4 border-b border-border bg-slate-50/80 px-4 py-3">
         <div>
           <h3 className="text-sm font-semibold text-slate-950">Таблица расписания</h3>
@@ -85,14 +89,14 @@ export function ScheduleGrid({
         </div>
       </div>
 
-      <div ref={viewportRef} className="overflow-auto">
+      <div ref={viewportRef} className="max-w-full overflow-auto">
         <div
-          className="grid min-w-max"
+          className="grid w-max min-w-full"
           style={{
-            gridTemplateColumns: `240px repeat(${limitedData.dates.length}, minmax(${compact ? '170px' : '210px'}, 1fr))`,
+            gridTemplateColumns: `${groupColumnWidth}px repeat(${limitedData.dates.length}, ${columnWidth}px)`,
           }}
         >
-          <div className="sticky-corner border-b border-r border-border bg-slate-100 px-4 py-3">
+          <div className="sticky left-0 top-0 z-20 border-b border-r border-border bg-slate-100 px-4 py-3">
             <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
               Группа
             </div>
@@ -104,7 +108,7 @@ export function ScheduleGrid({
             return (
               <div
                 key={date}
-                className="sticky-header border-b border-r border-border bg-slate-50 px-3 py-3 text-center"
+                className="sticky top-0 z-10 border-b border-r border-border bg-slate-50 px-3 py-3 text-center"
               >
                 <div className="text-lg font-semibold text-slate-950">{label.day}</div>
                 <div className="text-xs uppercase tracking-wide text-slate-500">{label.weekday}</div>
@@ -148,7 +152,7 @@ function FragmentRow({
 }) {
   return (
     <>
-      <div className="sticky-column border-b border-r border-border bg-white px-4 py-4">
+      <div className="sticky left-0 z-10 border-b border-r border-border bg-white px-4 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-slate-950">{group.groupCode}</div>
@@ -187,7 +191,7 @@ function FragmentRow({
             type="button"
             onClick={() => onSelect(day.date, day.lessons)}
             className={cn(
-              'schedule-cell border-b border-r border-border px-3 py-3 text-left transition-colors',
+              'border-b border-r border-border px-2 py-2 text-left align-top transition-colors',
               selectedKey === key
                 ? 'bg-primary/10'
                 : cellHighlighted
@@ -196,40 +200,48 @@ function FragmentRow({
             )}
           >
             {!hasLessons ? (
-              <div className="flex min-h-[88px] items-center justify-center rounded-xl border border-dashed border-slate-200 text-xs text-slate-400">
+              <div className="flex min-h-[56px] items-center justify-center rounded-lg border border-dashed border-slate-200 px-2 text-center text-[11px] text-slate-400">
                 Пусто
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {day.lessons.map((lesson) => (
                   <div
                     key={lesson.lessonId}
                     className={cn(
-                      'rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]',
-                      compact ? 'space-y-1' : 'space-y-2'
+                      'rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]',
+                      compact ? 'space-y-1' : 'space-y-1.5'
                     )}
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-primary">
+                        <div className="text-[11px] font-semibold text-primary">
                           № {lesson.orderNumber || '—'}
                         </div>
-                        <div className="line-clamp-3 text-sm font-medium text-slate-950">
+                        <div className="line-clamp-2 text-xs font-medium text-slate-950">
                           {lesson.title || 'Без названия'}
                         </div>
                       </div>
-                      <span className={cn('shrink-0 rounded-full px-2 py-1 text-[11px] font-medium', typeBadgeClass(lesson.type))}>
+                      <span
+                        className={cn(
+                          'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium leading-4',
+                          typeBadgeClass(lesson.type)
+                        )}
+                      >
                         {lessonTypeLabel(lesson.type)}
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-600">
                       <span className="inline-flex items-center gap-1">
                         <Clock3 className="h-3.5 w-3.5" />
                         {lesson.durationHours} ч
                       </span>
+                      <span className="font-medium text-slate-500">
+                        {lessonTypeLabel(lesson.type)}
+                      </span>
                       {!compact && (lesson.instructorNames || []).length > 0 ? (
-                        <span className="truncate">
+                        <span className="line-clamp-1 break-words">
                           {(lesson.instructorNames || []).join(', ')}
                         </span>
                       ) : null}
