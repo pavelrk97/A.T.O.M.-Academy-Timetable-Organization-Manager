@@ -17,6 +17,7 @@ import ru.model.LessonType;
 import ru.model.Role;
 import ru.model.User;
 import ru.repository.DayRepository;
+import ru.repository.GroupRepository;
 import ru.repository.LessonRepository;
 
 import java.time.LocalDate;
@@ -40,6 +41,9 @@ class LessonServiceTest {
     private DayRepository dayRepository;
 
     @Mock
+    private GroupRepository groupRepository;
+
+    @Mock
     private UserService userService;
 
     @Mock
@@ -48,9 +52,20 @@ class LessonServiceTest {
     @Mock
     private WorkloadExcelExportService workloadExcelExportService;
 
+    private LessonService lessonService() {
+        return new LessonService(
+                lessonRepository,
+                dayRepository,
+                groupRepository,
+                userService,
+                auditService,
+                workloadExcelExportService
+        );
+    }
+
     @Test
     void getWorkload_givesFullHoursToEveryAssignedInstructor() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
+        LessonService lessonService = lessonService();
         Authentication authentication = mock(Authentication.class);
 
         User admin = user("admin", "Admin", Role.ADMIN);
@@ -76,7 +91,7 @@ class LessonServiceTest {
 
     @Test
     void getSchedule_usesDateRangeQueryWhenFiltersAreEmpty() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
+        LessonService lessonService = lessonService();
         Lesson lesson = lesson("group-1", LocalDate.of(2026, 1, 5), 2, user("inst-1", "Mentor", Role.INSTRUCTOR));
 
         when(lessonRepository.findForDateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
@@ -90,7 +105,7 @@ class LessonServiceTest {
 
     @Test
     void create_rejectsInstructorUser() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
+        LessonService lessonService = lessonService();
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 "instructor",
                 "n/a",
@@ -106,7 +121,7 @@ class LessonServiceTest {
 
     @Test
     void create_allowsInstructorWithEditorRoleAndAssignsOtherTeachingUsers() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
+        LessonService lessonService = lessonService();
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 "instructor",
                 "n/a",
@@ -151,7 +166,7 @@ class LessonServiceTest {
 
     @Test
     void create_deduplicatesLecturerNamesForDifferentUsersWithSameFullName() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
+        LessonService lessonService = lessonService();
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 "admin",
                 "n/a",
@@ -191,7 +206,7 @@ class LessonServiceTest {
 
     @Test
     void create_rejectsUsersWithoutTeachingFlagInInstructorAssignments() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
+        LessonService lessonService = lessonService();
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 "editor",
                 "n/a",
@@ -225,7 +240,7 @@ class LessonServiceTest {
 
     @Test
     void getWorkload_doesNotLetInstructorPeekAtAnotherInstructor() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
+        LessonService lessonService = lessonService();
         Authentication authentication = mock(Authentication.class);
 
         User actor = user("instructor", "Reader", Role.INSTRUCTOR);
@@ -240,7 +255,7 @@ class LessonServiceTest {
 
     @Test
     void create_rejectsDayWithMoreThanEightLessons() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
+        LessonService lessonService = lessonService();
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 "admin",
                 "n/a",
@@ -276,7 +291,7 @@ class LessonServiceTest {
 
     @Test
     void exportWorkloadExcel_requiresAdmin() {
-        LessonService lessonService = new LessonService(lessonRepository, dayRepository, userService, auditService, workloadExcelExportService);
+        LessonService lessonService = lessonService();
         Authentication authentication = mock(Authentication.class);
         User actor = user("editor", "Schedule Editor", Role.EDITOR);
 
@@ -285,6 +300,115 @@ class LessonServiceTest {
         assertThatThrownBy(() -> lessonService.exportWorkloadExcel(null, null, null, null, authentication))
                 .isInstanceOf(ForbiddenEditException.class)
                 .hasMessage("Only admin can export workload catalog");
+    }
+
+    @Test
+    void syncDay_updatesExistingLessonsDeletesMissingOnesAndReturnsUpdatedGroup() {
+        LessonService lessonService = lessonService();
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                "editor",
+                "n/a",
+                List.of(new SimpleGrantedAuthority("ROLE_EDITOR"))
+        );
+
+        User actor = user("editor", "Schedule Editor", Role.EDITOR);
+        User instructor = user("mentor", "Mentor QA", Role.INSTRUCTOR);
+        Group group = new Group();
+        UUID groupId = UUID.randomUUID();
+        group.setId(groupId);
+        group.setCode("QA-101");
+
+        Day day = new Day();
+        UUID dayId = UUID.randomUUID();
+        day.setId(dayId);
+        day.setDate(LocalDate.of(2026, 4, 20));
+        day.setGroup(group);
+        group.setDays(new java.util.ArrayList<>(List.of(day)));
+
+        Lesson existing = new Lesson();
+        UUID existingLessonId = UUID.randomUUID();
+        existing.setId(existingLessonId);
+        existing.setVersion(3L);
+        existing.setOrderNumber(1);
+        existing.setTitle("Old title");
+        existing.setDurationHours(2);
+        existing.setType(LessonType.LECTURE);
+        existing.setAssignedInstructors(new java.util.ArrayList<>(List.of(instructor)));
+        existing.setDay(day);
+
+        Lesson removed = new Lesson();
+        removed.setId(UUID.randomUUID());
+        removed.setVersion(4L);
+        removed.setOrderNumber(2);
+        removed.setTitle("Delete me");
+        removed.setDurationHours(2);
+        removed.setType(LessonType.LECTURE);
+        removed.setAssignedInstructors(new java.util.ArrayList<>(List.of(instructor)));
+        removed.setDay(day);
+
+        day.setLessons(new java.util.ArrayList<>(List.of(existing, removed)));
+
+        when(userService.getCurrentUser(authentication)).thenReturn(actor);
+        when(groupRepository.findById(groupId)).thenReturn(java.util.Optional.of(group));
+        when(dayRepository.findByGroupIdAndDate(groupId, LocalDate.of(2026, 4, 20))).thenReturn(java.util.Optional.of(day));
+        when(userService.findById(instructor.getId())).thenReturn(instructor);
+        when(lessonRepository.save(any(Lesson.class))).thenAnswer(invocation -> {
+            Lesson lesson = invocation.getArgument(0);
+            if (lesson.getId() == null) {
+                lesson.setId(UUID.randomUUID());
+                lesson.setVersion(0L);
+            }
+            return lesson;
+        });
+
+        ru.dto.DaySyncRequestDto request = ru.dto.DaySyncRequestDto.builder()
+                .groupId(groupId)
+                .date(LocalDate.of(2026, 4, 20))
+                .ensureDay(true)
+                .lessons(List.of(
+                        LessonDto.builder()
+                                .id(existingLessonId)
+                                .version(3L)
+                                .orderNumber(1)
+                                .title("Updated title")
+                                .durationHours(4)
+                                .type(LessonType.SELF_STUDY)
+                                .instructorIds(List.of(instructor.getId()))
+                                .build(),
+                        LessonDto.builder()
+                                .id(removed.getId())
+                                .version(4L)
+                                .orderNumber(2)
+                                .title("")
+                                .durationHours(2)
+                                .type(LessonType.LECTURE)
+                                .instructorIds(List.of())
+                                .build(),
+                        LessonDto.builder()
+                                .orderNumber(3)
+                                .title("Brand new")
+                                .durationHours(3)
+                                .type(LessonType.ASSESSMENT)
+                                .instructorIds(List.of(instructor.getId()))
+                                .build()
+                ))
+                .build();
+
+        var updatedGroup = lessonService.syncDay(request, authentication);
+
+        assertThat(updatedGroup.getId()).isEqualTo(groupId);
+        assertThat(updatedGroup.getDays()).singleElement().satisfies(updatedDay -> {
+            assertThat(updatedDay.getLessons()).hasSize(2);
+            assertThat(updatedDay.getLessons())
+                    .extracting(LessonDto::getOrderNumber, LessonDto::getTitle)
+                    .containsExactlyInAnyOrder(
+                            org.assertj.core.groups.Tuple.tuple(1, "Updated title"),
+                            org.assertj.core.groups.Tuple.tuple(3, "Brand new")
+                    );
+        });
+
+        verify(lessonRepository).delete(removed);
+        verify(lessonRepository, org.mockito.Mockito.times(2)).save(any(Lesson.class));
     }
 
     private Lesson lesson(String groupCode, LocalDate date, int hours, User... instructors) {

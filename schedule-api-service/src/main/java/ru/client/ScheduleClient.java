@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import ru.dto.ChangeLogDto;
+import ru.dto.DaySyncRequestDto;
 import ru.dto.GroupDto;
 import ru.dto.LessonDto;
 import ru.dto.MyDashboardDataDto;
@@ -60,6 +61,9 @@ public interface ScheduleClient {
 
     @PostMapping("/api/lessons")
     LessonDto createLesson(@RequestHeader("Authorization") String authorization, @RequestBody LessonDto dto);
+
+    @PostMapping("/api/lessons/day-sync")
+    GroupDto syncLessonDay(@RequestHeader("Authorization") String authorization, @RequestBody DaySyncRequestDto dto);
 
     @PutMapping("/api/lessons/{id}")
     LessonDto updateLesson(@RequestHeader("Authorization") String authorization, @PathVariable UUID id, @RequestBody LessonDto dto);

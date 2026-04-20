@@ -71,6 +71,22 @@ export interface LessonMutationPayload {
   instructorNames?: string[]
 }
 
+export interface DaySyncPayload {
+  groupId: string
+  date: string
+  ensureDay: boolean
+  lessons: Array<{
+    id?: string | null
+    version?: number | null
+    orderNumber: number
+    title: string
+    durationHours: number
+    note?: string | null
+    type?: LessonType | null
+    instructorIds: string[]
+  }>
+}
+
 export interface DayDto {
   id?: string | null
   date: string

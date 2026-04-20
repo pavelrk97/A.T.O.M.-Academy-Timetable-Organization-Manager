@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ru.client.ScheduleClient;
 import ru.dto.ChangeLogDto;
+import ru.dto.DaySyncRequestDto;
+import ru.dto.GroupDto;
 import ru.dto.LessonDto;
 import ru.dto.ScheduleEntryDto;
 import ru.security.DownstreamAuthHeaderFactory;
@@ -50,6 +52,11 @@ public class LessonController {
     @PostMapping
     public LessonDto create(Authentication authentication, @RequestBody LessonDto dto) {
         return scheduleClient.createLesson(authHeaderFactory.bearerHeader(authentication), dto);
+    }
+
+    @PostMapping("/day-sync")
+    public GroupDto syncDay(Authentication authentication, @RequestBody DaySyncRequestDto dto) {
+        return scheduleClient.syncLessonDay(authHeaderFactory.bearerHeader(authentication), dto);
     }
 
     @PutMapping("/{id}")

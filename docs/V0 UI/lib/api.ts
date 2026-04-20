@@ -1,5 +1,6 @@
 import type {
   DashboardData,
+  DaySyncPayload,
   GroupDto,
   GroupMutationPayload,
   ImportResult,
@@ -239,6 +240,11 @@ export const lessonsApi = {
   getHistory: (id: string) => fetchApi<LessonHistoryEntry[]>(`/lessons/${id}/history`),
   create: (payload: LessonMutationPayload) =>
     fetchApi<LessonEditorDto>('/lessons', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  syncDay: (payload: DaySyncPayload) =>
+    fetchApi<GroupDto>('/lessons/day-sync', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

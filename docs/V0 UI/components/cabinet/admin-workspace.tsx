@@ -180,7 +180,6 @@ export function AdminWorkspace({
         groups={groups}
         users={users}
         canManageGroups={canManageGroups}
-        onChanged={onRefresh}
         range={range}
       />
     </div>

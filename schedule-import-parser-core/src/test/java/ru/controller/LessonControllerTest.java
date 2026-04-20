@@ -11,6 +11,8 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.config.SecurityConfig;
 import ru.dto.ChangeLogDto;
+import ru.dto.DayDto;
+import ru.dto.GroupDto;
 import ru.dto.LessonDto;
 import ru.model.ChangeAction;
 import ru.model.LessonType;
@@ -143,6 +145,69 @@ class LessonControllerTest {
 
         verify(lessonService).create(
                 argThat(dto -> "Smoke lesson".equals(dto.getTitle()) && dayId.equals(dto.getDayId())),
+                any(Authentication.class)
+        );
+    }
+
+    @Test
+    @WithMockUser(username = "editor", roles = "EDITOR")
+    void syncDay_returnsUpdatedGroupForEditor() throws Exception {
+        UUID groupId = UUID.randomUUID();
+        UUID dayId = UUID.randomUUID();
+        UUID lessonId = UUID.randomUUID();
+
+        given(lessonService.syncDay(any(), any(Authentication.class))).willReturn(
+                GroupDto.builder()
+                        .id(groupId)
+                        .code("QA-101")
+                        .days(List.of(
+                                DayDto.builder()
+                                        .id(dayId)
+                                        .date(java.time.LocalDate.of(2026, 4, 20))
+                                        .lessons(List.of(
+                                                LessonDto.builder()
+                                                        .id(lessonId)
+                                                        .version(1L)
+                                                        .orderNumber(1)
+                                                        .title("Day sync lesson")
+                                                        .durationHours(2)
+                                                        .type(LessonType.LECTURE)
+                                                        .build()
+                                        ))
+                                        .build()
+                        ))
+                        .build()
+        );
+
+        mockMvc.perform(post("/api/lessons/day-sync")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "groupId": "%s",
+                                  "date": "2026-04-20",
+                                  "ensureDay": true,
+                                  "lessons": [
+                                    {
+                                      "orderNumber": 1,
+                                      "title": "Day sync lesson",
+                                      "durationHours": 2,
+                                      "type": "LECTURE",
+                                      "instructorIds": []
+                                    }
+                                  ]
+                                }
+                                """.formatted(groupId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(groupId.toString()))
+                .andExpect(jsonPath("$.days[0].id").value(dayId.toString()))
+                .andExpect(jsonPath("$.days[0].lessons[0].id").value(lessonId.toString()))
+                .andExpect(jsonPath("$.days[0].lessons[0].title").value("Day sync lesson"));
+
+        verify(lessonService).syncDay(
+                argThat(dto -> groupId.equals(dto.getGroupId())
+                        && java.time.LocalDate.of(2026, 4, 20).equals(dto.getDate())
+                        && Boolean.TRUE.equals(dto.getEnsureDay())
+                        && dto.getLessons().size() == 1),
                 any(Authentication.class)
         );
     }
