@@ -7,6 +7,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import ru.dto.ChangeLogDto;
+import ru.dto.DaySyncRequestDto;
+import ru.dto.GroupDto;
 import ru.dto.LessonDto;
 import ru.dto.ScheduleEntryDto;
 import ru.dto.WorkloadCalendarDayDto;
@@ -17,12 +19,15 @@ import ru.exception.ConflictException;
 import ru.exception.ForbiddenEditException;
 import ru.exception.ResourceNotFoundException;
 import ru.mapper.LessonMapper;
+import ru.mapper.GroupMapper;
 import ru.model.ChangeAction;
 import ru.model.Day;
+import ru.model.Group;
 import ru.model.Lesson;
 import ru.model.Role;
 import ru.model.User;
 import ru.repository.DayRepository;
+import ru.repository.GroupRepository;
 import ru.repository.LessonRepository;
 
 import java.time.LocalDate;
@@ -30,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -44,17 +50,20 @@ public class LessonService {
 
     private final LessonRepository lessonRepository;
     private final DayRepository dayRepository;
+    private final GroupRepository groupRepository;
     private final UserService userService;
     private final AuditService auditService;
     private final WorkloadExcelExportService workloadExcelExportService;
 
     public LessonService(LessonRepository lessonRepository,
                          DayRepository dayRepository,
+                         GroupRepository groupRepository,
                          UserService userService,
                          AuditService auditService,
                          WorkloadExcelExportService workloadExcelExportService) {
         this.lessonRepository = lessonRepository;
         this.dayRepository = dayRepository;
+        this.groupRepository = groupRepository;
         this.userService = userService;
         this.auditService = auditService;
         this.workloadExcelExportService = workloadExcelExportService;
@@ -139,6 +148,83 @@ public class LessonService {
         log.info("Lesson updated: lessonId={}, actor={}, version={}",
                 saved.getId(), actor.getUsername(), saved.getVersion());
         return LessonMapper.toDto(saved);
+    }
+
+    @Transactional
+    public GroupDto syncDay(DaySyncRequestDto dto, Authentication authentication) {
+        User actor = userService.getCurrentUser(authentication);
+        ensureLessonEditAccess(authentication);
+
+        Group group = resolveGroup(dto.getGroupId());
+        LocalDate date = resolveSyncDate(dto.getDate());
+        Map<Integer, LessonDto> requestedByOrder = normalizeSyncLessons(dto.getLessons());
+        boolean ensureDay = Boolean.TRUE.equals(dto.getEnsureDay())
+                || requestedByOrder.values().stream().anyMatch(this::hasLessonContent);
+
+        Day day = dayRepository.findByGroupIdAndDate(group.getId(), date).orElse(null);
+        if (day == null && !ensureDay) {
+            return GroupMapper.toDto(group);
+        }
+
+        if (day == null) {
+            day = new Day();
+            day.setDate(date);
+            day.setMeta(new HashMap<>());
+            day.setGroup(group);
+            day.setLessons(new ArrayList<>());
+            day = dayRepository.save(day);
+            group.getDays().add(day);
+            group.getDays().sort(Comparator.comparing(Day::getDate, Comparator.nullsLast(LocalDate::compareTo)));
+        }
+
+        Map<Integer, Lesson> existingByOrder = day.getLessons().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        Lesson::getOrderNumber,
+                        lesson -> lesson,
+                        (left, right) -> left.getId().compareTo(right.getId()) <= 0 ? left : right,
+                        LinkedHashMap::new
+                ));
+
+        for (Map.Entry<Integer, LessonDto> entry : requestedByOrder.entrySet()) {
+            Lesson existing = existingByOrder.get(entry.getKey());
+            LessonDto requested = entry.getValue();
+            if (existing != null && !hasLessonContent(requested)) {
+                validateSyncVersion(existing, requested);
+                Lesson before = snapshot(existing);
+                day.getLessons().remove(existing);
+                lessonRepository.delete(existing);
+                auditService.logLessonChange(ChangeAction.DELETED, before, null, actor.getUsername(), "Lesson deleted");
+            }
+        }
+
+        for (Map.Entry<Integer, LessonDto> entry : requestedByOrder.entrySet()) {
+            LessonDto requested = entry.getValue();
+            if (!hasLessonContent(requested)) {
+                continue;
+            }
+
+            Lesson existing = existingByOrder.get(entry.getKey());
+            if (existing == null) {
+                Lesson created = LessonMapper.toEntity(requested);
+                created.setDay(day);
+                applyFullEdit(created, requested);
+                Lesson saved = lessonRepository.save(created);
+                day.getLessons().add(saved);
+                auditService.logLessonChange(ChangeAction.CREATED, null, snapshot(saved), actor.getUsername(), "Lesson created");
+                continue;
+            }
+
+            validateSyncVersion(existing, requested);
+            if (!lessonMatchesDraft(existing, requested)) {
+                Lesson before = snapshot(existing);
+                applyFullEdit(existing, requested);
+                Lesson saved = lessonRepository.save(existing);
+                auditService.logLessonChange(ChangeAction.UPDATED, before, snapshot(saved), actor.getUsername(), "Lesson updated");
+            }
+        }
+
+        day.getLessons().sort(Comparator.comparing(Lesson::getOrderNumber).thenComparing(Lesson::getId));
+        return GroupMapper.toDto(group);
     }
 
     @Transactional
@@ -261,10 +347,10 @@ public class LessonService {
 
     private void applyFullEdit(Lesson lesson, LessonDto dto) {
         lesson.setOrderNumber(dto.getOrderNumber() != null ? dto.getOrderNumber() : 0);
-        lesson.setTitle(dto.getTitle());
+        lesson.setTitle(dto.getTitle() != null ? dto.getTitle().trim() : null);
         lesson.setDurationHours(dto.getDurationHours() != null ? dto.getDurationHours() : 0);
-        lesson.setNote(dto.getNote());
-        lesson.setType(dto.getType());
+        lesson.setNote(normalizeNote(dto.getNote()));
+        lesson.setType(dto.getType() != null ? dto.getType() : lesson.getType());
         List<User> instructors = resolveAssignableInstructors(dto.getInstructorIds());
         List<String> lecturerNames = resolveLecturerNames(instructors);
         lesson.setAssignedInstructors(new ArrayList<>(instructors));
@@ -281,6 +367,92 @@ public class LessonService {
         if (!canEdit) {
             throw new ForbiddenEditException("Lesson editing requires ADMIN or EDITOR access");
         }
+    }
+
+    private boolean lessonMatchesDraft(Lesson lesson, LessonDto dto) {
+        return lesson.getOrderNumber() == (dto.getOrderNumber() != null ? dto.getOrderNumber() : 0)
+                && lesson.getTitle().equals(dto.getTitle().trim())
+                && lesson.getDurationHours() == (dto.getDurationHours() != null ? dto.getDurationHours() : 0)
+                && java.util.Objects.equals(lesson.getNote(), normalizeNote(dto.getNote()))
+                && java.util.Objects.equals(lesson.getType(), dto.getType())
+                && areUuidListsEqual(extractAssignedInstructorIds(lesson), dto.getInstructorIds() != null ? dto.getInstructorIds() : List.of());
+    }
+
+    private boolean areUuidListsEqual(List<UUID> left, List<UUID> right) {
+        if (left.size() != right.size()) {
+            return false;
+        }
+        List<UUID> normalizedLeft = new ArrayList<>(left);
+        List<UUID> normalizedRight = new ArrayList<>(right);
+        normalizedLeft.sort(UUID::compareTo);
+        normalizedRight.sort(UUID::compareTo);
+        return normalizedLeft.equals(normalizedRight);
+    }
+
+    private List<UUID> extractAssignedInstructorIds(Lesson lesson) {
+        if (lesson.getAssignedInstructors() == null) {
+            return List.of();
+        }
+        return lesson.getAssignedInstructors().stream()
+                .map(User::getId)
+                .toList();
+    }
+
+    private Map<Integer, LessonDto> normalizeSyncLessons(List<LessonDto> lessons) {
+        Map<Integer, LessonDto> requestedByOrder = new LinkedHashMap<>();
+        if (lessons == null) {
+            return requestedByOrder;
+        }
+
+        for (LessonDto lesson : lessons) {
+            Integer order = lesson.getOrderNumber();
+            if (order == null || order < 1 || order > MAX_LESSONS_PER_DAY) {
+                throw new ConflictException("Day sync accepts slots from 1 to 8 only");
+            }
+            if (requestedByOrder.putIfAbsent(order, lesson) != null) {
+                throw new ConflictException("Day sync contains duplicate slot numbers");
+            }
+        }
+
+        return requestedByOrder;
+    }
+
+    private boolean hasLessonContent(LessonDto dto) {
+        return dto != null && dto.getTitle() != null && !dto.getTitle().trim().isBlank();
+    }
+
+    private void validateSyncVersion(Lesson existing, LessonDto requested) {
+        if (requested == null) {
+            throw new ConflictException("Day sync requires slot payload for existing lessons");
+        }
+        if (requested.getId() != null && !requested.getId().equals(existing.getId())) {
+            throw new ConflictException("Lesson slot points to another lesson. Refresh data and retry.");
+        }
+        if (requested.getVersion() == null || !requested.getVersion().equals(existing.getVersion())) {
+            throw new ConflictException("Lesson was changed by another user. Refresh data and retry.");
+        }
+    }
+
+    private Group resolveGroup(UUID groupId) {
+        if (groupId == null) {
+            throw new ResourceNotFoundException("groupId is required");
+        }
+        return groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found: " + groupId));
+    }
+
+    private LocalDate resolveSyncDate(LocalDate date) {
+        if (date == null) {
+            throw new ResourceNotFoundException("date is required");
+        }
+        return date;
+    }
+
+    private String normalizeNote(String note) {
+        if (note == null || note.isBlank()) {
+            return null;
+        }
+        return note.trim();
     }
 
     private void ensureDayCapacity(Day day, Lesson currentLesson) {
