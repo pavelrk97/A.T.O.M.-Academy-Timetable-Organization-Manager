@@ -1,0 +1,156 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  identity-service:
+    build:
+      context: .
+      dockerfile: docker/service.Dockerfile
+      args:
+        MODULE_PATH: identity-service
+        MODULE_ARTIFACT: identity-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      IDENTITY_INTERNAL_API_KEY: ${IDENTITY_INTERNAL_API_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - ./db/migration:/app/db/migration:ro
+
+  schedule-service:
+    build:
+      context: .
+      dockerfile: docker/service.Dockerfile
+      args:
+        MODULE_PATH: schedule-import-parser-core
+        MODULE_ARTIFACT: schedule-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity-service:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      IDENTITY_SERVICE_URL: ${IDENTITY_SERVICE_URL}
+      IDENTITY_INTERNAL_API_KEY: ${IDENTITY_INTERNAL_API_KEY}
+      SCHEDULE_INTERNAL_API_KEY: ${SCHEDULE_INTERNAL_API_KEY}
+      ATOM_IMPORT_ARCHIVE_DIR: ${ATOM_IMPORT_ARCHIVE_DIR}
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - ./db/migration:/app/db/migration:ro
+      - schedule-import-archive:/app/data/import-archive
+
+  import-service:
+    build:
+      context: .
+      dockerfile: docker/service.Dockerfile
+      args:
+        MODULE_PATH: import-service
+        MODULE_ARTIFACT: import-service
+    restart: unless-stopped
+    depends_on:
+      identity-service:
+        condition: service_started
+      schedule-service:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      IDENTITY_SERVICE_URL: ${IDENTITY_SERVICE_URL}
+      SCHEDULE_SERVICE_URL: ${SCHEDULE_SERVICE_URL}
+      IDENTITY_INTERNAL_API_KEY: ${IDENTITY_INTERNAL_API_KEY}
+      SCHEDULE_INTERNAL_API_KEY: ${SCHEDULE_INTERNAL_API_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: docker/service.Dockerfile
+      args:
+        MODULE_PATH: schedule-api-service
+        MODULE_ARTIFACT: api-gateway
+    restart: unless-stopped
+    depends_on:
+      identity-service:
+        condition: service_started
+      schedule-service:
+        condition: service_started
+      import-service:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      IDENTITY_SERVICE_URL: ${IDENTITY_SERVICE_URL}
+      SCHEDULE_SERVICE_URL: ${SCHEDULE_SERVICE_URL}
+      IMPORT_SERVICE_URL: ${IMPORT_SERVICE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+
+  frontend:
+    build:
+      context: ./docs/V0 UI
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api-gateway:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+      ATOM_GATEWAY_URL: http://api-gateway:8081
+
+  reverse-proxy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      frontend:
+        condition: service_started
+      api-gateway:
+        condition: service_started
+    env_file:
+      - .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  postgres-data:
+  schedule-import-archive:
+  caddy-data:
+  caddy-config:
