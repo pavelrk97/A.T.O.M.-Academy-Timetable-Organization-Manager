@@ -1,0 +1,23 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$PUBLIC_HOSTNAME} {
+	encode zstd gzip
+
+	request_body {
+		max_size 200MB
+	}
+
+	header {
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-XSS-Protection "0"
+	}
+
+	@api path /api/*
+	reverse_proxy @api api-gateway:8081
+
+	reverse_proxy frontend:3000
+}
