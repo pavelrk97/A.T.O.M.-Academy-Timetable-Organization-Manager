@@ -1,11 +1,23 @@
 server:
   port: 8082
 
+internal:
+  security:
+    api-key: ${IDENTITY_INTERNAL_API_KEY:dev-internal-api-key}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:dev-jwt-secret-key-dev-jwt-secret-key-123456}
+    issuer: ${JWT_ISSUER:atom-identity-service}
+    access-token-ttl-minutes: ${JWT_ACCESS_TOKEN_TTL_MINUTES:120}
+
 spring:
   application:
     name: identity-service
   profiles:
     active: dev
+  flyway:
+    enabled: false
 
 ---
 
@@ -15,25 +27,25 @@ spring:
       on-profile: dev
 
   datasource:
-    url: jdbc:h2:file:~/atom-shared-db;AUTO_SERVER=TRUE;MODE=PostgreSQL
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:atom}
+    username: ${POSTGRES_USER:dbuser}
+    password: ${POSTGRES_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
         jdbc:
           time_zone: UTC
 
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+  flyway:
+    enabled: true
+    locations: filesystem:db/migration,filesystem:../db/migration
 
 ---
 
@@ -43,20 +55,24 @@ spring:
       on-profile: prod
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/atom
-    username: dbuser
-    password: password
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:atom}
+    username: ${POSTGRES_USER:dbuser}
+    password: ${POSTGRES_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         jdbc:
           time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: filesystem:/app/db/migration
 
 logging:
   level:

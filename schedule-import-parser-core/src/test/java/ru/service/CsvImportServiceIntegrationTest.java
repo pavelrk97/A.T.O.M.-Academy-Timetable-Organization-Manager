@@ -7,36 +7,64 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import ru.model.Day;
 import ru.model.Group;
 import ru.model.Lesson;
 import ru.model.LessonType;
+import ru.model.Role;
+import ru.model.User;
+import ru.parser.DateParser;
 import ru.repository.GroupRepository;
 import ru.repository.UserRepository;
 
+import java.lang.reflect.Field;
 import java.time.LocalDate;
+import java.time.Month;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 
 @DataJpaTest(properties = {
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @Import({
         CsvImportService.class,
+        CsvImportArchiveService.class,
         UserService.class,
         CsvImportServiceIntegrationTest.TestConfig.class
 })
 class CsvImportServiceIntegrationTest {
+
+    private static final Path ARCHIVE_DIR = createArchiveDir();
+
+    @DynamicPropertySource
+    static void registerProperties(DynamicPropertyRegistry registry) {
+        registry.add("atom.import.archive-dir", () -> ARCHIVE_DIR.toString());
+    }
 
     @TestConfiguration
     static class TestConfig {
         @Bean
         PasswordEncoder passwordEncoder() {
             return new BCryptPasswordEncoder();
+        }
+
+        @Bean
+        InstructorIdentitySyncService instructorIdentitySyncService() {
+            return mock(InstructorIdentitySyncService.class);
         }
     }
 
@@ -52,23 +80,67 @@ class CsvImportServiceIntegrationTest {
     @Autowired
     private TestEntityManager entityManager;
 
+    @Autowired
+    private InstructorIdentitySyncService instructorIdentitySyncService;
+
     @Test
-    void importGroups_canReimportSameGroupWithoutBlowingUp() {
-        csvImportService.importGroups(List.of(buildImportedGroup()));
+    void importFromCsv_replacesScheduleFromScratchAndKeepsSinglePreviousSource() throws Exception {
+        persistCurrentGroup("old-group", "Old Mentor");
         entityManager.flush();
         entityManager.clear();
 
-        Group firstPass = groupRepository.findByCode("гр.6 ()").orElseThrow();
+        String firstCsv = csv(
+                "new-group-1",
+                "Mentor One",
+                "I&C02.01.01 Intro (3 ч)"
+        );
+
+        csvImportService.importFromCsv(new java.io.ByteArrayInputStream(firstCsv.getBytes(StandardCharsets.UTF_8)));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(groupRepository.findByCode("old-group")).isEmpty();
+        assertThat(groupRepository.findByCode("new-group-1")).isPresent();
+
+        Path currentFile = ARCHIVE_DIR.resolve("current-schedule.csv");
+        Path previousFile = ARCHIVE_DIR.resolve("previous-schedule.csv");
+        assertThat(Files.exists(currentFile)).isTrue();
+        assertThat(Files.exists(previousFile)).isFalse();
+
+        String secondCsv = csv(
+                "new-group-2",
+                "Mentor Two",
+                "I&C02.01.02 Advanced topic (2 ч)"
+        );
+
+        csvImportService.importFromCsv(new java.io.ByteArrayInputStream(secondCsv.getBytes(StandardCharsets.UTF_8)));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(groupRepository.findByCode("new-group-1")).isEmpty();
+        assertThat(groupRepository.findByCode("new-group-2")).isPresent();
+        assertThat(Files.readString(currentFile)).contains("new-group-2");
+        assertThat(Files.readString(previousFile)).contains("new-group-1");
+        verify(instructorIdentitySyncService, times(2)).syncCurrentInstructors();
+    }
+
+    @Test
+    void importGroups_canReimportSameGroupWithoutBlowingUp() {
+        csvImportService.importGroups(List.of(buildImportedGroup("group-6", "Mentor Example")));
+        entityManager.flush();
+        entityManager.clear();
+
+        Group firstPass = groupRepository.findByCode("group-6").orElseThrow();
         assertThat(firstPass.getDays()).hasSize(1);
         assertThat(firstPass.getDays().get(0).getLessons()).hasSize(1);
         assertThat(userRepository.findAll()).hasSize(1);
 
-        // второй проход не должен ломать связи и плодить мусор
-        csvImportService.importGroups(List.of(buildImportedGroup()));
+        // second pass should not duplicate rows or blow up on associations
+        csvImportService.importGroups(List.of(buildImportedGroup("group-6", "Mentor Example")));
         entityManager.flush();
         entityManager.clear();
 
-        Group secondPass = groupRepository.findByCode("гр.6 ()").orElseThrow();
+        Group secondPass = groupRepository.findByCode("group-6").orElseThrow();
         assertThat(groupRepository.count()).isEqualTo(1);
         assertThat(secondPass.getDays()).hasSize(1);
         assertThat(secondPass.getDays().get(0).getLessons()).hasSize(1);
@@ -76,16 +148,72 @@ class CsvImportServiceIntegrationTest {
         assertThat(userRepository.findAll()).hasSize(1);
     }
 
-    private Group buildImportedGroup() {
+    @Test
+    void importGroups_prefersExistingRealInstructorWhenFullNameIsDuplicated() {
+        userRepository.save(buildUser("imported-aaaa1111", "Mentor Example", false));
+        User realInstructor = userRepository.save(buildUser("instructor", "Mentor Example", true));
+        entityManager.flush();
+        entityManager.clear();
+
+        csvImportService.importGroups(List.of(buildImportedGroup("group-dup", "Mentor Example")));
+        entityManager.flush();
+        entityManager.clear();
+
+        Group group = groupRepository.findByCode("group-dup").orElseThrow();
+        Lesson lesson = group.getDays().get(0).getLessons().get(0);
+
+        assertThat(lesson.getAssignedInstructors()).hasSize(1);
+        assertThat(lesson.getAssignedInstructors().get(0).getId()).isEqualTo(realInstructor.getId());
+        assertThat(userRepository.findAll()).hasSize(2);
+    }
+
+    @Test
+    void importGroups_deduplicatesRepeatedInstructorNamesInsideSingleLesson() {
+        Group importedGroup = buildImportedGroup("group-dupe-instructor", "Mentor Example");
+        Lesson importedLesson = importedGroup.getDays().get(0).getLessons().get(0);
+        importedLesson.setLecturers(new ArrayList<>(List.of("Mentor Example", "Mentor Example")));
+
+        csvImportService.importGroups(List.of(importedGroup));
+        entityManager.flush();
+        entityManager.clear();
+
+        Group group = groupRepository.findByCode("group-dupe-instructor").orElseThrow();
+        Lesson lesson = group.getDays().get(0).getLessons().get(0);
+
+        assertThat(lesson.getLecturers()).containsExactly("Mentor Example");
+        assertThat(lesson.getAssignedInstructors()).hasSize(1);
+        assertThat(userRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    void importGroups_ignoresPlaceholderInstructorNames() {
+        Group importedGroup = buildImportedGroup("group-placeholder", "Mentor Example");
+        Lesson importedLesson = importedGroup.getDays().get(0).getLessons().get(0);
+        importedLesson.setLecturer("Name");
+        importedLesson.setLecturers(new ArrayList<>(List.of("Name", "Mentor Example")));
+
+        csvImportService.importGroups(List.of(importedGroup));
+        entityManager.flush();
+        entityManager.clear();
+
+        Group group = groupRepository.findByCode("group-placeholder").orElseThrow();
+        Lesson lesson = group.getDays().get(0).getLessons().get(0);
+
+        assertThat(lesson.getLecturers()).containsExactly("Mentor Example");
+        assertThat(lesson.getAssignedInstructors()).hasSize(1);
+        assertThat(lesson.getAssignedInstructors().get(0).getFullName()).isEqualTo("Mentor Example");
+    }
+
+    private Group buildImportedGroup(String groupCode, String lecturerName) {
         Group group = new Group();
-        group.setCode("гр.6 ()");
-        group.setLocation("Б201");
-        group.setCourse(6);
+        group.setCode(groupCode);
+        group.setLocation("B201");
+        group.setCourse("6A");
 
         Day day = new Day();
         day.setDate(LocalDate.of(2026, 1, 5));
         day.setGroup(group);
-        day.setMeta(new java.util.HashMap<>());
+        day.setMeta(new HashMap<>());
 
         Lesson lesson = new Lesson();
         lesson.setDay(day);
@@ -93,11 +221,64 @@ class CsvImportServiceIntegrationTest {
         lesson.setTitle("I&C02.01.01 Purpose, Functions and Structure of APCS");
         lesson.setType(LessonType.LECTURE);
         lesson.setDurationHours(3);
-        lesson.setLecturer("Меняйло");
-        lesson.setLecturers(new ArrayList<>(List.of("Меняйло")));
+        lesson.setLecturer(lecturerName);
+        lesson.setLecturers(new ArrayList<>(List.of(lecturerName)));
 
         day.setLessons(new ArrayList<>(List.of(lesson)));
         group.setDays(new ArrayList<>(List.of(day)));
         return group;
+    }
+
+    private User buildUser(String username, String fullName, boolean active) {
+        User user = new User();
+        user.setUsername(username);
+        user.setPassword("encoded");
+        user.setFullName(fullName);
+        user.setRole(Role.INSTRUCTOR);
+        user.setCanTeach(true);
+        user.setActive(active);
+        return user;
+    }
+
+    private void persistCurrentGroup(String groupCode, String lecturerName) {
+        csvImportService.importGroups(List.of(buildImportedGroup(groupCode, lecturerName)));
+    }
+
+    private String csv(String groupCode, String instructorName, String lessonLine) {
+        return """
+                h0,%s
+                h1,05.%s
+                "%s\nB201","I&C02\n%s\n%s"
+                """.formatted(
+                groupCode,
+                januaryKey(),
+                groupCode,
+                instructorName,
+                lessonLine
+        );
+    }
+
+    private static Path createArchiveDir() {
+        try {
+            return Files.createTempDirectory("atom-import-archive-test");
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to create temp archive dir", ex);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String januaryKey() {
+        try {
+            Field field = DateParser.class.getDeclaredField("MONTHS");
+            field.setAccessible(true);
+            Map<String, Month> months = (Map<String, Month>) field.get(null);
+            return months.entrySet().stream()
+                    .filter(entry -> entry.getValue() == Month.JANUARY)
+                    .map(Map.Entry::getKey)
+                    .findFirst()
+                    .orElseThrow();
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to resolve January month key for test CSV", ex);
+        }
     }
 }

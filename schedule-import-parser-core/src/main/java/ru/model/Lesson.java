@@ -1,6 +1,9 @@
 package ru.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -41,6 +44,8 @@ public class Lesson extends BaseEntity {
     @ElementCollection
     @CollectionTable(name = "lesson_lecturers", joinColumns = @JoinColumn(name = "lesson_id"))
     @Column(name = "lecturer_name")
+    @Fetch(FetchMode.SUBSELECT)
+    @BatchSize(size = 128)
     private List<String> lecturers = new ArrayList<>();
 
     @ManyToMany
@@ -49,6 +54,8 @@ public class Lesson extends BaseEntity {
             joinColumns = @JoinColumn(name = "lesson_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @Fetch(FetchMode.SUBSELECT)
+    @BatchSize(size = 128)
     private List<User> assignedInstructors = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY)

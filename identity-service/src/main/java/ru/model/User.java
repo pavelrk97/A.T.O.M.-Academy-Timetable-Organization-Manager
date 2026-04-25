@@ -17,12 +17,21 @@ public class User extends BaseEntity {
     private String password;
 
     private String fullName;
+    private String displayName;
 
     private String email;
+
+    private String phone;
+
+    private String position;
+
+    private String department;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+
+    private boolean editorAccess;
 
     private boolean isActive = true;
 
@@ -52,6 +61,14 @@ public class User extends BaseEntity {
         this.fullName = fullName;
     }
 
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
     public String getEmail() {
         return email;
     }
@@ -60,12 +77,44 @@ public class User extends BaseEntity {
         this.email = email;
     }
 
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getPosition() {
+        return position;
+    }
+
+    public void setPosition(String position) {
+        this.position = position;
+    }
+
+    public String getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(String department) {
+        this.department = department;
+    }
+
     public Role getRole() {
         return role;
     }
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public boolean isEditorAccess() {
+        return editorAccess;
+    }
+
+    public void setEditorAccess(boolean editorAccess) {
+        this.editorAccess = editorAccess;
     }
 
     public boolean isActive() {

@@ -1,3 +1,36 @@
 .idea/
 .idea_backup_*/
+.vscode/
 *.iml
+Thumbs.db
+.DS_Store
+
+# Local environment files
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Maven / Java build outputs
+**/target/
+*.class
+*.jar.original
+dependency-reduced-pom.xml
+
+# Frontend dependencies and build outputs
+**/node_modules/
+**/.next/
+*.tsbuildinfo
+coverage/
+
+# Runtime logs
+*.log
+*.out.log
+*.err.log
+*.dump
+*.dumpstream
+hs_err_pid*
+replay_pid*
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*

@@ -1,6 +1,9 @@
 package ru.controller;
 
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +20,10 @@ import java.util.UUID;
 @RequestMapping("/api/workload")
 public class WorkloadController {
 
+    private static final MediaType XLSX_MEDIA_TYPE = MediaType.parseMediaType(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
     private final LessonService lessonService;
 
     public WorkloadController(LessonService lessonService) {
@@ -31,5 +38,24 @@ public class WorkloadController {
             Authentication authentication
     ) {
         return lessonService.getWorkload(instructorId, from, to, authentication);
+    }
+
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exportWorkload(
+            @RequestParam(required = false) UUID instructorId,
+            @RequestParam(required = false) String instructorQuery,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            Authentication authentication
+    ) {
+        LocalDate effectiveFrom = from != null ? from : LocalDate.of(1900, 1, 1);
+        LocalDate effectiveTo = to != null ? to : LocalDate.of(3000, 12, 31);
+        byte[] workbook = lessonService.exportWorkloadExcel(instructorId, instructorQuery, from, to, authentication);
+        String scope = instructorId != null ? "single" : (instructorQuery != null && !instructorQuery.isBlank() ? "filtered" : "all");
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"workload-%s-%s-%s.xlsx\"".formatted(scope, effectiveFrom, effectiveTo))
+                .contentType(XLSX_MEDIA_TYPE)
+                .body(workbook);
     }
 }

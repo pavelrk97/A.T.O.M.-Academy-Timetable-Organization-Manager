@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import ru.dto.ChangeLogDto;
@@ -46,6 +47,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         LessonService.class,
         UserService.class,
         AuditService.class,
+        WorkloadExcelExportService.class,
         LessonCrudScenarioIntegrationTest.TestConfig.class
 })
 class LessonCrudScenarioIntegrationTest {
@@ -92,18 +94,19 @@ class LessonCrudScenarioIntegrationTest {
         assertThat(instructor.getRole()).isEqualTo(Role.INSTRUCTOR);
         assertThat(userRepository.findByUsername("mentor")).isPresent();
 
-        Authentication actorAuth = auth("mentor");
+        Authentication plainActorAuth = auth("mentor", "ROLE_INSTRUCTOR");
         LessonDto draft = lessonDraft(day, instructor.getId(), "APCS intro", 4, "first pass");
 
         // Пока это обычный instructor, в CRUD ему нельзя.
-        assertThatThrownBy(() -> lessonService.create(draft, actorAuth))
+        assertThatThrownBy(() -> lessonService.create(draft, plainActorAuth))
                 .isInstanceOf(ForbiddenEditException.class)
-                .hasMessage("Instructor cannot create lessons");
+                .hasMessage("Lesson editing requires ADMIN or EDITOR access");
 
         UserDto promoted = userService.update(instructor.getId(), userRequest("mentor", Role.EDITOR));
         assertThat(promoted.getRole()).isEqualTo(Role.EDITOR);
+        Authentication editorActorAuth = auth("mentor", "ROLE_EDITOR");
 
-        LessonDto createdLesson = lessonService.create(draft, actorAuth);
+        LessonDto createdLesson = lessonService.create(draft, editorActorAuth);
         assertThat(createdLesson.getId()).isNotNull();
         assertThat(createdLesson.getInstructorNames()).containsExactly("Mentor QA");
 
@@ -119,7 +122,7 @@ class LessonCrudScenarioIntegrationTest {
                 instructor.getId(),
                 LocalDate.of(2026, 1, 1),
                 LocalDate.of(2026, 1, 31),
-                actorAuth
+                editorActorAuth
         );
         assertThat(januaryWorkload).singleElement().satisfies(workload -> {
             assertThat(workload.getInstructorName()).isEqualTo("Mentor QA");
@@ -130,7 +133,7 @@ class LessonCrudScenarioIntegrationTest {
         update.setVersion(createdLesson.getVersion());
         update.setOrderNumber(2);
 
-        LessonDto updatedLesson = lessonService.update(createdLesson.getId(), update, actorAuth);
+        LessonDto updatedLesson = lessonService.update(createdLesson.getId(), update, editorActorAuth);
         assertThat(updatedLesson.getTitle()).isEqualTo("APCS deep dive");
         assertThat(updatedLesson.getDurationHours()).isEqualTo(6);
         assertThat(updatedLesson.getOrderNumber()).isEqualTo(2);
@@ -156,7 +159,7 @@ class LessonCrudScenarioIntegrationTest {
         staleUpdate.setOrderNumber(3);
 
         // Тут просто проверяем, что старую версию молча не перетираем.
-        assertThatThrownBy(() -> lessonService.update(createdLesson.getId(), staleUpdate, actorAuth))
+        assertThatThrownBy(() -> lessonService.update(createdLesson.getId(), staleUpdate, editorActorAuth))
                 .isInstanceOf(ConflictException.class)
                 .hasMessage("Lesson was changed by another user. Refresh data and retry.");
     }
@@ -165,7 +168,7 @@ class LessonCrudScenarioIntegrationTest {
         Group group = new Group();
         group.setCode(groupCode);
         group.setLocation("B201");
-        group.setCourse(4);
+        group.setCourse("4A");
 
         Day day = new Day();
         day.setDate(date);
@@ -202,7 +205,11 @@ class LessonCrudScenarioIntegrationTest {
                 .build();
     }
 
-    private Authentication auth(String username) {
-        return new UsernamePasswordAuthenticationToken(username, "pass123");
+    private Authentication auth(String username, String... authorities) {
+        return new UsernamePasswordAuthenticationToken(
+                username,
+                "pass123",
+                List.of(authorities).stream().map(SimpleGrantedAuthority::new).toList()
+        );
     }
 }

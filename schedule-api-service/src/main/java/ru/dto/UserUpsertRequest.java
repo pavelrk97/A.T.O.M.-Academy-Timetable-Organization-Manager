@@ -18,10 +18,20 @@ public class UserUpsertRequest {
     @NotBlank
     private String fullName;
 
+    private String displayName;
+
     private String email;
+
+    private String phone;
+
+    private String position;
+
+    private String department;
 
     @NotNull
     private Role role;
+
+    private boolean editorAccess;
 
     private boolean active = true;
     private boolean canTeach = true;

@@ -1,6 +1,9 @@
 package ru.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,9 +24,11 @@ public class Group extends BaseEntity {
 
     private String location;
 
-    private Integer course;
+    private String course;
 
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Fetch(FetchMode.SUBSELECT)
+    @BatchSize(size = 64)
     private List<Day> days = new ArrayList<>();
 
     @ManyToMany(mappedBy = "groups")
@@ -35,8 +40,8 @@ public class Group extends BaseEntity {
     public String getLocation() { return location; }
     public void setLocation(String location) { this.location = location; }
 
-    public Integer getCourse() { return course; }
-    public void setCourse(Integer course) { this.course = course; }
+    public String getCourse() { return course; }
+    public void setCourse(String course) { this.course = course; }
 
     public List<Day> getDays() { return days; }
     public void setDays(List<Day> days) { this.days = days; }

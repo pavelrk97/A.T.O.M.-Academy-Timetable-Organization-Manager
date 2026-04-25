@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import ru.model.Role;
 
+import java.util.UUID;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -14,8 +16,10 @@ import ru.model.Role;
 @Builder
 public class InternalUserDetailsDto {
 
+    private UUID id;
     private String username;
     private String password;
+    private String fullName;
     private Role role;
     private boolean active;
 }

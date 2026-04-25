@@ -1,5 +1,8 @@
 package ru.exception;
 
+import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -14,37 +17,50 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<?> handleNotFound(ResourceNotFoundException ex) {
+    public ResponseEntity<?> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
+        log.warn("Request failed with 404: method={}, path={}, message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
         return build(HttpStatus.NOT_FOUND, "Not found", ex.getMessage());
     }
 
     @ExceptionHandler({ConflictException.class, jakarta.persistence.OptimisticLockException.class})
-    public ResponseEntity<?> handleConflict(Exception ex) {
+    public ResponseEntity<?> handleConflict(Exception ex, HttpServletRequest request) {
+        log.warn("Request failed with 409: method={}, path={}, message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
         return build(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
     }
 
     @ExceptionHandler({ForbiddenEditException.class, AccessDeniedException.class})
-    public ResponseEntity<?> handleForbidden(Exception ex) {
+    public ResponseEntity<?> handleForbidden(Exception ex, HttpServletRequest request) {
+        log.warn("Request failed with 403: method={}, path={}, message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
         return build(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<?> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<?> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .orElse("Validation error");
+        log.warn("Request failed with 400: method={}, path={}, message={}",
+                request.getMethod(), request.getRequestURI(), message);
         return build(HttpStatus.BAD_REQUEST, "Validation error", message);
     }
 
     @ExceptionHandler(ScheduleParseException.class)
-    public ResponseEntity<?> handleScheduleParseException(ScheduleParseException ex) {
+    public ResponseEntity<?> handleScheduleParseException(ScheduleParseException ex, HttpServletRequest request) {
+        log.warn("Request failed with schedule parse error: method={}, path={}, message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
         return build(HttpStatus.BAD_REQUEST, "Schedule parse error", ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<?> handleGeneric(Exception ex) {
+    public ResponseEntity<?> handleGeneric(Exception ex, HttpServletRequest request) {
+        log.error("Unhandled exception: method={}, path={}", request.getMethod(), request.getRequestURI(), ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "Internal error", ex.getMessage());
     }
 
