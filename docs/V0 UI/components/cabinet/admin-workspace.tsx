@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { AutoImportCard } from '@/components/cabinet/auto-import-card'
 import { LessonAdminEditor } from '@/components/cabinet/lesson-admin-editor'
 import { UserAdminEditor } from '@/components/cabinet/user-admin-editor'
 import type { GroupDto, ImportResult, User } from '@/lib/types'
@@ -151,6 +152,8 @@ export function AdminWorkspace({
         canManageGroups={canManageGroups}
         range={range}
       />
+
+      <AutoImportCard onImported={onRefresh} />
 
       {canManageUsers ? <UserAdminEditor users={users} onChanged={onRefresh} /> : null}
 
