@@ -251,3 +251,14 @@ export interface AutoImportSettingsUpdateRequest {
   enabled: boolean
   sourceUrl: string
 }
+
+export interface UserActivity {
+  userId: string
+  username: string
+  fullName: string | null
+  role: UserRole
+  active: boolean
+  lastLoginAt: string | null
+  loginCount30d: number
+  loginCountTotal: number
+}

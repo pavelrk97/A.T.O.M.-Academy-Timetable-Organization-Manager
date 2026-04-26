@@ -14,6 +14,7 @@ import type {
   ScheduleGridData,
   TokenResponse,
   User,
+  UserActivity,
   UserUpsertRequest,
   WorkloadCalendar,
   WorkloadSummary,
@@ -197,6 +198,7 @@ export const publicApi = {
 
 export const usersApi = {
   getAll: () => fetchApi<User[]>('/users'),
+  getActivity: () => fetchApi<UserActivity[]>('/users/activity'),
   create: (payload: UserUpsertRequest) =>
     fetchApi<User>('/users', {
       method: 'POST',

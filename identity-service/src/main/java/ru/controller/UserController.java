@@ -8,8 +8,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import ru.dto.UserActivityDto;
 import ru.dto.UserDto;
 import ru.dto.UserUpsertRequest;
+import ru.service.UserActivityService;
 import ru.service.UserService;
 
 import java.util.List;
@@ -20,14 +22,22 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
+    private final UserActivityService userActivityService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService,
+                          UserActivityService userActivityService) {
         this.userService = userService;
+        this.userActivityService = userActivityService;
     }
 
     @GetMapping
     public List<UserDto> getAll() {
         return userService.getAll();
+    }
+
+    @GetMapping("/activity")
+    public List<UserActivityDto> getActivity() {
+        return userActivityService.getActivityForAllUsers();
     }
 
     @PostMapping
