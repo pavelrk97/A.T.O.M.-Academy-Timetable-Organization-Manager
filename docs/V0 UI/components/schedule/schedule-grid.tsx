@@ -1,11 +1,24 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Clock3, GraduationCap, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { ScheduleGridData, ScheduleGridLessonCell } from '@/lib/types'
 import { limitGrid } from '@/lib/schedule'
+
+function useIsMobile(maxWidth = 639) {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const query = window.matchMedia(`(max-width: ${maxWidth}px)`)
+    const update = () => setIsMobile(query.matches)
+    update()
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [maxWidth])
+  return isMobile
+}
 
 interface ScheduleGridProps {
   data: ScheduleGridData
@@ -54,8 +67,11 @@ export function ScheduleGrid({
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const { data: limitedData, meta } = limitGrid(data)
   const normalizedInstructor = (highlightInstructor || '').trim().toLowerCase()
-  const groupColumnWidth = Math.round((compact ? 164 : 188) * (zoom / 100))
-  const columnWidth = Math.round((compact ? 118 : 136) * (zoom / 100))
+  const isMobile = useIsMobile()
+  const groupBaseWidth = isMobile ? 96 : compact ? 164 : 188
+  const columnBaseWidth = isMobile ? 124 : compact ? 118 : 136
+  const groupColumnWidth = Math.round(groupBaseWidth * (zoom / 100))
+  const columnWidth = Math.round(columnBaseWidth * (zoom / 100))
 
   const scrollBy = (offset: number) => {
     viewportRef.current?.scrollBy({ left: offset, behavior: 'smooth' })
@@ -122,6 +138,7 @@ export function ScheduleGrid({
               key={group.groupId}
               group={group}
               compact={compact}
+              isMobile={isMobile}
               selectedKey={selectedKey}
               onSelect={(date, lessons) => {
                 const key = `${group.groupId}:${date}`
@@ -140,33 +157,40 @@ export function ScheduleGrid({
 function FragmentRow({
   group,
   compact,
+  isMobile,
   selectedKey,
   onSelect,
   highlightInstructor,
 }: {
   group: ScheduleGridData['groups'][number]
   compact: boolean
+  isMobile: boolean
   selectedKey: string | null
   onSelect: (date: string, lessons: ScheduleGridLessonCell[]) => void
   highlightInstructor: string
 }) {
   return (
     <>
-      <div className="sticky left-0 z-10 border-b border-r border-border bg-white px-4 py-4">
+      <div
+        className={cn(
+          'sticky left-0 z-10 border-b border-r border-border bg-white py-4',
+          isMobile ? 'px-2' : 'px-4'
+        )}
+      >
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold text-slate-950">{group.groupCode}</div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-slate-950 truncate">{group.groupCode}</div>
             <div className="mt-1 space-y-1 text-xs text-muted-foreground">
               {group.location ? (
                 <div className="inline-flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {group.location}
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{group.location}</span>
                 </div>
               ) : null}
               {group.course ? (
                 <div className="inline-flex items-center gap-1">
-                  <GraduationCap className="h-3.5 w-3.5" />
-                  Курс {group.course}
+                  <GraduationCap className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Курс {group.course}</span>
                 </div>
               ) : null}
             </div>
@@ -200,7 +224,12 @@ function FragmentRow({
             )}
           >
             {!hasLessons ? (
-              <div className="flex min-h-[56px] items-center justify-center rounded-lg border border-dashed border-slate-200 px-2 text-center text-[11px] text-slate-400">
+              <div
+                className={cn(
+                  'flex items-center justify-center rounded-lg border border-dashed border-slate-200 px-2 text-center text-[11px] text-slate-400',
+                  isMobile ? 'min-h-[80px]' : 'min-h-[56px]'
+                )}
+              >
                 Пусто
               </div>
             ) : (
@@ -213,18 +242,26 @@ function FragmentRow({
                       compact ? 'space-y-1' : 'space-y-1.5'
                     )}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                    <div
+                      className={cn(
+                        'flex gap-2',
+                        isMobile ? 'flex-col items-start' : 'items-start justify-between'
+                      )}
+                    >
+                      <div className="min-w-0 w-full">
                         <div className="text-[11px] font-semibold text-primary">
                           № {lesson.orderNumber || '-'}
                         </div>
-                        <div className="line-clamp-2 text-xs font-medium text-slate-950">
+                        <div className={cn(
+                          'text-xs font-medium text-slate-950 break-words',
+                          isMobile ? 'line-clamp-3' : 'line-clamp-2'
+                        )}>
                           {lesson.title || 'Без названия'}
                         </div>
                       </div>
                       <span
                         className={cn(
-                          'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium leading-4',
+                          'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium leading-4 self-start',
                           typeBadgeClass(lesson.type)
                         )}
                       >
@@ -237,9 +274,11 @@ function FragmentRow({
                         <Clock3 className="h-3.5 w-3.5" />
                         {lesson.durationHours} ч
                       </span>
-                      <span className="font-medium text-slate-500">
-                        {lessonTypeLabel(lesson.type)}
-                      </span>
+                      {!isMobile ? (
+                        <span className="font-medium text-slate-500">
+                          {lessonTypeLabel(lesson.type)}
+                        </span>
+                      ) : null}
                       {!compact && (lesson.instructorNames || []).length > 0 ? (
                         <span className="line-clamp-1 break-words">
                           {(lesson.instructorNames || []).join(', ')}

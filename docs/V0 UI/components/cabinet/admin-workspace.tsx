@@ -143,38 +143,7 @@ export function AdminWorkspace({
             Обновить данные
           </Button>
         </div>
-
-        {canImport ? (
-          <div className="mt-5 rounded-2xl border border-border bg-slate-50 p-4">
-            <div className="text-sm font-semibold text-slate-950">Импорт CSV</div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Вызывает `POST /api/import/csv` через gateway. Большие файлы могут обрабатываться несколько минут.
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <Input
-                type="file"
-                accept=".csv,text/csv"
-                onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
-                className="max-w-md"
-              />
-              <Button
-                disabled={!selectedFile || importing}
-                onClick={() => selectedFile && onImport(selectedFile)}
-              >
-                <UploadCloud className="mr-2 h-4 w-4" />
-                {importing ? 'Импортирую...' : 'Запустить импорт'}
-              </Button>
-            </div>
-            {importResult ? (
-              <pre className="mt-4 max-h-64 overflow-auto rounded-xl border border-border bg-white p-3 text-xs text-slate-700">
-                {JSON.stringify(importResult, null, 2)}
-              </pre>
-            ) : null}
-          </div>
-        ) : null}
       </section>
-
-      {canManageUsers ? <UserAdminEditor users={users} onChanged={onRefresh} /> : null}
 
       <LessonAdminEditor
         groups={groups}
@@ -182,6 +151,37 @@ export function AdminWorkspace({
         canManageGroups={canManageGroups}
         range={range}
       />
+
+      {canManageUsers ? <UserAdminEditor users={users} onChanged={onRefresh} /> : null}
+
+      {canImport ? (
+        <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+          <div className="text-sm font-semibold text-slate-950">Импорт CSV</div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Вызывает `POST /api/import/csv` через gateway. Большие файлы могут обрабатываться несколько минут.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+              className="max-w-md"
+            />
+            <Button
+              disabled={!selectedFile || importing}
+              onClick={() => selectedFile && onImport(selectedFile)}
+            >
+              <UploadCloud className="mr-2 h-4 w-4" />
+              {importing ? 'Импортирую...' : 'Запустить импорт'}
+            </Button>
+          </div>
+          {importResult ? (
+            <pre className="mt-4 max-h-64 overflow-auto rounded-xl border border-border bg-white p-3 text-xs text-slate-700">
+              {JSON.stringify(importResult, null, 2)}
+            </pre>
+          ) : null}
+        </section>
+      ) : null}
     </div>
   )
 }
