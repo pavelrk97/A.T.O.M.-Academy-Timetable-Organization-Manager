@@ -51,6 +51,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/groups/**", "/api/lessons/**").hasAnyRole("ADMIN", "EDITOR")
                         .requestMatchers(HttpMethod.DELETE, "/api/groups/**", "/api/lessons/**").hasAnyRole("ADMIN", "EDITOR")
                         .requestMatchers("/api/groups/**", "/api/lessons/**", "/api/workload/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/auto-import/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/auto-import/**").hasAnyRole("ADMIN", "EDITOR")
+                        .requestMatchers(HttpMethod.POST, "/api/auto-import/**").hasAnyRole("ADMIN", "EDITOR")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(this::convertJwt)));
 

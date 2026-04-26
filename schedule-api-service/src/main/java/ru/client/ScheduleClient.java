@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
+import ru.dto.AutoImportSettingsDto;
+import ru.dto.AutoImportSettingsUpdateRequest;
 import ru.dto.ChangeLogDto;
 import ru.dto.DaySyncRequestDto;
 import ru.dto.GroupDto;
@@ -118,4 +120,14 @@ public interface ScheduleClient {
     MyDashboardDataDto getMyDashboard(@RequestHeader("Authorization") String authorization,
                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
+
+    @GetMapping("/api/auto-import/settings")
+    AutoImportSettingsDto getAutoImportSettings(@RequestHeader("Authorization") String authorization);
+
+    @PutMapping("/api/auto-import/settings")
+    AutoImportSettingsDto updateAutoImportSettings(@RequestHeader("Authorization") String authorization,
+                                                   @RequestBody AutoImportSettingsUpdateRequest request);
+
+    @PostMapping("/api/auto-import/run")
+    AutoImportSettingsDto runAutoImport(@RequestHeader("Authorization") String authorization);
 }

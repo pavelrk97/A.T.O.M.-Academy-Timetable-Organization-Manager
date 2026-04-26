@@ -233,3 +233,21 @@ export interface UserUpsertRequest {
   canTeach: boolean
   editorAccess: boolean
 }
+
+export interface AutoImportSettings {
+  enabled: boolean
+  sourceUrl: string
+  lastRunAt: string | null
+  lastStatus: 'OK' | 'ERROR' | 'RUNNING' | null
+  lastError: string | null
+  lastImportedGroups: number | null
+  lastImportedLessons: number | null
+  updatedAt: string
+  updatedBy: string | null
+  nextRunAt: string | null
+}
+
+export interface AutoImportSettingsUpdateRequest {
+  enabled: boolean
+  sourceUrl: string
+}

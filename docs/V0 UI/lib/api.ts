@@ -1,4 +1,6 @@
 import type {
+  AutoImportSettings,
+  AutoImportSettingsUpdateRequest,
   DashboardData,
   DaySyncPayload,
   GroupDto,
@@ -332,6 +334,19 @@ export const importApi = {
       body: formData,
     })
   },
+}
+
+export const autoImportApi = {
+  getSettings: () => fetchApi<AutoImportSettings>('/auto-import/settings'),
+  updateSettings: (request: AutoImportSettingsUpdateRequest) =>
+    fetchApi<AutoImportSettings>('/auto-import/settings', {
+      method: 'PUT',
+      body: JSON.stringify(request),
+    }),
+  runNow: () =>
+    fetchApi<AutoImportSettings>('/auto-import/run', {
+      method: 'POST',
+    }),
 }
 
 export const workloadApi = {
