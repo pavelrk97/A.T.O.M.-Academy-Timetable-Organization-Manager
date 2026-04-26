@@ -289,19 +289,32 @@ function CabinetPageContent() {
     }
 
     setAdminLoading(true)
-    try {
-      const [nextUsers, nextGroups] = await Promise.all([usersApi.getAll(), groupsApi.getAll()])
-      setUsers(nextUsers)
-      setGroups(nextGroups)
-    } catch (caught) {
+    const canListUsers = user?.role === 'ADMIN' || user?.role === 'EDITOR'
+    const [usersResult, groupsResult] = await Promise.allSettled([
+      canListUsers ? usersApi.getAll() : Promise.resolve([] as User[]),
+      groupsApi.getAll(),
+    ])
+
+    if (usersResult.status === 'fulfilled') {
+      setUsers(usersResult.value)
+    }
+    if (groupsResult.status === 'fulfilled') {
+      setGroups(groupsResult.value)
+    }
+
+    const failed = [usersResult, groupsResult].find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    )
+    if (failed && groupsResult.status === 'rejected') {
+      const reason = failed.reason
       setError(
-        caught instanceof Error && caught.message
-          ? caught.message
+        reason instanceof Error && reason.message
+          ? reason.message
           : 'Не удалось загрузить данные операционного блока.'
       )
-    } finally {
-      setAdminLoading(false)
     }
+
+    setAdminLoading(false)
   }
 
   useEffect(() => {
@@ -629,7 +642,7 @@ function CabinetPageContent() {
                   />
 
                   <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-                    <section className="space-y-4">
+                    <section className="min-w-0 space-y-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                           <h2 className="text-xl font-semibold text-slate-950">Моя сетка занятий</h2>
