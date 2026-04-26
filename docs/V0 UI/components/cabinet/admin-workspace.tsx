@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AutoImportCard } from '@/components/cabinet/auto-import-card'
 import { LessonAdminEditor } from '@/components/cabinet/lesson-admin-editor'
+import { UserActivityCard } from '@/components/cabinet/user-activity-card'
 import { UserAdminEditor } from '@/components/cabinet/user-admin-editor'
 import type { GroupDto, ImportResult, User } from '@/lib/types'
 
@@ -156,6 +157,8 @@ export function AdminWorkspace({
       <AutoImportCard onImported={onRefresh} />
 
       {canManageUsers ? <UserAdminEditor users={users} onChanged={onRefresh} /> : null}
+
+      {canManageUsers ? <UserActivityCard /> : null}
 
       {canImport ? (
         <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">

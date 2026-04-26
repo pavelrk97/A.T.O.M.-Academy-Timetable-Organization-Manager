@@ -11,6 +11,7 @@ import ru.dto.ChangePasswordRequest;
 import ru.dto.LoginRequest;
 import ru.dto.MyProfileUpdateRequest;
 import ru.dto.TokenResponse;
+import ru.dto.UserActivityDto;
 import ru.dto.UserDto;
 import ru.dto.UserUpsertRequest;
 
@@ -39,6 +40,9 @@ public interface IdentityClient {
 
     @GetMapping("/api/users")
     List<UserDto> getUsers(@RequestHeader("Authorization") String authorization);
+
+    @GetMapping("/api/users/activity")
+    List<UserActivityDto> getUsersActivity(@RequestHeader("Authorization") String authorization);
 
     @PostMapping("/api/users")
     UserDto createUser(@RequestHeader("Authorization") String authorization, @RequestBody UserUpsertRequest request);

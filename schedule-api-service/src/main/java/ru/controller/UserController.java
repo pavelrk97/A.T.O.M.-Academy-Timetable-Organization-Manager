@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.client.IdentityClient;
+import ru.dto.UserActivityDto;
 import ru.dto.UserDto;
 import ru.dto.UserUpsertRequest;
 import ru.security.DownstreamAuthHeaderFactory;
@@ -33,6 +34,11 @@ public class UserController {
     @GetMapping
     public List<UserDto> getAll(Authentication authentication) {
         return identityClient.getUsers(authHeaderFactory.bearerHeader(authentication));
+    }
+
+    @GetMapping("/activity")
+    public List<UserActivityDto> getActivity(Authentication authentication) {
+        return identityClient.getUsersActivity(authHeaderFactory.bearerHeader(authentication));
     }
 
     @PostMapping

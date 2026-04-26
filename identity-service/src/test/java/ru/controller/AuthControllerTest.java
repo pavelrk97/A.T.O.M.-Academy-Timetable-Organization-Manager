@@ -53,7 +53,7 @@ class AuthControllerTest {
                 .expiresAt(Instant.parse("2026-04-18T10:15:30Z"))
                 .build();
 
-        given(authService.login(any(LoginRequest.class))).willReturn(response);
+        given(authService.login(any(LoginRequest.class), any())).willReturn(response);
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
