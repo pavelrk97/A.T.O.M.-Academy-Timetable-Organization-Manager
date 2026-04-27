@@ -461,7 +461,7 @@ comment     = опц.
 
 ## 12. Frontend
 
-Расположен в `docs/V0 UI/` (исторически назван так — это полноценное Next.js приложение, не статика).
+Расположен в `frontend/`.
 
 ### 12.1 Стек и структура
 
@@ -470,7 +470,7 @@ comment     = опц.
 - Radix UI поверх Tailwind для шторок (`Sheet`), аккордеонов (`Accordion`), диалогов.
 
 ```
-docs/V0 UI/
+frontend/
 ├── app/
 │   ├── layout.tsx            ← глобальная вёрстка + AuthProvider
 │   ├── page.tsx              ← редирект на /schedule или /cabinet
@@ -594,7 +594,7 @@ mvn -B -pl schedule-import-parser-core test -Dtest=ScheduleCsvParserTest
 ### 15.2 Frontend
 
 ```bash
-cd "docs/V0 UI" && pnpm run lint
+cd frontend && pnpm run lint
 ```
 
 Юнит-тестов на компоненты пока нет. TS-проверка — `tsc --noEmit -p tsconfig.json`.
