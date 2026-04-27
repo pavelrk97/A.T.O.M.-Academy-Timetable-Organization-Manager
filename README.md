@@ -94,7 +94,7 @@ docker compose up --build
 - import-service → http://localhost:8083
 - PostgreSQL → localhost:5432
 
-Фронт `docs/V0 UI/` поднимается отдельно (см. ниже).
+Фронт `frontend/` поднимается отдельно (см. ниже).
 
 ### Prod — полный стек с Caddy и фронтендом
 
@@ -149,14 +149,15 @@ docker compose down -v              # удалит volume (БД и архив и
 ├── identity-service/                      ← :8082
 ├── import-service/                        ← :8083
 ├── postman/                               ← коллекции для smoke-проверки
+├── frontend/                              ← Next.js приложение
+│   ├── app/                               ← роуты (cabinet, schedule, login)
+│   ├── components/                        ← UI компоненты
+│   ├── lib/                               ← API-клиент, утилиты
+│   └── Dockerfile                         ← prod-сборка фронта
 └── docs/
     ├── PROJECT_DOCUMENTATION.md           ← полная документация (API, роли, домен)
     ├── CSV_FORMAT.md                      ← спецификация CSV для импорта
-    ├── PRODUCTION_DEPLOY.md               ← prod deploy
-    └── V0 UI/                             ← frontend (Next.js)
-        ├── app/                           ← роуты (cabinet, schedule, login)
-        ├── components/                    ← UI компоненты
-        └── lib/                           ← API-клиент, утилиты
+    └── PRODUCTION_DEPLOY.md               ← prod deploy
 ```
 
 ---
@@ -174,14 +175,14 @@ mvn test                                       # все тесты
 ### Frontend
 
 ```bash
-cd "docs/V0 UI"
+cd frontend
 pnpm install
 pnpm run dev      # http://localhost:3000
 pnpm run build    # production build
 pnpm run lint     # ESLint
 ```
 
-В dev фронтенд проксирует `/api/*` на `http://localhost:8081`. Конфиг в `docs/V0 UI/next.config.mjs` (или см. `lib/api.ts`).
+В dev фронтенд проксирует `/api/*` на `http://localhost:8081`. Конфиг в `frontend/next.config.mjs` (или см. `lib/api.ts`).
 
 ### Базовые команды Docker
 
