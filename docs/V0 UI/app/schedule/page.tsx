@@ -81,6 +81,24 @@ function clampZoom(value: number) {
   return Math.min(140, Math.max(80, value))
 }
 
+/**
+ * True when the viewport is narrower than Tailwind's `xl` breakpoint (1280px).
+ * Used so we mount the mobile day Sheet only when the desktop sidebar is hidden,
+ * otherwise the Sheet's backdrop dims the page even though the content is xl:hidden.
+ */
+function useBelowXl(): boolean {
+  const [matches, setMatches] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mql = window.matchMedia('(max-width: 1279px)')
+    const update = () => setMatches(mql.matches)
+    update()
+    mql.addEventListener('change', update)
+    return () => mql.removeEventListener('change', update)
+  }, [])
+  return matches
+}
+
 function SchedulePageFallback() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
@@ -96,6 +114,7 @@ function SchedulePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAuthenticated } = useAuth()
+  const showMobileSheet = useBelowXl()
 
   const [filters, setFilters] = useState<ScheduleFilterValues>(() =>
     normalizeFiltersFromUrl(new URLSearchParams(searchParams.toString()))
@@ -336,31 +355,34 @@ function SchedulePageContent() {
         </aside>
       </main>
 
-      {/* Mobile / tablet day popup — shown only when sidebar isn't visible (lg-) */}
-      <Sheet
-        open={Boolean(selected)}
-        onOpenChange={(open) => {
-          if (!open) setSelected(null)
-        }}
-      >
-        <SheetContent
-          side="bottom"
-          className="h-[90vh] overflow-y-auto p-0 xl:hidden"
+      {/*
+        Mobile/tablet day popup. Mounted ONLY below xl, otherwise SheetOverlay
+        (rendered via portal) dims the desktop layout where the sidebar already
+        shows the lesson details.
+      */}
+      {showMobileSheet ? (
+        <Sheet
+          open={Boolean(selected)}
+          onOpenChange={(open) => {
+            if (!open) setSelected(null)
+          }}
         >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Расписание дня</SheetTitle>
-          </SheetHeader>
-          {selected ? (
-            <LessonDetails
-              date={selected.date}
-              groupCode={selected.groupCode}
-              location={selected.location}
-              lessons={selected.lessons}
-              onClose={() => setSelected(null)}
-            />
-          ) : null}
-        </SheetContent>
-      </Sheet>
+          <SheetContent side="bottom" className="h-[90vh] overflow-y-auto p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Расписание дня</SheetTitle>
+            </SheetHeader>
+            {selected ? (
+              <LessonDetails
+                date={selected.date}
+                groupCode={selected.groupCode}
+                location={selected.location}
+                lessons={selected.lessons}
+                onClose={() => setSelected(null)}
+              />
+            ) : null}
+          </SheetContent>
+        </Sheet>
+      ) : null}
     </div>
   )
 }
