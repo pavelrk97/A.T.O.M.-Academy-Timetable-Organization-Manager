@@ -278,59 +278,80 @@ reagents preparation      ← добавили
 
 ---
 
-## 6. Список известных инструкторов (хардкод)
+## 6. Список известных инструкторов
 
-⚠️ **Это активное ограничение текущей версии.**
+Распознавание ФИО на отдельной строке работает по `Set<String>`, **который собирается динамически перед каждым импортом**.
 
-Распознавание ФИО на отдельной строке работает по **зашитому в код** `Set<String>` (см. `INSTRUCTORS` в начале `ScheduleCsvParser.java`):
+### 6.1 Источники списка
+
+`CsvImportService.collectInstructorNames()` объединяет два источника:
+
+1. **`users` где `can_teach=true`** — берётся через `UserService.collectKnownInstructorNames()` (`UserRepository.findAllByCanTeachTrueOrderByFullNameAsc()`). Это основной источник: завёл нового преподавателя в кабинете → парсер подхватил его при следующем импорте, **без перекатки кода**.
+2. **`ScheduleCsvParser.DEFAULT_INSTRUCTORS`** (fallback) — зашитый в код Set, оставлен для:
+   - unit-тестов парсера, которые не имеют доступа к БД;
+   - покрытия преподавателей, которых ещё не успели завести в `users` (legacy / переходный период);
+   - совместимости с прямыми вызовами `parse(InputStream)` без второго аргумента.
 
 ```java
-private static final Set<String> INSTRUCTORS = Set.of(
-    "Бращенко","Волкова","Майстренко","Мухамбеталин","Трушейкин","Брянский",
-    "Коновалов","Костылев","Алексеева","Голубенко","Гонтов","Иванов",
-    "Кадчик","Канищев","Ким","Иванов С","Смирнов","Климов","Павленко",
-    "Алексеев","Виноградов","Гончаров","Корепанова","Меняйло","Расписенко",
-    "Шорохов","Вакуров","Бунда","Вишняков","Егоров","Коваленко","Баринов",
-    "Киблер","Левковицкая","Фарейтор","Чирков","Климова","Салимжанова",
-    "Ивахно","Короткова","Меркель","Кузнецов Д","Харламова","Загузин",
-    "Лошманов","Name"
-);
+// CsvImportService.java
+private Set<String> collectInstructorNames() {
+    Set<String> names = new LinkedHashSet<>(ScheduleCsvParser.defaultInstructors());
+    names.addAll(userService.collectKnownInstructorNames());
+    return names;
+}
+// ...
+List<Group> groups = ScheduleCsvParser.parse(stream, collectInstructorNames());
+```
+
+Дубликаты схлопываются по `String.equals` (например, ФИО есть и в default'е, и в БД).
+
+### 6.2 API парсера
+
+```java
+// Использует только DEFAULT_INSTRUCTORS. Подходит для тестов и одиночного запуска.
+public static List<Group> parse(InputStream is) throws Exception;
+
+// Использует переданный set (production-путь). Если передан null/пустой — fallback на default.
+public static List<Group> parse(InputStream is, Set<String> instructors) throws Exception;
+
+// Immutable view на DEFAULT_INSTRUCTORS — для callers, которым нужно объединить с динамикой.
+public static Set<String> defaultInstructors();
 ```
 
 Список используется в трёх местах парсера:
 
-1. `INSTRUCTORS.contains(line)` — определяет, что строка целиком является именем инструктора (тогда → `pendingInstructor`).
-2. `findInstructors(text)` — ищет имя как **подстроку** в `text` (например `"Меркель"` внутри `"Меркель (2ч)"`).
+1. `instructors.contains(line)` — определяет, что строка целиком является именем инструктора (тогда → `pendingInstructor`).
+2. `findInstructors(text, instructors)` — ищет имя как подстроку в `text` (например `"Меркель"` внутри `"Меркель (2ч)"`).
 3. В lookahead `consumeFollowingTitle` — имя инструктора служит **границей**, на которой накопление названия останавливается.
 
-### 6.1 Как добавить нового преподавателя сейчас
+### 6.3 Как добавить нового преподавателя
 
-1. Добавить `User` через UI кабинета (`Управление пользователями`) с `canTeach=true`.
-2. Открыть `schedule-import-parser-core/src/main/java/ru/parser/ScheduleCsvParser.java`.
-3. Дописать ФИО в `Set.of(...)`.
-4. Закоммитить, запушить.
-5. На сервере: `git pull && docker compose -f docker-compose.prod.yml up -d --build schedule-service`.
+```
+1. Завести User через UI: Кабинет → Операции → Управление пользователями → Создать.
+   Обязательно поставить canTeach=true.
+2. Запустить импорт CSV.
+   Готово — парсер подхватит ФИО автоматически.
+```
 
-Иначе строки вида `"Новенький"` парсер примет за обычный plain-text и упустит как имя.
+Перекомпиляция и редеплой `schedule-service` **не нужны**.
 
-### 6.2 Известные коллизии в списке
+### 6.4 Резолв префиксных коллизий
 
-`findInstructors(text)` ищет подстрокой. Это создаёт неоднозначности:
+`findInstructors(text, instructors)` использует **longest-match-first**:
 
-- `"Иванов"` — префикс `"Иванов С"`. Если в тексте `"Иванов (3ч)"`, в результат попадут оба. Сейчас `findInstructors` возвращает `List`, а парсер берёт `[0]` — **первый по порядку итерации Set'а**, что не детерминировано (`Set.of(...)` гарантирует ровно один порядок, но он implementation-defined).
-- Аналогично `"Кузнецов"` (в коде нет) vs `"Кузнецов Д"` — если когда-нибудь добавят первого, они начнут конфликтовать.
+1. Сортирует имена по длине по убыванию.
+2. Идёт по списку, добавляя каждое найденное имя в результат.
+3. Пропускает имя, если оно полностью покрыто более длинным уже добавленным.
 
-Это ещё один аргумент за переход на **динамический список** с точным `equals`-матчингом по слову, а не подстрокой.
+Пример: `"Иванов"` vs `"Иванов С"`.
 
-### 6.3 План переезда на динамический список
+| Вход | Что отдаст `findInstructors` |
+|---|---|
+| `"Иванов С (3ч)"` | `["Иванов С"]` — длинный матч поглотил префикс |
+| `"Иванов А.А. (2ч)"` | `["Иванов"]` — длинного матча нет |
+| `"Иванов и Иванов С работают"` | `["Иванов С"]` — текущая реализация считает префикс «покрытым» одним вхождением длинного имени; для редкого кейса «два разных Ивановых в одной строке» нужен word-boundary regex (отдельная задача) |
 
-Идея: на старте `schedule-service` (или перед каждым импортом) парсер получает список ФИО из `users` где `can_teach=true`. Тогда:
-
-- `INSTRUCTORS` → не статика, а зависимость, прокидываемая в `ScheduleCsvParser.parse(...)`.
-- Добавил пользователя → следующий импорт его подхватил.
-- Перекатывать код больше не нужно.
-
-Реализация — отдельный коммит, ~50 строк (см. §16.3 «Дальше» в [`PROJECT_DOCUMENTATION.md`](PROJECT_DOCUMENTATION.md)).
+Это ломало бы Format B, если бы `[0]` иногда был коротким именем — теперь `[0]` всегда самый длинный валидный матч.
 
 ---
 
@@ -415,6 +436,8 @@ Liquid radioactive waste storage system (KPK)",,,
 | `parse_handlesInstructorFirstFormat` | Format B (гр.174): `Меркель (Nч)` + название на следующей строке + `СП`-блок |
 | `parse_handlesAssessmentWithSuffixAndMultipleInstructors` | гр.87: `Intermediate Examination (пересдача)` собирает 3 инструкторов из (3ч)-строк |
 | `parse_handlesCourseCodeWithTrailingColon` | `CS01:` распознаётся как course code |
+| `parse_recognisesDynamicallyProvidedInstructorNotInDefaultList` | Перегрузка `parse(is, set)`: имя «Новенький» отсутствует в DEFAULT_INSTRUCTORS, но передано динамически — распознано |
+| `parse_resolvesPrefixCollisionByLongestMatch` | `Иванов С (3ч)` → lecturer = `Иванов С`, не `Иванов` (longest-first matching) |
 
 Запуск:
 

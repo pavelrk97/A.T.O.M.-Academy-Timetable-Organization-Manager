@@ -22,7 +22,13 @@ public class ScheduleCsvParser {
     private static final Pattern DURATION = Pattern.compile("\\((\\d+)\\s*ч\\)");
     private static final Pattern COURSE_CODE = Pattern.compile("^[A-Z&]{1,5}\\d{2}$");
 
-    private static final Set<String> INSTRUCTORS = Set.of(
+    /**
+     * Fallback list of instructor full-names. Используется, если вызывающий код не передал
+     * динамический список. Нужен для unit-тестов и обратной совместимости — production-код
+     * (CsvImportService) сейчас передаёт сюда динамический список из users.canTeach=true,
+     * объединённый с этим default'ом.
+     */
+    private static final Set<String> DEFAULT_INSTRUCTORS = Set.of(
             "Бращенко","Волкова","Майстренко","Мухамбеталин","Трушейкин","Брянский",
             "Коновалов","Костылев","Алексеева","Голубенко","Гонтов","Иванов",
             "Кадчик","Канищев","Ким","Иванов С","Смирнов","Климов","Павленко",
@@ -41,7 +47,29 @@ public class ScheduleCsvParser {
             "Examination"
     );
 
+    /** Default fallback instructor list (immutable view). */
+    public static Set<String> defaultInstructors() {
+        return DEFAULT_INSTRUCTORS;
+    }
+
+    /**
+     * Parses CSV using {@link #DEFAULT_INSTRUCTORS} as the recognised instructor name list.
+     * Prefer the overload that takes an explicit set when running with live data.
+     */
     public static List<Group> parse(InputStream is) throws Exception {
+        return parse(is, DEFAULT_INSTRUCTORS);
+    }
+
+    /**
+     * Parses CSV using {@code instructors} as the recognised instructor name list.
+     * Caller is expected to provide the canonical list (e.g. union of users.canTeach=true
+     * and {@link #DEFAULT_INSTRUCTORS}). The set must contain {@link String#equals exact}
+     * full-names as they appear in the CSV.
+     */
+    public static List<Group> parse(InputStream is, Set<String> instructors) throws Exception {
+        if (instructors == null || instructors.isEmpty()) {
+            instructors = DEFAULT_INSTRUCTORS;
+        }
         CSVReader reader = new CSVReader(new InputStreamReader(is, StandardCharsets.UTF_8));
         List<String[]> rows = reader.readAll();
         if (rows.size() < 2) return Collections.emptyList();
@@ -73,7 +101,7 @@ public class ScheduleCsvParser {
                     day.getMeta().put("courseCode", activeCourseCode);
                 }
 
-                parseCell(row[c], day);
+                parseCell(row[c], day, instructors);
 
                 if (!day.getMeta().containsKey("courseCode")) continue;
 
@@ -93,7 +121,7 @@ public class ScheduleCsvParser {
         return g;
     }
 
-    private static void parseCell(String cell, Day day) {
+    private static void parseCell(String cell, Day day, Set<String> instructors) {
         String[] lines = cell.split("\\n");
 
         int order = 1;
@@ -119,7 +147,7 @@ public class ScheduleCsvParser {
                 continue;
             }
 
-            if (INSTRUCTORS.contains(line)) {
+            if (instructors.contains(line)) {
                 pendingInstructor = line;
                 continue;
             }
@@ -163,7 +191,7 @@ public class ScheduleCsvParser {
             String text = lineWithoutDuration;
 
             if (inAssessment && currentAssessment != null) {
-                List<String> found = findInstructors(text);
+                List<String> found = findInstructors(text, instructors);
                 if (found.isEmpty() && pendingInstructor != null) {
                     found = List.of(pendingInstructor);
                 }
@@ -184,7 +212,7 @@ public class ScheduleCsvParser {
             lesson.setDurationHours(hours);
             lesson.setType(selfStudy ? LessonType.SELF_STUDY : LessonType.LECTURE);
 
-            List<String> instructorsInText = findInstructors(text);
+            List<String> instructorsInText = findInstructors(text, instructors);
             String title;
             String lecturer = null;
 
@@ -198,7 +226,7 @@ public class ScheduleCsvParser {
                         title = pendingTitle.toString();
                         pendingTitle.setLength(0);
                     } else {
-                        title = consumeFollowingTitle(lines, i);
+                        title = consumeFollowingTitle(lines, i, instructors);
                     }
                 } else {
                     title = pendingTitle.length() > 0
@@ -225,13 +253,13 @@ public class ScheduleCsvParser {
         }
     }
 
-    private static String consumeFollowingTitle(String[] lines, int start) {
+    private static String consumeFollowingTitle(String[] lines, int start, Set<String> instructors) {
         StringBuilder sb = new StringBuilder();
         for (int j = start + 1; j < lines.length; j++) {
             String n = lines[j] == null ? "" : lines[j].trim();
             if (n.isEmpty()) continue;
             if (n.equals("СП")) break;
-            if (INSTRUCTORS.contains(n)) break;
+            if (instructors.contains(n)) break;
             String maybe = n.endsWith(":") ? n.substring(0, n.length() - 1).trim() : n;
             if (COURSE_CODE.matcher(maybe).matches()) break;
             if (DURATION.matcher(n).find()) break;
@@ -252,10 +280,27 @@ public class ScheduleCsvParser {
         return null;
     }
 
-    private static List<String> findInstructors(String text) {
+    /**
+     * Находит имена инструкторов как подстроки в тексте, разрешая коллизии префиксов
+     * (например, "Иванов" является префиксом "Иванов С"): сортируем кандидатов по длине
+     * по убыванию и пропускаем имя, если оно уже покрыто более длинным совпадением.
+     */
+    private static List<String> findInstructors(String text, Set<String> instructors) {
+        List<String> sorted = instructors.stream()
+                .sorted(Comparator.comparingInt(String::length).reversed())
+                .toList();
         List<String> result = new ArrayList<>();
-        for (String instructor : INSTRUCTORS) {
-            if (text.contains(instructor)) result.add(instructor);
+        for (String name : sorted) {
+            if (name == null || name.isEmpty()) continue;
+            if (!text.contains(name)) continue;
+            boolean coveredByLonger = false;
+            for (String existing : result) {
+                if (existing.contains(name)) {
+                    coveredByLonger = true;
+                    break;
+                }
+            }
+            if (!coveredByLonger) result.add(name);
         }
         return result;
     }

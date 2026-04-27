@@ -18,10 +18,12 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class CsvImportService {
@@ -55,8 +57,11 @@ public class CsvImportService {
             clearScheduleData();
 
             try (InputStream stagedInputStream = Files.newInputStream(stagedFile)) {
-                List<Group> groups = ScheduleCsvParser.parse(stagedInputStream);
-                log.info("CSV parsed successfully: groups={}", groups.size());
+                Set<String> instructors = collectInstructorNames();
+                List<Group> groups = ScheduleCsvParser.parse(stagedInputStream, instructors);
+                log.info("CSV parsed successfully: groups={}, knownInstructors={}",
+                        groups.size(),
+                        instructors.size());
                 int imported = importGroups(groups);
                 csvImportArchiveService.promoteToCurrent(stagedFile);
                 instructorIdentitySyncService.syncCurrentInstructors();
@@ -180,5 +185,17 @@ public class CsvImportService {
             return;
         }
         uniqueNames.putIfAbsent(name.trim().toLowerCase(Locale.ROOT), name.trim());
+    }
+
+    /**
+     * Объединяет встроенный fallback-список ScheduleCsvParser с актуальными ФИО из БД
+     * (всех users с canTeach=true). Дубликаты схлопываются по equals.
+     * Так парсер видит и преподавателей, которые ещё не успели попасть в users
+     * (legacy), и свежих, добавленных через UI.
+     */
+    private Set<String> collectInstructorNames() {
+        Set<String> names = new LinkedHashSet<>(ScheduleCsvParser.defaultInstructors());
+        names.addAll(userService.collectKnownInstructorNames());
+        return names;
     }
 }

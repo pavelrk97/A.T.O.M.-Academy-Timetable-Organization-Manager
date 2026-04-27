@@ -11,7 +11,9 @@ import ru.model.User;
 import ru.repository.UserRepository;
 
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -86,6 +88,23 @@ public class UserService {
         return fullName != null
                 && !fullName.isBlank()
                 && !"name".equalsIgnoreCase(fullName.trim());
+    }
+
+    /**
+     * Канонический набор ФИО, которые парсер CSV должен распознавать как имена инструкторов
+     * на отдельной строке. Берётся из всех пользователей с {@code can_teach=true}.
+     * Пустые/некорректные имена отбрасываются. Сохраняется порядок (LinkedHashSet) для
+     * детерминированности логов.
+     */
+    public Set<String> collectKnownInstructorNames() {
+        Set<String> names = new LinkedHashSet<>();
+        for (User user : userRepository.findAllByCanTeachTrueOrderByFullNameAsc()) {
+            String fullName = user.getFullName();
+            if (isMeaningfulInstructorName(fullName)) {
+                names.add(fullName.trim());
+            }
+        }
+        return names;
     }
 
     private void apply(User user, UserUpsertRequest request) {
