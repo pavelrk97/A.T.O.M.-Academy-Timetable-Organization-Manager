@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -155,6 +156,61 @@ class ScheduleCsvParserTest {
         Lesson lesson = groups.get(0).getDays().get(0).getLessons().get(0);
         assertThat(lesson.getTitle()).isEqualTo("Auxiliary boiler house (QH)");
         assertThat(lesson.getLecturer()).isEqualTo("Корепанова");
+    }
+
+    @Test
+    void parse_recognisesDynamicallyProvidedInstructorNotInDefaultList() throws Exception {
+        // ФИО "Новенький" заведомо отсутствует в DEFAULT_INSTRUCTORS, но передаётся
+        // в перегрузке parse(is, set) — парсер должен распознать его как инструктора.
+        String csv = """
+                h0,%s
+                h1,12.%s
+                "%s\nA101","T01\nНовенький\nIntroduction to power systems %s"
+                """.formatted(
+                weekdayKey(),
+                monthKey(Month.MAY),
+                "гр. 99",
+                durationLiteral(4)
+        );
+
+        Set<String> dynamicInstructors = new java.util.LinkedHashSet<>();
+        dynamicInstructors.add("Новенький");
+
+        List<Group> groups = ScheduleCsvParser.parse(
+                new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8)),
+                dynamicInstructors
+        );
+
+        assertThat(groups).hasSize(1);
+        Lesson lesson = groups.get(0).getDays().get(0).getLessons().get(0);
+        assertThat(lesson.getTitle()).isEqualTo("Introduction to power systems");
+        assertThat(lesson.getLecturer()).isEqualTo("Новенький");
+        assertThat(lesson.getDurationHours()).isEqualTo(4);
+    }
+
+    @Test
+    void parse_resolvesPrefixCollisionByLongestMatch() throws Exception {
+        // У "Иванов" и "Иванов С" одно префиксное вхождение —
+        // в строке "Иванов С (3ч)" должен победить более длинный матч.
+        String csv = """
+                h0,%s
+                h1,15.%s
+                "%s\nA202","T05\nИванов С %s\nElectrical safety overview"
+                """.formatted(
+                weekdayKey(),
+                monthKey(Month.MAY),
+                "гр. 100",
+                durationLiteral(3)
+        );
+
+        List<Group> groups = ScheduleCsvParser.parse(
+                new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8))
+        );
+
+        assertThat(groups).hasSize(1);
+        Lesson lesson = groups.get(0).getDays().get(0).getLessons().get(0);
+        assertThat(lesson.getLecturer()).isEqualTo("Иванов С");
+        assertThat(lesson.getTitle()).isEqualTo("Electrical safety overview");
     }
 
     @SuppressWarnings("unchecked")
