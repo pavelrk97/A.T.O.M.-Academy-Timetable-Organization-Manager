@@ -134,7 +134,6 @@ docker compose down -v              # удалит volume (БД и архив и
 ```
 .
 ├── README.md                              ← этот файл
-├── CLAUDE.md                              ← инструкции для Claude Code
 ├── docker-compose.yml                     ← dev backend
 ├── docker-compose.prod.yml                ← prod, все сервисы + Caddy + frontend
 ├── .env.example                           ← dev env
