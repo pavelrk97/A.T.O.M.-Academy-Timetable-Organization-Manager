@@ -25,6 +25,12 @@ import {
   type ScheduleFilterValues,
 } from '@/components/schedule/schedule-filters'
 import { ScheduleGrid } from '@/components/schedule/schedule-grid'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { useAuth } from '@/lib/auth-context'
 import { meApi, publicApi } from '@/lib/api'
 import { buildGridFromEntries, filterGridByInstructor } from '@/lib/schedule'
@@ -329,6 +335,32 @@ function SchedulePageContent() {
           </div>
         </aside>
       </main>
+
+      {/* Mobile / tablet day popup — shown only when sidebar isn't visible (lg-) */}
+      <Sheet
+        open={Boolean(selected)}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null)
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          className="h-[90vh] overflow-y-auto p-0 xl:hidden"
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle>Расписание дня</SheetTitle>
+          </SheetHeader>
+          {selected ? (
+            <LessonDetails
+              date={selected.date}
+              groupCode={selected.groupCode}
+              location={selected.location}
+              lessons={selected.lessons}
+              onClose={() => setSelected(null)}
+            />
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

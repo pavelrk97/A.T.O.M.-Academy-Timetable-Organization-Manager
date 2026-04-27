@@ -224,6 +224,10 @@ export const groupsApi = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  delete: (id: string) =>
+    fetchApi<void>(`/groups/${id}`, {
+      method: 'DELETE',
+    }),
 }
 
 export const lessonsApi = {

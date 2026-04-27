@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ClipboardPaste,
   Copy,
+  Pencil,
   Plus,
   Save,
   Search,
@@ -32,6 +33,7 @@ import type {
   User,
 } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { LessonCard } from '@/components/schedule/lesson-card'
 
 interface LessonAdminEditorProps {
   groups: GroupDto[]
@@ -122,19 +124,6 @@ function lessonTypeLabel(type: LessonType | string | null | undefined) {
       return 'Контроль'
     default:
       return 'Занятие'
-  }
-}
-
-function shortLessonTypeLabel(type: LessonType | string | null | undefined) {
-  switch (type) {
-    case 'LECTURE':
-      return 'Лек'
-    case 'SELF_STUDY':
-      return 'Сам'
-    case 'ASSESSMENT':
-      return 'Конт'
-    default:
-      return 'Зан'
   }
 }
 
@@ -656,6 +645,93 @@ function DayEditorSheet({
   )
 }
 
+interface GroupEditSheetProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  target: GroupDto | null
+  saving: boolean
+  deleting: boolean
+  onSave: (target: GroupDto, code: string, location: string, course: string) => void
+  onDelete: (target: GroupDto) => void
+}
+
+function GroupEditSheet({
+  open,
+  onOpenChange,
+  target,
+  saving,
+  deleting,
+  onSave,
+  onDelete,
+}: GroupEditSheetProps) {
+  const [code, setCode] = useState('')
+  const [location, setLocation] = useState('')
+  const [course, setCourse] = useState('')
+
+  useEffect(() => {
+    if (target) {
+      setCode(target.code)
+      setLocation(target.location || '')
+      setCourse(target.course || '')
+    }
+  }, [target])
+
+  if (!target) {
+    return null
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-[min(96vw,520px)] overflow-y-auto sm:max-w-[520px]">
+        <SheetHeader>
+          <SheetTitle>Группа {target.code}</SheetTitle>
+          <SheetDescription>
+            Меняй код, локацию и курс. Удаление каскадно — будут удалены все дни и занятия группы.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="space-y-4 px-4 pb-2">
+          <label className="block space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Код группы</span>
+            <Input value={code} onChange={(event) => setCode(event.target.value)} />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Локация</span>
+            <Input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="напр. А101" />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Курс</span>
+            <Input value={course} onChange={(event) => setCourse(event.target.value)} placeholder="необязательно" />
+          </label>
+
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+            В группе сейчас дней: {(target.days || []).length}. Они и все их занятия удалятся
+            каскадно при удалении группы.
+          </div>
+        </div>
+
+        <SheetFooter className="border-t border-border bg-white">
+          <Button
+            variant="destructive"
+            onClick={() => onDelete(target)}
+            disabled={deleting || saving}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {deleting ? 'Удаляю...' : 'Удалить группу'}
+          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving || deleting}>
+            Отмена
+          </Button>
+          <Button onClick={() => onSave(target, code, location, course)} disabled={saving || deleting}>
+            <Save className="mr-2 h-4 w-4" />
+            {saving ? 'Сохраняю...' : 'Сохранить'}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
 export function LessonAdminEditor({
   groups,
   users,
@@ -674,6 +750,9 @@ export function LessonAdminEditor({
   const [savingAll, setSavingAll] = useState(false)
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [groupForm, setGroupForm] = useState<GroupCreateFormState>(createEmptyGroupForm())
+  const [groupEditTarget, setGroupEditTarget] = useState<GroupDto | null>(null)
+  const [groupEditSaving, setGroupEditSaving] = useState(false)
+  const [groupEditDeleting, setGroupEditDeleting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -1175,8 +1254,81 @@ export function LessonAdminEditor({
     }
   }
 
+  async function handleUpdateGroupMeta(target: GroupDto, code: string, location: string, course: string) {
+    if (!code.trim()) {
+      setError('Код группы обязателен.')
+      return
+    }
+    setGroupEditSaving(true)
+    setError('')
+    setSuccess('')
+    try {
+      const updated = await groupsApi.update(target.id, {
+        id: target.id,
+        code: code.trim(),
+        location: location.trim() || null,
+        course: normalizeCourseValue(course),
+        days: (target.days || []).map((day) => ({
+          id: day.id || null,
+          date: day.date,
+          meta: day.meta,
+          lessons: day.lessons,
+        })),
+      })
+      patchLocalGroup(updated)
+      setSuccess(`Группа ${updated.code} обновлена.`)
+      setGroupEditTarget(null)
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : 'Не удалось обновить группу.'
+      )
+    } finally {
+      setGroupEditSaving(false)
+    }
+  }
+
+  async function handleDeleteGroup(target: GroupDto) {
+    if (!window.confirm(`Удалить группу ${target.code} вместе со всеми днями и занятиями? Действие необратимо.`)) {
+      return
+    }
+    setGroupEditDeleting(true)
+    setError('')
+    setSuccess('')
+    try {
+      await groupsApi.delete(target.id)
+      setLocalGroups((current) => current.filter((group) => group.id !== target.id))
+      setDraftsByKey((current) => {
+        const next: Record<string, DayDraft> = {}
+        for (const [key, draft] of Object.entries(current)) {
+          if (draft.groupId !== target.id) {
+            next[key] = draft
+          }
+        }
+        return next
+      })
+      if (activeCell?.groupId === target.id) {
+        setActiveCell(null)
+        setAnchorCell(null)
+        setSelectedCellKeys([])
+      }
+      setSuccess(`Группа ${target.code} удалена.`)
+      setGroupEditTarget(null)
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : 'Не удалось удалить группу.'
+      )
+    } finally {
+      setGroupEditDeleting(false)
+    }
+  }
+
   const dirtyCount = Object.keys(draftsByKey).length
-  const groupColumnWidth = Math.round(180 * (zoom / 100))
+  // First column has a fixed minimum width — only date columns scale with zoom.
+  const groupColumnWidth = 140
   const cellWidth = Math.round(118 * (zoom / 100))
   const cellHeight = Math.round(88 * (zoom / 100))
 
@@ -1286,13 +1438,30 @@ export function LessonAdminEditor({
 
               {filteredGroups.map((group) => (
                 <div key={group.id} className="contents">
-                  <div className="sticky left-0 z-10 border-b border-r border-border bg-white px-4 py-4">
-                    <div className="text-sm font-semibold text-slate-950">{group.code}</div>
-                    <div className="mt-1 space-y-1 text-xs text-muted-foreground">
-                      {group.location ? <div>{group.location}</div> : null}
-                      {group.course ? <div>Курс {group.course}</div> : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (canManageGroups) {
+                        setGroupEditTarget(group)
+                      }
+                    }}
+                    className={cn(
+                      'sticky left-0 z-10 border-b border-r border-border bg-white px-2 py-3 text-left',
+                      canManageGroups && 'hover:bg-slate-50 cursor-pointer transition-colors'
+                    )}
+                    title={canManageGroups ? 'Кликни для редактирования группы' : undefined}
+                  >
+                    <div className="flex items-center gap-1">
+                      <div className="text-sm font-semibold text-slate-950 truncate">{group.code}</div>
+                      {canManageGroups ? (
+                        <Pencil className="h-3 w-3 shrink-0 text-slate-400" />
+                      ) : null}
                     </div>
-                  </div>
+                    <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+                      {group.location ? <div className="truncate">{group.location}</div> : null}
+                      {group.course ? <div className="truncate">Курс {group.course}</div> : null}
+                    </div>
+                  </button>
 
                   {visibleDates.map((date) => {
                     const key = cellKey(group.id, date)
@@ -1339,21 +1508,18 @@ export function LessonAdminEditor({
                         ) : (
                           <div className="space-y-1">
                             {lessons.slice(0, SLOT_COUNT).map((lesson) => (
-                              <div
+                              <LessonCard
                                 key={`${key}:${lesson.orderNumber}`}
-                                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1"
-                              >
-                                <div className="text-[10px] font-semibold text-primary">
-                                  № {lesson.orderNumber}
-                                </div>
-                                <div className="line-clamp-2 text-[11px] font-medium text-slate-950">
-                                  {lesson.title}
-                                </div>
-                                <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-slate-500">
-                                  <span>{shortLessonTypeLabel(lesson.type)}</span>
-                                  <span>{lesson.durationHours} ч</span>
-                                </div>
-                              </div>
+                                lesson={{
+                                  orderNumber: lesson.orderNumber,
+                                  title: lesson.title,
+                                  type: lesson.type,
+                                  durationHours: lesson.durationHours,
+                                  instructorNames: lesson.instructorNames,
+                                }}
+                                compact
+                                dense
+                              />
                             ))}
                           </div>
                         )}
@@ -1446,6 +1612,20 @@ export function LessonAdminEditor({
         initialDraft={activeDraft}
         instructorOptions={instructorOptions}
         onApply={applyDraftToBuffer}
+      />
+
+      <GroupEditSheet
+        open={Boolean(groupEditTarget)}
+        onOpenChange={(open) => {
+          if (!open) setGroupEditTarget(null)
+        }}
+        target={groupEditTarget}
+        saving={groupEditSaving}
+        deleting={groupEditDeleting}
+        onSave={(target, code, location, course) =>
+          void handleUpdateGroupMeta(target, code, location, course)
+        }
+        onDelete={(target) => void handleDeleteGroup(target)}
       />
     </section>
   )

@@ -70,6 +70,93 @@ class ScheduleCsvParserTest {
         assertThat(lesson.getLecturers()).containsExactly("Name");
     }
 
+    @Test
+    void parse_handlesInstructorFirstFormat() throws Exception {
+        // Format B: "Instructor (Nч)" then title on next line (e.g. гр.174 в реальной выгрузке).
+        String csv = """
+                h0,%s
+                h1,30.%s
+                "%s\nБ202","CH03\nМеркель %s\nSystem of chemical reagents preparation (KBD-1)\nМеркель %s\nPrimary coolant treatment system (KBF)\nСП\nМеркель %s\nLiquid radioactive waste storage system (KPK)"
+                """.formatted(
+                weekdayKey(),
+                monthKey(Month.APRIL),
+                "гр. 174",
+                durationLiteral(2),
+                durationLiteral(3),
+                durationLiteral(1)
+        );
+
+        List<Group> groups = ScheduleCsvParser.parse(new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(groups).hasSize(1);
+        List<Lesson> lessons = groups.get(0).getDays().get(0).getLessons();
+        assertThat(lessons).hasSize(3);
+
+        assertThat(lessons.get(0).getType()).isEqualTo(LessonType.LECTURE);
+        assertThat(lessons.get(0).getTitle()).isEqualTo("System of chemical reagents preparation (KBD-1)");
+        assertThat(lessons.get(0).getLecturer()).isEqualTo("Меркель");
+        assertThat(lessons.get(0).getDurationHours()).isEqualTo(2);
+
+        assertThat(lessons.get(1).getType()).isEqualTo(LessonType.LECTURE);
+        assertThat(lessons.get(1).getTitle()).isEqualTo("Primary coolant treatment system (KBF)");
+        assertThat(lessons.get(1).getDurationHours()).isEqualTo(3);
+
+        assertThat(lessons.get(2).getType()).isEqualTo(LessonType.SELF_STUDY);
+        assertThat(lessons.get(2).getTitle()).isEqualTo("Liquid radioactive waste storage system (KPK)");
+        assertThat(lessons.get(2).getDurationHours()).isEqualTo(1);
+    }
+
+    @Test
+    void parse_handlesAssessmentWithSuffixAndMultipleInstructors() throws Exception {
+        // OE00 / "Intermediate Examination (пересдача)" / Бращенко (3ч) / Костылев (3ч) / Климов (3ч)
+        String csv = """
+                h0,%s
+                h1,27.%s
+                "%s\nА308","OE00\n\nIntermediate Examination (пересдача)\n\nБращенко %s\nКостылев %s\nКлимов %s"
+                """.formatted(
+                weekdayKey(),
+                monthKey(Month.APRIL),
+                "гр. 87",
+                durationLiteral(3),
+                durationLiteral(3),
+                durationLiteral(3)
+        );
+
+        List<Group> groups = ScheduleCsvParser.parse(new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(groups).hasSize(1);
+        List<Lesson> lessons = groups.get(0).getDays().get(0).getLessons();
+        assertThat(lessons).hasSize(1);
+
+        Lesson lesson = lessons.get(0);
+        assertThat(lesson.getType()).isEqualTo(LessonType.ASSESSMENT);
+        assertThat(lesson.getTitle()).isEqualTo("Intermediate Examination (пересдача)");
+        assertThat(lesson.getDurationHours()).isEqualTo(3);
+        assertThat(lesson.getLecturers()).containsExactly("Бращенко", "Костылев", "Климов");
+    }
+
+    @Test
+    void parse_handlesCourseCodeWithTrailingColon() throws Exception {
+        String csv = """
+                h0,%s
+                h1,15.%s
+                "%s\nА101","CS01:\nКорепанова\nAuxiliary boiler house (QH) %s"
+                """.formatted(
+                weekdayKey(),
+                monthKey(Month.MARCH),
+                "гр. 12",
+                durationLiteral(3)
+        );
+
+        List<Group> groups = ScheduleCsvParser.parse(new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(groups).hasSize(1);
+        assertThat(groups.get(0).getDays().get(0).getMeta()).containsEntry("courseCode", "CS01");
+        Lesson lesson = groups.get(0).getDays().get(0).getLessons().get(0);
+        assertThat(lesson.getTitle()).isEqualTo("Auxiliary boiler house (QH)");
+        assertThat(lesson.getLecturer()).isEqualTo("Корепанова");
+    }
+
     @SuppressWarnings("unchecked")
     private static String monthKey(Month month) {
         try {
