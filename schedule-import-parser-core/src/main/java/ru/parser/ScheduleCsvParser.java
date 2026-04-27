@@ -101,9 +101,10 @@ public class ScheduleCsvParser {
         boolean inAssessment = false;
         Lesson currentAssessment = null;
         String pendingInstructor = null;
+        StringBuilder pendingTitle = new StringBuilder();
 
-        for (String raw : lines) {
-            String line = raw.trim();
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i] == null ? "" : lines[i].trim();
             if (line.isEmpty()) continue;
 
             if (line.equals("СП")) {
@@ -111,8 +112,10 @@ public class ScheduleCsvParser {
                 continue;
             }
 
-            if (COURSE_CODE.matcher(line).matches()) {
-                day.getMeta().put("courseCode", line);
+            // Course code (allow trailing colon, e.g. "CS01:")
+            String maybeCode = line.endsWith(":") ? line.substring(0, line.length() - 1).trim() : line;
+            if (COURSE_CODE.matcher(maybeCode).matches()) {
+                day.getMeta().put("courseCode", maybeCode);
                 continue;
             }
 
@@ -121,31 +124,57 @@ public class ScheduleCsvParser {
                 continue;
             }
 
-            if (ASSESSMENT_TITLES.contains(line)) {
+            // Detect duration in line (if any) and compute the line text without that duration token
+            Matcher dm = DURATION.matcher(line);
+            boolean hasDuration = dm.find();
+            String lineWithoutDuration = hasDuration
+                    ? (line.substring(0, dm.start()) + line.substring(dm.end())).trim()
+                    : line;
+
+            // Assessment match by substring (covers "Intermediate Examination (пересдача)",
+            // "Intermediate examination (8ч)", "Промежуточный контроль (8ч)" etc.)
+            String assessmentTitle = matchesAssessment(lineWithoutDuration);
+            if (assessmentTitle != null) {
                 Lesson l = new Lesson();
                 l.setOrderNumber(order++);
-                l.setTitle(line);
+                l.setTitle(assessmentTitle);
                 l.setType(LessonType.ASSESSMENT);
-                l.setDurationHours(0);
+                l.setDurationHours(hasDuration ? Integer.parseInt(dm.group(1)) : 0);
                 l.setLecturers(new ArrayList<>());
+                if (pendingInstructor != null) {
+                    l.getLecturers().add(pendingInstructor);
+                }
                 day.getLessons().add(l);
                 currentAssessment = l;
                 inAssessment = true;
                 pendingInstructor = null;
+                pendingTitle.setLength(0);
                 continue;
             }
 
-            Matcher m = DURATION.matcher(line);
-            if (!m.find()) continue;
+            if (!hasDuration) {
+                // Plain text line — accumulate as title for the next "(Nч)" line
+                if (pendingTitle.length() > 0) pendingTitle.append(' ');
+                pendingTitle.append(line);
+                continue;
+            }
 
-            int hours = Integer.parseInt(m.group(1));
-            String text = line.replace(m.group(0), "").trim();
+            int hours = Integer.parseInt(dm.group(1));
+            String text = lineWithoutDuration;
 
             if (inAssessment && currentAssessment != null) {
                 List<String> found = findInstructors(text);
-                if (found.isEmpty() && pendingInstructor != null) found = List.of(pendingInstructor);
-                currentAssessment.getLecturers().addAll(found);
-                currentAssessment.setDurationHours(hours);
+                if (found.isEmpty() && pendingInstructor != null) {
+                    found = List.of(pendingInstructor);
+                }
+                for (String ins : found) {
+                    if (!currentAssessment.getLecturers().contains(ins)) {
+                        currentAssessment.getLecturers().add(ins);
+                    }
+                }
+                if (currentAssessment.getDurationHours() == 0) {
+                    currentAssessment.setDurationHours(hours);
+                }
                 pendingInstructor = null;
                 continue;
             }
@@ -155,21 +184,72 @@ public class ScheduleCsvParser {
             lesson.setDurationHours(hours);
             lesson.setType(selfStudy ? LessonType.SELF_STUDY : LessonType.LECTURE);
 
-            List<String> instructors = findInstructors(text);
-            if (!instructors.isEmpty()) {
-                lesson.setLecturer(instructors.get(0));
-                lesson.setTitle(removeInstructor(text, instructors.get(0)));
-            } else if (pendingInstructor != null) {
-                lesson.setLecturer(pendingInstructor);
-                lesson.setTitle(text);
+            List<String> instructorsInText = findInstructors(text);
+            String title;
+            String lecturer = null;
+
+            if (!instructorsInText.isEmpty()) {
+                lecturer = instructorsInText.get(0);
+                String titleFromText = removeInstructor(text, lecturer).trim();
+                if (titleFromText.isEmpty()) {
+                    // Format B: "Instructor (Nч)" with no title on this line.
+                    // Title is either accumulated above (pendingTitle) or coming on the next plain-text lines.
+                    if (pendingTitle.length() > 0) {
+                        title = pendingTitle.toString();
+                        pendingTitle.setLength(0);
+                    } else {
+                        title = consumeFollowingTitle(lines, i);
+                    }
+                } else {
+                    title = pendingTitle.length() > 0
+                            ? pendingTitle + " " + titleFromText
+                            : titleFromText;
+                    pendingTitle.setLength(0);
+                }
             } else {
-                lesson.setTitle(text);
+                // Format A: "<Title> (Nч)" with no instructor in text — lecturer was on prev line.
+                title = pendingTitle.length() > 0
+                        ? pendingTitle + " " + text
+                        : text;
+                pendingTitle.setLength(0);
+                if (pendingInstructor != null) {
+                    lecturer = pendingInstructor;
+                }
             }
 
+            lesson.setTitle(title);
+            if (lecturer != null) lesson.setLecturer(lecturer);
             day.getLessons().add(lesson);
             pendingInstructor = null;
             inAssessment = false;
         }
+    }
+
+    private static String consumeFollowingTitle(String[] lines, int start) {
+        StringBuilder sb = new StringBuilder();
+        for (int j = start + 1; j < lines.length; j++) {
+            String n = lines[j] == null ? "" : lines[j].trim();
+            if (n.isEmpty()) continue;
+            if (n.equals("СП")) break;
+            if (INSTRUCTORS.contains(n)) break;
+            String maybe = n.endsWith(":") ? n.substring(0, n.length() - 1).trim() : n;
+            if (COURSE_CODE.matcher(maybe).matches()) break;
+            if (DURATION.matcher(n).find()) break;
+            if (matchesAssessment(n) != null) break;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(n);
+            lines[j] = ""; // mark consumed so the outer loop skips it
+        }
+        return sb.toString();
+    }
+
+    private static String matchesAssessment(String line) {
+        if (line == null || line.isEmpty()) return null;
+        String lower = line.toLowerCase();
+        for (String key : ASSESSMENT_TITLES) {
+            if (lower.contains(key.toLowerCase())) return line;
+        }
+        return null;
     }
 
     private static List<String> findInstructors(String text) {

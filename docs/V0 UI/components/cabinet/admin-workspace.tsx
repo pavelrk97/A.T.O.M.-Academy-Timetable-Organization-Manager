@@ -2,15 +2,25 @@
 
 import { useMemo, useState, type ReactNode } from 'react'
 import {
+  Activity,
   CalendarPlus2,
+  Download,
   FileSpreadsheet,
   RefreshCcw,
   ShieldCheck,
+  Table2,
+  Timer,
   UploadCloud,
   UsersRound,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 import { AutoImportCard } from '@/components/cabinet/auto-import-card'
 import { LessonAdminEditor } from '@/components/cabinet/lesson-admin-editor'
 import { UserActivityCard } from '@/components/cabinet/user-activity-card'
@@ -147,48 +157,124 @@ export function AdminWorkspace({
         </div>
       </section>
 
-      <LessonAdminEditor
-        groups={groups}
-        users={users}
-        canManageGroups={canManageGroups}
-        range={range}
-      />
+      {/*
+        Все секции операций — единый аккордеон.
+        type="multiple" → можно держать открытыми сколько угодно, defaultValue=[] → всё свернуто.
+      */}
+      <Accordion type="multiple" defaultValue={[]} className="space-y-3">
+        <OpsSection
+          value="schedule-grid"
+          icon={<Table2 className="h-5 w-5 text-primary" />}
+          title="Сетка редактирования занятий"
+          subtitle="Один день — одна ячейка. Клик открывает popup дня. Группы можно создавать, редактировать и удалять."
+        >
+          <LessonAdminEditor
+            groups={groups}
+            users={users}
+            canManageGroups={canManageGroups}
+            range={range}
+          />
+        </OpsSection>
 
-      <AutoImportCard onImported={onRefresh} />
+        <OpsSection
+          value="auto-import"
+          icon={<Timer className="h-5 w-5 text-primary" />}
+          title="Автоимпорт CSV"
+          subtitle="Расписание, по которому планировщик подтягивает CSV из источника."
+        >
+          <AutoImportCard onImported={onRefresh} />
+        </OpsSection>
 
-      {canManageUsers ? <UserAdminEditor users={users} onChanged={onRefresh} /> : null}
+        {canManageUsers ? (
+          <OpsSection
+            value="users"
+            icon={<UsersRound className="h-5 w-5 text-primary" />}
+            title="Управление пользователями"
+            subtitle="Создание, редактирование и роли учётных записей."
+          >
+            <UserAdminEditor users={users} onChanged={onRefresh} />
+          </OpsSection>
+        ) : null}
 
-      {canManageUsers ? <UserActivityCard /> : null}
+        {canImport ? (
+          <OpsSection
+            value="manual-import"
+            icon={<Download className="h-5 w-5 text-primary" />}
+            title="Ручной импорт CSV"
+            subtitle="POST /api/import/csv через gateway. Большие файлы могут обрабатываться несколько минут."
+          >
+            <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-center gap-3">
+                <Input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+                  className="max-w-md"
+                />
+                <Button
+                  disabled={!selectedFile || importing}
+                  onClick={() => selectedFile && onImport(selectedFile)}
+                >
+                  <UploadCloud className="mr-2 h-4 w-4" />
+                  {importing ? 'Импортирую...' : 'Запустить импорт'}
+                </Button>
+              </div>
+              {importResult ? (
+                <pre className="mt-4 max-h-64 overflow-auto rounded-xl border border-border bg-white p-3 text-xs text-slate-700">
+                  {JSON.stringify(importResult, null, 2)}
+                </pre>
+              ) : null}
+            </div>
+          </OpsSection>
+        ) : null}
 
-      {canImport ? (
-        <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-          <div className="text-sm font-semibold text-slate-950">Импорт CSV</div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Вызывает `POST /api/import/csv` через gateway. Большие файлы могут обрабатываться несколько минут.
-          </p>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Input
-              type="file"
-              accept=".csv,text/csv"
-              onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
-              className="max-w-md"
-            />
-            <Button
-              disabled={!selectedFile || importing}
-              onClick={() => selectedFile && onImport(selectedFile)}
-            >
-              <UploadCloud className="mr-2 h-4 w-4" />
-              {importing ? 'Импортирую...' : 'Запустить импорт'}
-            </Button>
-          </div>
-          {importResult ? (
-            <pre className="mt-4 max-h-64 overflow-auto rounded-xl border border-border bg-white p-3 text-xs text-slate-700">
-              {JSON.stringify(importResult, null, 2)}
-            </pre>
-          ) : null}
-        </section>
-      ) : null}
+        {/* Активность пользователей — последняя секция, как просили. */}
+        {canManageUsers ? (
+          <OpsSection
+            value="user-activity"
+            icon={<Activity className="h-5 w-5 text-primary" />}
+            title="Активность пользователей"
+            subtitle="Кто и как часто заходит в кабинет."
+          >
+            <UserActivityCard />
+          </OpsSection>
+        ) : null}
+      </Accordion>
     </div>
+  )
+}
+
+function OpsSection({
+  value,
+  icon,
+  title,
+  subtitle,
+  children,
+}: {
+  value: string
+  icon: ReactNode
+  title: string
+  subtitle: string
+  children: ReactNode
+}) {
+  return (
+    <AccordionItem
+      value={value}
+      className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
+    >
+      <AccordionTrigger className="px-5 py-4 hover:no-underline data-[state=open]:bg-slate-50/60">
+        <div className="flex flex-1 items-start gap-3 text-left">
+          <div className="rounded-xl bg-primary/10 p-2.5 shrink-0">{icon}</div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-slate-950">{title}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{subtitle}</div>
+          </div>
+        </div>
+      </AccordionTrigger>
+      <AccordionContent className="border-t border-border bg-slate-50/40 px-3 py-4 sm:px-5">
+        {children}
+      </AccordionContent>
+    </AccordionItem>
   )
 }
 
