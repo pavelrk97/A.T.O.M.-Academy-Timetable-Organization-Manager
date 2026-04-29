@@ -321,12 +321,10 @@ public class LessonService {
                                       Authentication authentication) {
         User actor = userService.getCurrentUser(authentication);
         // ADMIN и EDITOR умеют редактировать расписание целиком, поэтому им доступен и
-        // экспорт сводного workload. Plain INSTRUCTOR (без editorAccess) — нет: для своих
-        // часов есть отдельный /api/me/workload/export.
-        boolean catalogAllowed = actor.getRole() == Role.ADMIN
-                || actor.getRole() == Role.EDITOR
-                || actor.isEditorAccess();
-        if (!catalogAllowed) {
+        // экспорт сводного workload. Для собственных часов у инструктора есть отдельный
+        // /api/me/workload/export. Поле editorAccess живёт только в identity-service,
+        // в этой модели User его нет — поэтому фильтруем по роли.
+        if (actor.getRole() != Role.ADMIN && actor.getRole() != Role.EDITOR) {
             throw new ForbiddenEditException("Only admin or editor can export workload catalog");
         }
 
