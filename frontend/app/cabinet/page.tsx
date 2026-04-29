@@ -47,6 +47,7 @@ import type {
   ImportResult,
   ScheduleGridData,
   User,
+  WorkloadSummary,
 } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -158,6 +159,7 @@ function CabinetPageContent() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [workloadExporting, setWorkloadExporting] = useState(false)
   const [workloadInstructorIds, setWorkloadInstructorIds] = useState<string[]>([])
+  const [workloadSummaries, setWorkloadSummaries] = useState<WorkloadSummary[]>([])
   const [scheduleZoom, setScheduleZoom] = useState(100)
   const [scheduleZoomDraft, setScheduleZoomDraft] = useState(100)
   const syncingFromUrlRef = useRef(false)
@@ -238,25 +240,34 @@ function CabinetPageContent() {
   const canManageGroups = operationsEnabled
   const tabs = createTabItems(user)
   const currentSchedule = scheduleMode === 'my' ? dashboard?.instructorSchedule : fullSchedule
-  /**
-   * Кандидаты для multi-select на вкладке «Нагрузка».
-   * Видны ADMIN и EDITOR (у обоих есть доступ к /api/users). Plain INSTRUCTOR
-   * без editorAccess /api/users получить не может, поэтому ему мульти-выбор
-   * не показываем (см. renderWorkloadActions).
-   */
-  const teachableInstructors = useMemo(() => {
-    if (user?.role !== 'ADMIN' && user?.role !== 'EDITOR') {
-      return [] as User[]
-    }
-    return users
-      .filter((candidate) => candidate.canTeach)
-      .sort((left, right) =>
+  const workloadInstructorOptions = useMemo<User[]>(() => {
+    const fromUsers = users.filter((candidate) => candidate.canTeach)
+    if (fromUsers.length) {
+      return [...fromUsers].sort((left, right) =>
         (left.displayName || left.fullName || left.username).localeCompare(
           right.displayName || right.fullName || right.username,
           'ru'
         )
       )
-  }, [user?.role, users])
+    }
+
+    return workloadSummaries
+      .map((item) => ({
+        id: item.instructorId,
+        username: item.instructorName,
+        fullName: item.instructorName,
+        displayName: item.instructorName,
+        email: null,
+        phone: null,
+        position: null,
+        department: null,
+        role: 'INSTRUCTOR' as const,
+        active: true,
+        canTeach: true,
+        editorAccess: false,
+      }))
+      .sort((left, right) => left.fullName.localeCompare(right.fullName, 'ru'))
+  }, [users, workloadSummaries])
 
   async function loadFullSchedule() {
     if (!operationsEnabled) {
@@ -313,6 +324,19 @@ function CabinetPageContent() {
     setAdminLoading(false)
   }
 
+  async function loadWorkloadSummaries() {
+    try {
+      const summaries = await workloadApi.getAll({ from: range.from, to: range.to })
+      setWorkloadSummaries(summaries)
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : 'Не удалось загрузить список инструкторов для нагрузки.'
+      )
+    }
+  }
+
   useEffect(() => {
     if (activeTab === 'admin' && operationsEnabled && (!users.length || !groups.length)) {
       void loadAdminData()
@@ -320,15 +344,15 @@ function CabinetPageContent() {
   }, [activeTab, operationsEnabled, users.length, groups.length])
 
   useEffect(() => {
-    // ADMIN и EDITOR могут листать инструкторов в multi-select на вкладке «Нагрузка».
-    if (
-      activeTab === 'workload' &&
-      (user?.role === 'ADMIN' || user?.role === 'EDITOR') &&
-      !users.length
-    ) {
+    if (activeTab !== 'workload') {
+      return
+    }
+
+    void loadWorkloadSummaries()
+    if ((user?.role === 'ADMIN' || user?.role === 'EDITOR') && !users.length) {
       void loadAdminData()
     }
-  }, [activeTab, user?.role, users.length])
+  }, [activeTab, range.from, range.to, user?.role, users.length])
 
   async function handleProfileUpdate(payload: {
     displayName?: string | null
@@ -368,23 +392,6 @@ function CabinetPageContent() {
     setActiveTab('schedule')
   }
 
-  async function handleExportMyWorkload() {
-    setWorkloadExporting(true)
-    setError('')
-    try {
-      const download = await meApi.exportWorkloadCalendar(range)
-      saveDownload(download)
-    } catch (caught) {
-      setError(
-        caught instanceof Error && caught.message
-          ? caught.message
-          : 'Не удалось выгрузить нагрузку.'
-      )
-    } finally {
-      setWorkloadExporting(false)
-    }
-  }
-
   async function handleExportAdminWorkload(mode: 'all' | 'selected') {
     setWorkloadExporting(true)
     setError('')
@@ -422,7 +429,7 @@ function CabinetPageContent() {
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-[260px] flex-1">
             <InstructorMultiSelect
-              instructors={teachableInstructors}
+              instructors={workloadInstructorOptions}
               selectedIds={workloadInstructorIds}
               onChange={setWorkloadInstructorIds}
               placeholder="Все инструкторы (выбрать)"
@@ -457,21 +464,7 @@ function CabinetPageContent() {
   }
 
   function renderWorkloadActions() {
-    if (user?.role === 'ADMIN' || user?.role === 'EDITOR') {
-      return renderEditorialWorkloadActions()
-    }
-
-    return (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => void handleExportMyWorkload()}
-        disabled={workloadExporting}
-      >
-        <Download className="mr-2 h-4 w-4" />
-        {workloadExporting ? 'Готовлю Excel...' : 'Экспорт Excel'}
-      </Button>
-    )
+    return renderEditorialWorkloadActions()
   }
 
   function renderZoomControls() {
