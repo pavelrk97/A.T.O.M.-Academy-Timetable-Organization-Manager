@@ -50,6 +50,7 @@ class WorkloadControllerTest {
         UUID instructorId = UUID.randomUUID();
         given(lessonService.getWorkload(
                 eq(instructorId),
+                org.mockito.ArgumentMatchers.<java.util.List<UUID>>any(),
                 eq(LocalDate.of(2026, 6, 1)),
                 eq(LocalDate.of(2026, 6, 30)),
                 any(Authentication.class)
@@ -72,6 +73,7 @@ class WorkloadControllerTest {
 
         verify(lessonService).getWorkload(
                 eq(instructorId),
+                org.mockito.ArgumentMatchers.<java.util.List<UUID>>any(),
                 eq(LocalDate.of(2026, 6, 1)),
                 eq(LocalDate.of(2026, 6, 30)),
                 any(Authentication.class)
@@ -84,6 +86,7 @@ class WorkloadControllerTest {
         UUID instructorId = UUID.randomUUID();
         given(lessonService.exportWorkloadExcel(
                 eq(instructorId),
+                org.mockito.ArgumentMatchers.<java.util.List<UUID>>any(),
                 eq("расп"),
                 eq(LocalDate.of(2026, 6, 1)),
                 eq(LocalDate.of(2026, 6, 30)),
@@ -102,6 +105,7 @@ class WorkloadControllerTest {
 
         verify(lessonService).exportWorkloadExcel(
                 eq(instructorId),
+                org.mockito.ArgumentMatchers.<java.util.List<UUID>>any(),
                 eq("расп"),
                 eq(LocalDate.of(2026, 6, 1)),
                 eq(LocalDate.of(2026, 6, 30)),

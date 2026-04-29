@@ -1,9 +1,8 @@
-# v0 sandbox internal files
-__v0_runtime_loader.js
-__v0_devtools.tsx
-__v0_jsx-dev-runtime.ts
+# Generator/sandbox temporary artifacts (legacy from initial scaffolding)
+__*_runtime_loader.js
+__*_devtools.tsx
+__*_jsx-dev-runtime.ts
 .snowflake/
-.v0-trash/
 .vercel/
 next.user-config.*
 
@@ -14,3 +13,4 @@ next.user-config.*
 node_modules
 .next/
 .DS_Store
+package-lock.json

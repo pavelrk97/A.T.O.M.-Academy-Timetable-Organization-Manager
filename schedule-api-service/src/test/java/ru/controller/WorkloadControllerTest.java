@@ -44,7 +44,8 @@ class WorkloadControllerTest {
     void authenticatedEditorGetsWorkloadRows() throws Exception {
         UUID instructorId = UUID.randomUUID();
         given(authHeaderFactory.bearerHeader(any())).willReturn("Bearer test-token");
-        given(scheduleClient.getWorkload("Bearer test-token", instructorId, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30)))
+        given(scheduleClient.getWorkload("Bearer test-token", instructorId, null,
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30)))
                 .willReturn(List.of(
                         WorkloadDto.builder()
                                 .instructorId(instructorId)
@@ -67,14 +68,16 @@ class WorkloadControllerTest {
                 .andExpect(jsonPath("$[0].instructorName").value("Mentor QA"))
                 .andExpect(jsonPath("$[0].totalHours").value(14));
 
-        verify(scheduleClient).getWorkload("Bearer test-token", instructorId, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30));
+        verify(scheduleClient).getWorkload("Bearer test-token", instructorId, null,
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30));
     }
 
     @Test
     void adminCanExportWorkloadCsv() throws Exception {
         UUID instructorId = UUID.randomUUID();
         given(authHeaderFactory.bearerHeader(any())).willReturn("Bearer test-token");
-        given(scheduleClient.exportWorkload("Bearer test-token", instructorId, "расп", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30)))
+        given(scheduleClient.exportWorkload("Bearer test-token", instructorId, null, "расп",
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30)))
                 .willReturn("csv-data".getBytes(StandardCharsets.UTF_8));
 
         mockMvc.perform(get("/api/workload/export")
@@ -93,18 +96,38 @@ class WorkloadControllerTest {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes("csv-data".getBytes(StandardCharsets.UTF_8)));
 
-        verify(scheduleClient).exportWorkload("Bearer test-token", instructorId, "расп", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30));
+        verify(scheduleClient).exportWorkload("Bearer test-token", instructorId, null, "расп",
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30));
     }
 
     @Test
-    void editorCannotExportWorkloadCsv() throws Exception {
+    void editorCanExportWorkloadCsv() throws Exception {
+        // EDITOR теперь имеет доступ к экспорту workload — это прокидывается далее
+        // в schedule-service, где LessonService так же пропускает ADMIN/EDITOR/editorAccess.
+        given(authHeaderFactory.bearerHeader(any())).willReturn("Bearer editor-token");
+        given(scheduleClient.exportWorkload("Bearer editor-token", null, null, null,
+                java.time.LocalDate.of(1900, 1, 1), java.time.LocalDate.of(3000, 12, 31)))
+                .willReturn(new byte[]{1, 2, 3});
+
+        mockMvc.perform(get("/api/workload/export")
+                        .with(jwt()
+                                .jwt(jwt -> jwt
+                                        .tokenValue("editor-token")
+                                        .subject("editor")
+                                        .claim("roles", List.of("EDITOR")))
+                                .authorities(new SimpleGrantedAuthority("ROLE_EDITOR"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void instructorCannotExportWorkloadCsv() throws Exception {
         mockMvc.perform(get("/api/workload/export")
                         .with(jwt()
                                 .jwt(jwt -> jwt
                                         .tokenValue("test-token")
-                                        .subject("editor")
-                                        .claim("roles", List.of("EDITOR")))
-                                .authorities(new SimpleGrantedAuthority("ROLE_EDITOR"))))
+                                        .subject("instructor")
+                                        .claim("roles", List.of("INSTRUCTOR")))
+                                .authorities(new SimpleGrantedAuthority("ROLE_INSTRUCTOR"))))
                 .andExpect(status().isForbidden());
     }
 }

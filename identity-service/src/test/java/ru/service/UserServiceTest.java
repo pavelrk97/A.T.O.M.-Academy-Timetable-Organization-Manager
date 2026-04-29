@@ -189,24 +189,32 @@ class UserServiceTest {
     }
 
     @Test
-    void syncImportedInstructors_createsImportedAccountsAndRebindsDemoInstructor() {
+    void syncImportedInstructors_createsImportedAccountsAndPreservesDemoInstructorOverrides() {
+        // Существующий демо-аккаунт со «своими» настройками от админа: пароль и editorAccess
+        // выставлены вручную через UI. Импорт CSV не должен их сбрасывать.
         User demoInstructor = user("instructor");
         demoInstructor.setFullName("Old Name");
+        demoInstructor.setPassword("encoded-admin-set-password");
+        demoInstructor.setEditorAccess(true);
 
         when(userRepository.findAll()).thenReturn(List.of(demoInstructor));
         when(userRepository.findByUsername("Kharlamova")).thenReturn(Optional.empty());
         when(userRepository.findByUsername("Volkova")).thenReturn(Optional.empty());
         when(userRepository.findByUsername("instructor")).thenReturn(Optional.of(demoInstructor));
         when(passwordEncoder.encode("12345")).thenReturn("encoded-12345");
-        when(passwordEncoder.encode("123")).thenReturn("encoded-123");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         userService.syncImportedInstructors(List.of("Kharlamova", "Volkova", "Kharlamova"));
 
-        assertThat(demoInstructor.getPassword()).isEqualTo("encoded-123");
+        // Имя/active/canTeach синхронизируются — это технические поля, ведомые расписанием.
         assertThat(demoInstructor.getFullName()).isEqualTo("Kharlamova");
-        assertThat(demoInstructor.isEditorAccess()).isTrue();
         assertThat(demoInstructor.isCanTeach()).isTrue();
+        assertThat(demoInstructor.isActive()).isTrue();
+        // Пароль и editorAccess НЕ должны быть тронуты для существующего юзера.
+        assertThat(demoInstructor.getPassword()).isEqualTo("encoded-admin-set-password");
+        assertThat(demoInstructor.isEditorAccess()).isTrue();
+
+        // Новые импортированные аккаунты создаются с дефолтным паролем и role=INSTRUCTOR.
         verify(userRepository).save(org.mockito.ArgumentMatchers.argThat(user ->
                 "Kharlamova".equals(user.getUsername()) &&
                         "encoded-12345".equals(user.getPassword()) &&
@@ -215,6 +223,34 @@ class UserServiceTest {
                 "Volkova".equals(user.getUsername()) &&
                         "encoded-12345".equals(user.getPassword()) &&
                         !user.isEditorAccess()));
+    }
+
+    @Test
+    void syncImportedInstructors_doesNotResetExistingImportedInstructorRoleOrPassword() {
+        // Существующий импортированный инструктор «Harper», которому админ повысил роль
+        // до EDITOR и сменил пароль через UI. Повторный импорт не должен это перезаписать.
+        User existingHarper = user("Harper");
+        existingHarper.setFullName("Harper");
+        existingHarper.setRole(Role.EDITOR);
+        existingHarper.setEditorAccess(true);
+        existingHarper.setPassword("encoded-admin-set-password");
+
+        User demoInstructor = user("instructor");
+        demoInstructor.setFullName("Demo Demo");
+
+        when(userRepository.findAll()).thenReturn(List.of(existingHarper, demoInstructor));
+        when(userRepository.findByUsername("Harper")).thenReturn(Optional.of(existingHarper));
+        when(userRepository.findByUsername("instructor")).thenReturn(Optional.of(demoInstructor));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.syncImportedInstructors(List.of("Harper"));
+
+        // Главное: роль EDITOR + editorAccess + пароль остаются.
+        assertThat(existingHarper.getRole()).isEqualTo(Role.EDITOR);
+        assertThat(existingHarper.isEditorAccess()).isTrue();
+        assertThat(existingHarper.getPassword()).isEqualTo("encoded-admin-set-password");
+        assertThat(existingHarper.isActive()).isTrue();
+        assertThat(existingHarper.isCanTeach()).isTrue();
     }
 
     @Test
@@ -241,7 +277,6 @@ class UserServiceTest {
         when(userRepository.findByUsername("Harper")).thenReturn(Optional.empty());
         when(userRepository.findByUsername("instructor")).thenReturn(Optional.of(demoInstructor));
         when(passwordEncoder.encode("12345")).thenReturn("encoded-12345");
-        when(passwordEncoder.encode("123")).thenReturn("encoded-123");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         userService.syncImportedInstructors(List.of("Harper"));

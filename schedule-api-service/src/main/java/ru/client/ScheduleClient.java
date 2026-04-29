@@ -81,12 +81,14 @@ public interface ScheduleClient {
     @GetMapping("/api/workload")
     List<WorkloadDto> getWorkload(@RequestHeader("Authorization") String authorization,
                                   @RequestParam(required = false) UUID instructorId,
+                                  @RequestParam(name = "instructorIds", required = false) List<UUID> instructorIds,
                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
 
     @GetMapping(value = "/api/workload/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     byte[] exportWorkload(@RequestHeader("Authorization") String authorization,
                           @RequestParam(required = false) UUID instructorId,
+                          @RequestParam(name = "instructorIds", required = false) List<UUID> instructorIds,
                           @RequestParam(required = false) String instructorQuery,
                           @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                           @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);

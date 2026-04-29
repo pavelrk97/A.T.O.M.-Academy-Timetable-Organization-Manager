@@ -148,6 +148,36 @@ public class UserService {
         return updated;
     }
 
+    /**
+     * Удаляет пользователя. Защищаемся от двух вариантов «выстрела в ногу»:
+     * — нельзя удалить себя (иначе токен админа становится невалидным сразу),
+     * — нельзя удалить последнего активного админа (потеряем доступ к управлению).
+     */
+    @Transactional
+    public void delete(UUID id, Authentication authentication) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + id));
+
+        if (authentication != null && user.getUsername().equals(authentication.getName())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot delete the currently authenticated user");
+        }
+
+        if (user.getRole() == Role.ADMIN) {
+            long otherActiveAdmins = userRepository.findAll().stream()
+                    .filter(other -> !other.getId().equals(user.getId()))
+                    .filter(other -> other.getRole() == Role.ADMIN)
+                    .filter(User::isActive)
+                    .count();
+            if (otherActiveAdmins == 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Cannot delete the last active administrator");
+            }
+        }
+
+        userRepository.delete(user);
+        log.info("User deleted: userId={}, username={}, role={}", user.getId(), user.getUsername(), user.getRole());
+    }
+
     private void apply(User user, UserUpsertRequest request) {
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -211,14 +241,18 @@ public class UserService {
         boolean isNew = user.getId() == null;
 
         if (isNew) {
+            // Полностью новый аккаунт: дефолты выставляем один раз и больше не трогаем
+            // (иначе при каждом импорте слетают роль/editorAccess/пароль, выставленные админом вручную).
             user.setUsername(fullName);
             user.setPassword(passwordEncoder.encode(IMPORTED_INSTRUCTOR_DEFAULT_PASSWORD));
+            user.setRole(ru.model.Role.INSTRUCTOR);
+            user.setEditorAccess(false);
         }
 
+        // Эти поля синхронизируются при каждом импорте — это технические данные,
+        // которые ведутся со стороны расписания, а не админом руками.
         user.setFullName(fullName);
         user.setDisplayName(normalizeDisplayName(user.getDisplayName(), fullName));
-        user.setRole(ru.model.Role.INSTRUCTOR);
-        user.setEditorAccess(false);
         user.setActive(true);
         user.setCanTeach(true);
         userRepository.save(user);
@@ -226,15 +260,20 @@ public class UserService {
 
     private void upsertDemoInstructorAccount(String fullName) {
         User user = userRepository.findByUsername(DEMO_INSTRUCTOR_USERNAME).orElseGet(User::new);
-        if (user.getId() == null) {
+        boolean isNew = user.getId() == null;
+
+        if (isNew) {
+            // Демо-аккаунт «instructor» создаётся один раз с дефолтным паролем.
+            // Дальше пароль/роль/editorAccess не трогаем — иначе при каждом импорте
+            // обнуляются настройки, выставленные администратором.
             user.setUsername(DEMO_INSTRUCTOR_USERNAME);
+            user.setPassword(passwordEncoder.encode(DEMO_INSTRUCTOR_PASSWORD));
+            user.setRole(ru.model.Role.INSTRUCTOR);
+            user.setEditorAccess(true);
         }
 
-        user.setPassword(passwordEncoder.encode(DEMO_INSTRUCTOR_PASSWORD));
         user.setFullName(fullName);
         user.setDisplayName(fullName);
-        user.setRole(ru.model.Role.INSTRUCTOR);
-        user.setEditorAccess(true);
         user.setActive(true);
         user.setCanTeach(true);
         userRepository.save(user);

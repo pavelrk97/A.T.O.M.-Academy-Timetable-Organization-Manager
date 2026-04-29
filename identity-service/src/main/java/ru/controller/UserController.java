@@ -1,6 +1,9 @@
 package ru.controller;
 
 import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,5 +51,11 @@ public class UserController {
     @PutMapping("/{id}")
     public UserDto update(@PathVariable UUID id, @Valid @RequestBody UserUpsertRequest request) {
         return userService.update(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id, Authentication authentication) {
+        userService.delete(id, authentication);
+        return ResponseEntity.noContent().build();
     }
 }

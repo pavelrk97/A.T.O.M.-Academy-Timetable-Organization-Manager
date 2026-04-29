@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, RefreshCcw, Save, UserRound } from 'lucide-react'
+import { Plus, RefreshCcw, Save, Trash2, UserRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { usersApi } from '@/lib/api'
@@ -90,6 +90,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [form, setForm] = useState<UserUpsertRequest>(createEmptyForm())
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -113,6 +114,40 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
     setForm(createEmptyForm())
     setError('')
     setSuccess('')
+  }
+
+  async function handleDelete() {
+    if (!selectedUserId) {
+      return
+    }
+    const target = users.find((candidate) => candidate.id === selectedUserId)
+    const targetName = target?.displayName || target?.fullName || target?.username || 'пользователя'
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(`Удалить пользователя «${targetName}»? Действие необратимо.`)
+    ) {
+      return
+    }
+
+    setDeleting(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      await usersApi.delete(selectedUserId)
+      await onChanged()
+      setSelectedUserId(null)
+      setForm(createEmptyForm())
+      setSuccess(`Пользователь ${targetName} удалён.`)
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : 'Не удалось удалить пользователя.'
+      )
+    } finally {
+      setDeleting(false)
+    }
   }
 
   async function handleSubmit() {
@@ -334,12 +369,18 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
               </span>
               <select
                 value={form.role}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const nextRole = event.target.value as UserRole
                   setForm((current) => ({
                     ...current,
-                    role: event.target.value as UserRole,
+                    role: nextRole,
+                    // EDITOR/ADMIN семантически имеют права редактирования —
+                    // автоматически проставляем editorAccess. Для INSTRUCTOR
+                    // флаг оставляем как был, чтобы админ мог управлять им вручную.
+                    editorAccess:
+                      nextRole === 'EDITOR' || nextRole === 'ADMIN' ? true : current.editorAccess,
                   }))
-                }
+                }}
                 className="h-10 w-full rounded-xl border border-border bg-white px-3 text-sm"
               >
                 {ROLE_OPTIONS.map((role) => (
@@ -402,7 +443,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
           ) : null}
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <Button onClick={handleSubmit} disabled={saving}>
+            <Button onClick={handleSubmit} disabled={saving || deleting}>
               <Save className="mr-2 h-4 w-4" />
               {saving
                 ? 'Сохраняю...'
@@ -410,10 +451,21 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
                   ? 'Сохранить пользователя'
                   : 'Создать пользователя'}
             </Button>
-            <Button variant="outline" onClick={startCreate}>
+            <Button variant="outline" onClick={startCreate} disabled={saving || deleting}>
               <Plus className="mr-2 h-4 w-4" />
               Очистить форму
             </Button>
+            {selectedUserId ? (
+              <Button
+                variant="destructive"
+                onClick={() => void handleDelete()}
+                disabled={saving || deleting}
+                className="ml-auto"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {deleting ? 'Удаляю...' : 'Удалить пользователя'}
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
