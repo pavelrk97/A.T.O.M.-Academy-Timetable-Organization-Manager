@@ -257,24 +257,12 @@ public class LessonService {
                                           LocalDate from,
                                           LocalDate to,
                                           Authentication authentication) {
-        User actor = userService.getCurrentUser(authentication);
+        userService.getCurrentUser(authentication);
         Set<UUID> idFilter = sanitiseInstructorIds(instructorIds);
-
-        if (actor.getRole() == Role.INSTRUCTOR) {
-            if (instructorId != null && !instructorId.equals(actor.getId())) {
-                throw new ForbiddenEditException("Instructor can view only own workload");
-            }
-            if (!idFilter.isEmpty() && !idFilter.equals(Set.of(actor.getId()))) {
-                throw new ForbiddenEditException("Instructor can view only own workload");
-            }
-        }
 
         UUID effectiveInstructorId = instructorId;
         if (effectiveInstructorId == null && idFilter.size() == 1) {
             effectiveInstructorId = idFilter.iterator().next();
-        }
-        if (effectiveInstructorId == null && actor.getRole() == Role.INSTRUCTOR && idFilter.isEmpty()) {
-            effectiveInstructorId = actor.getId();
         }
 
         LocalDate effectiveFrom = normalizeFrom(from);
@@ -319,14 +307,7 @@ public class LessonService {
                                       LocalDate from,
                                       LocalDate to,
                                       Authentication authentication) {
-        User actor = userService.getCurrentUser(authentication);
-        // ADMIN и EDITOR умеют редактировать расписание целиком, поэтому им доступен и
-        // экспорт сводного workload. Для собственных часов у инструктора есть отдельный
-        // /api/me/workload/export. Поле editorAccess живёт только в identity-service,
-        // в этой модели User его нет — поэтому фильтруем по роли.
-        if (actor.getRole() != Role.ADMIN && actor.getRole() != Role.EDITOR) {
-            throw new ForbiddenEditException("Only admin or editor can export workload catalog");
-        }
+        userService.getCurrentUser(authentication);
 
         Set<UUID> idFilter = sanitiseInstructorIds(instructorIds);
         LocalDate effectiveFrom = normalizeFrom(from);

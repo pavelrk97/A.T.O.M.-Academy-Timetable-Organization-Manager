@@ -239,18 +239,31 @@ class LessonServiceTest {
     }
 
     @Test
-    void getWorkload_doesNotLetInstructorPeekAtAnotherInstructor() {
+    void getWorkload_allowsInstructorToViewAnotherInstructor() {
         LessonService lessonService = lessonService();
         Authentication authentication = mock(Authentication.class);
 
         User actor = user("instructor", "Reader", Role.INSTRUCTOR);
         actor.setId(UUID.randomUUID());
+        User anotherInstructor = user("mentor", "Mentor QA", Role.INSTRUCTOR);
+        Lesson lesson = lesson("group-1", LocalDate.of(2026, 1, 5), 4, anotherInstructor);
 
         when(userService.getCurrentUser(authentication)).thenReturn(actor);
+        when(lessonRepository.findForSchedule(null, anotherInstructor.getId(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .thenReturn(List.of(lesson));
 
-        assertThatThrownBy(() -> lessonService.getWorkload(UUID.randomUUID(), null, null, authentication))
-                .isInstanceOf(ForbiddenEditException.class)
-                .hasMessage("Instructor can view only own workload");
+        List<WorkloadDto> workload = lessonService.getWorkload(
+                anotherInstructor.getId(),
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 1, 31),
+                authentication
+        );
+
+        assertThat(workload).singleElement().satisfies(row -> {
+            assertThat(row.getInstructorId()).isEqualTo(anotherInstructor.getId());
+            assertThat(row.getInstructorName()).isEqualTo("Mentor QA");
+            assertThat(row.getTotalHours()).isEqualTo(4);
+        });
     }
 
     @Test
@@ -290,16 +303,32 @@ class LessonServiceTest {
     }
 
     @Test
-    void exportWorkloadExcel_requiresAdmin() {
+    void exportWorkloadExcel_allowsInstructorCatalogExport() {
         LessonService lessonService = lessonService();
         Authentication authentication = mock(Authentication.class);
-        User actor = user("editor", "Schedule Editor", Role.EDITOR);
+        User actor = user("instructor", "Reader", Role.INSTRUCTOR);
+        User anotherInstructor = user("mentor", "Mentor QA", Role.INSTRUCTOR);
+        Lesson lesson = lesson("group-1", LocalDate.of(2026, 1, 5), 4, anotherInstructor);
+        byte[] expected = new byte[]{1, 2, 3};
 
         when(userService.getCurrentUser(authentication)).thenReturn(actor);
+        when(lessonRepository.findForDateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .thenReturn(List.of(lesson));
+        when(workloadExcelExportService.exportCalendars(
+                org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.eq(LocalDate.of(2026, 1, 1)),
+                org.mockito.ArgumentMatchers.eq(LocalDate.of(2026, 1, 31))
+        )).thenReturn(expected);
 
-        assertThatThrownBy(() -> lessonService.exportWorkloadExcel(null, null, null, null, authentication))
-                .isInstanceOf(ForbiddenEditException.class)
-                .hasMessage("Only admin can export workload catalog");
+        byte[] exported = lessonService.exportWorkloadExcel(
+                null,
+                null,
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 1, 31),
+                authentication
+        );
+
+        assertThat(exported).isEqualTo(expected);
     }
 
     @Test
