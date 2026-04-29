@@ -27,6 +27,7 @@ import { ProfileSection } from '@/components/cabinet/profile-section'
 import { ChangePassword } from '@/components/cabinet/change-password'
 import { NotificationsFeed } from '@/components/cabinet/notifications-feed'
 import { WorkloadCalendar } from '@/components/cabinet/workload-calendar'
+import { InstructorMultiSelect } from '@/components/cabinet/instructor-multi-select'
 import { AdminWorkspace } from '@/components/cabinet/admin-workspace'
 import { ScheduleGrid } from '@/components/schedule/schedule-grid'
 import { Button } from '@/components/ui/button'
@@ -156,7 +157,7 @@ function CabinetPageContent() {
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [workloadExporting, setWorkloadExporting] = useState(false)
-  const [workloadFilter, setWorkloadFilter] = useState('')
+  const [workloadInstructorIds, setWorkloadInstructorIds] = useState<string[]>([])
   const [scheduleZoom, setScheduleZoom] = useState(100)
   const [scheduleZoomDraft, setScheduleZoomDraft] = useState(100)
   const syncingFromUrlRef = useRef(false)
@@ -237,30 +238,25 @@ function CabinetPageContent() {
   const canManageGroups = operationsEnabled
   const tabs = createTabItems(user)
   const currentSchedule = scheduleMode === 'my' ? dashboard?.instructorSchedule : fullSchedule
-  const adminWorkloadMatches = useMemo(() => {
-    if (user?.role !== 'ADMIN') {
-      return []
+  /**
+   * Кандидаты для multi-select на вкладке «Нагрузка».
+   * Видны ADMIN и EDITOR (у обоих есть доступ к /api/users). Plain INSTRUCTOR
+   * без editorAccess /api/users получить не может, поэтому ему мульти-выбор
+   * не показываем (см. renderWorkloadActions).
+   */
+  const teachableInstructors = useMemo(() => {
+    if (user?.role !== 'ADMIN' && user?.role !== 'EDITOR') {
+      return [] as User[]
     }
-
-    const query = workloadFilter.trim().toLowerCase()
-    if (!query) {
-      return []
-    }
-
     return users
       .filter((candidate) => candidate.canTeach)
-      .filter((candidate) =>
-        [candidate.fullName, candidate.displayName, candidate.username]
-          .filter((value): value is string => Boolean(value))
-          .some((value) => value.toLowerCase().includes(query))
-      )
       .sort((left, right) =>
         (left.displayName || left.fullName || left.username).localeCompare(
           right.displayName || right.fullName || right.username,
           'ru'
         )
       )
-  }, [user?.role, users, workloadFilter])
+  }, [user?.role, users])
 
   async function loadFullSchedule() {
     if (!operationsEnabled) {
@@ -324,7 +320,12 @@ function CabinetPageContent() {
   }, [activeTab, operationsEnabled, users.length, groups.length])
 
   useEffect(() => {
-    if (activeTab === 'workload' && user?.role === 'ADMIN' && !users.length) {
+    // ADMIN и EDITOR могут листать инструкторов в multi-select на вкладке «Нагрузка».
+    if (
+      activeTab === 'workload' &&
+      (user?.role === 'ADMIN' || user?.role === 'EDITOR') &&
+      !users.length
+    ) {
       void loadAdminData()
     }
   }, [activeTab, user?.role, users.length])
@@ -384,12 +385,15 @@ function CabinetPageContent() {
     }
   }
 
-  async function handleExportAdminWorkload(mode: 'all' | 'filtered') {
+  async function handleExportAdminWorkload(mode: 'all' | 'selected') {
     setWorkloadExporting(true)
     setError('')
     try {
       const download = await workloadApi.exportCsv({
-        instructorQuery: mode === 'filtered' ? workloadFilter.trim() || undefined : undefined,
+        instructorIds:
+          mode === 'selected' && workloadInstructorIds.length
+            ? workloadInstructorIds
+            : undefined,
         from: range.from,
         to: range.to,
       })
@@ -411,28 +415,32 @@ function CabinetPageContent() {
     setScheduleZoomDraft(next)
   }
 
-  function renderAdminWorkloadActions() {
+  function renderEditorialWorkloadActions() {
+    const hasSelection = workloadInstructorIds.length > 0
     return (
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            value={workloadFilter}
-            onChange={(event) => setWorkloadFilter(event.target.value)}
-            placeholder="Фамилия для фильтра"
-            className="h-9 w-48"
-          />
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-[260px] flex-1">
+            <InstructorMultiSelect
+              instructors={teachableInstructors}
+              selectedIds={workloadInstructorIds}
+              onChange={setWorkloadInstructorIds}
+              placeholder="Все инструкторы (выбрать)"
+              emptyHint={
+                adminLoading
+                  ? 'Загружаю список преподавателей…'
+                  : 'Нет инструкторов с canTeach=true.'
+              }
+            />
+          </div>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => void handleExportAdminWorkload('filtered')}
-            disabled={
-              workloadExporting ||
-              !workloadFilter.trim() ||
-              (users.length > 0 && adminWorkloadMatches.length === 0)
-            }
+            onClick={() => void handleExportAdminWorkload('selected')}
+            disabled={workloadExporting || !hasSelection}
           >
             <Download className="mr-2 h-4 w-4" />
-            По фамилии
+            {hasSelection ? `Выбранные (${workloadInstructorIds.length})` : 'Выбранные'}
           </Button>
           <Button
             variant="outline"
@@ -444,23 +452,13 @@ function CabinetPageContent() {
             Все
           </Button>
         </div>
-        {workloadFilter.trim() ? (
-          <div className="text-xs text-muted-foreground">
-            {adminWorkloadMatches.length
-              ? `Совпадения: ${adminWorkloadMatches
-                  .slice(0, 5)
-                  .map((candidate) => candidate.displayName || candidate.fullName || candidate.username)
-                  .join(', ')}${adminWorkloadMatches.length > 5 ? ` (+${adminWorkloadMatches.length - 5})` : ''}`
-              : 'По запросу нет инструкторов с canTeach=true.'}
-          </div>
-        ) : null}
       </div>
     )
   }
 
   function renderWorkloadActions() {
-    if (user?.role === 'ADMIN') {
-      return renderAdminWorkloadActions()
+    if (user?.role === 'ADMIN' || user?.role === 'EDITOR') {
+      return renderEditorialWorkloadActions()
     }
 
     return (

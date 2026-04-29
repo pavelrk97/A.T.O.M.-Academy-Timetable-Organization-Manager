@@ -38,6 +38,7 @@ import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -248,12 +249,34 @@ public class LessonService {
     }
 
     public List<WorkloadDto> getWorkload(UUID instructorId, LocalDate from, LocalDate to, Authentication authentication) {
+        return getWorkload(instructorId, null, from, to, authentication);
+    }
+
+    public List<WorkloadDto> getWorkload(UUID instructorId,
+                                          List<UUID> instructorIds,
+                                          LocalDate from,
+                                          LocalDate to,
+                                          Authentication authentication) {
         User actor = userService.getCurrentUser(authentication);
-        if (actor.getRole() == Role.INSTRUCTOR && instructorId != null && !instructorId.equals(actor.getId())) {
-            throw new ForbiddenEditException("Instructor can view only own workload");
+        Set<UUID> idFilter = sanitiseInstructorIds(instructorIds);
+
+        if (actor.getRole() == Role.INSTRUCTOR) {
+            if (instructorId != null && !instructorId.equals(actor.getId())) {
+                throw new ForbiddenEditException("Instructor can view only own workload");
+            }
+            if (!idFilter.isEmpty() && !idFilter.equals(Set.of(actor.getId()))) {
+                throw new ForbiddenEditException("Instructor can view only own workload");
+            }
         }
 
-        UUID effectiveInstructorId = instructorId != null ? instructorId : (actor.getRole() == Role.INSTRUCTOR ? actor.getId() : null);
+        UUID effectiveInstructorId = instructorId;
+        if (effectiveInstructorId == null && idFilter.size() == 1) {
+            effectiveInstructorId = idFilter.iterator().next();
+        }
+        if (effectiveInstructorId == null && actor.getRole() == Role.INSTRUCTOR && idFilter.isEmpty()) {
+            effectiveInstructorId = actor.getId();
+        }
+
         LocalDate effectiveFrom = normalizeFrom(from);
         LocalDate effectiveTo = normalizeTo(to);
 
@@ -261,6 +284,9 @@ public class LessonService {
         for (Lesson lesson : lessonRepository.findForSchedule(null, effectiveInstructorId, effectiveFrom, effectiveTo)) {
             for (User instructor : lesson.getAssignedInstructors()) {
                 if (effectiveInstructorId != null && !effectiveInstructorId.equals(instructor.getId())) {
+                    continue;
+                }
+                if (!idFilter.isEmpty() && !idFilter.contains(instructor.getId())) {
                     continue;
                 }
 
@@ -274,8 +300,8 @@ public class LessonService {
         }
 
         List<WorkloadDto> workload = new ArrayList<>(totals.values());
-        log.info("Workload calculated: requestedInstructorId={}, effectiveInstructorId={}, from={}, to={}, rows={}",
-                instructorId, effectiveInstructorId, effectiveFrom, effectiveTo, workload.size());
+        log.info("Workload calculated: requestedInstructorId={}, effectiveInstructorId={}, instructorIds={}, from={}, to={}, rows={}",
+                instructorId, effectiveInstructorId, idFilter.size(), effectiveFrom, effectiveTo, workload.size());
         return workload;
     }
 
@@ -284,11 +310,27 @@ public class LessonService {
                                       LocalDate from,
                                       LocalDate to,
                                       Authentication authentication) {
+        return exportWorkloadExcel(instructorId, null, instructorQuery, from, to, authentication);
+    }
+
+    public byte[] exportWorkloadExcel(UUID instructorId,
+                                      List<UUID> instructorIds,
+                                      String instructorQuery,
+                                      LocalDate from,
+                                      LocalDate to,
+                                      Authentication authentication) {
         User actor = userService.getCurrentUser(authentication);
-        if (actor.getRole() != Role.ADMIN) {
-            throw new ForbiddenEditException("Only admin can export workload catalog");
+        // ADMIN и EDITOR умеют редактировать расписание целиком, поэтому им доступен и
+        // экспорт сводного workload. Plain INSTRUCTOR (без editorAccess) — нет: для своих
+        // часов есть отдельный /api/me/workload/export.
+        boolean catalogAllowed = actor.getRole() == Role.ADMIN
+                || actor.getRole() == Role.EDITOR
+                || actor.isEditorAccess();
+        if (!catalogAllowed) {
+            throw new ForbiddenEditException("Only admin or editor can export workload catalog");
         }
 
+        Set<UUID> idFilter = sanitiseInstructorIds(instructorIds);
         LocalDate effectiveFrom = normalizeFrom(from);
         LocalDate effectiveTo = normalizeTo(to);
         String normalizedQuery = instructorQuery == null ? null : instructorQuery.trim().toLowerCase();
@@ -298,10 +340,21 @@ public class LessonService {
                         .thenComparing(Lesson::getId))
                 .toList();
 
-        List<WorkloadCalendarDto> calendars = buildWorkloadCalendars(lessons, instructorId, normalizedQuery);
-        log.info("Workload export built: requestedInstructorId={}, instructorQuery={}, from={}, to={}, rows={}",
-                instructorId, instructorQuery, effectiveFrom, effectiveTo, calendars.size());
+        List<WorkloadCalendarDto> calendars = buildWorkloadCalendars(lessons, instructorId, idFilter, normalizedQuery);
+        log.info("Workload export built: requestedInstructorId={}, instructorIds={}, instructorQuery={}, from={}, to={}, rows={}",
+                instructorId, idFilter.size(), instructorQuery, effectiveFrom, effectiveTo, calendars.size());
         return workloadExcelExportService.exportCalendars(calendars, effectiveFrom, effectiveTo);
+    }
+
+    private static Set<UUID> sanitiseInstructorIds(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Set.of();
+        }
+        Set<UUID> set = new LinkedHashSet<>();
+        for (UUID id : ids) {
+            if (id != null) set.add(id);
+        }
+        return set;
     }
 
     public Lesson findEntity(UUID id) {
@@ -501,12 +554,17 @@ public class LessonService {
 
     private List<WorkloadCalendarDto> buildWorkloadCalendars(List<Lesson> lessons,
                                                              UUID instructorId,
+                                                             Set<UUID> instructorIds,
                                                              String instructorQuery) {
         Map<UUID, WorkloadCalendarDto> calendars = new LinkedHashMap<>();
+        Set<UUID> idFilter = instructorIds == null ? Set.of() : instructorIds;
 
         for (Lesson lesson : lessons) {
             for (User instructor : lesson.getAssignedInstructors()) {
                 if (instructorId != null && !instructorId.equals(instructor.getId())) {
+                    continue;
+                }
+                if (!idFilter.isEmpty() && !idFilter.contains(instructor.getId())) {
                     continue;
                 }
                 if (instructorQuery != null && !instructorQuery.isBlank()) {

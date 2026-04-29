@@ -209,6 +209,10 @@ export const usersApi = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  delete: (id: string) =>
+    fetchApi<void>(`/users/${id}`, {
+      method: 'DELETE',
+    }),
 }
 
 export const groupsApi = {
@@ -356,9 +360,17 @@ export const autoImportApi = {
 }
 
 export const workloadApi = {
-  getAll: (params?: { instructorId?: string; from?: string; to?: string }) => {
+  getAll: (params?: {
+    instructorId?: string
+    instructorIds?: string[]
+    from?: string
+    to?: string
+  }) => {
     const searchParams = new URLSearchParams()
     if (params?.instructorId) searchParams.set('instructorId', params.instructorId)
+    if (params?.instructorIds && params.instructorIds.length) {
+      for (const id of params.instructorIds) searchParams.append('instructorIds', id)
+    }
     if (params?.from) searchParams.set('from', params.from)
     if (params?.to) searchParams.set('to', params.to)
     const query = searchParams.toString()
@@ -366,12 +378,16 @@ export const workloadApi = {
   },
   exportCsv: (params?: {
     instructorId?: string
+    instructorIds?: string[]
     instructorQuery?: string
     from?: string
     to?: string
   }) => {
     const searchParams = new URLSearchParams()
     if (params?.instructorId) searchParams.set('instructorId', params.instructorId)
+    if (params?.instructorIds && params.instructorIds.length) {
+      for (const id of params.instructorIds) searchParams.append('instructorIds', id)
+    }
     if (params?.instructorQuery) searchParams.set('instructorQuery', params.instructorQuery)
     if (params?.from) searchParams.set('from', params.from)
     if (params?.to) searchParams.set('to', params.to)

@@ -13,6 +13,7 @@ import ru.config.SecurityConfig;
 import ru.dto.UserDto;
 import ru.model.Role;
 import ru.security.InternalApiKeyAuthenticationFilter;
+import ru.service.UserActivityService;
 import ru.service.UserService;
 
 import java.util.List;
@@ -37,6 +38,9 @@ class UserControllerSecurityTest {
 
     @MockBean
     private UserService userService;
+
+    @MockBean
+    private UserActivityService userActivityService;
 
     @Test
     @WithMockUser(username = "editor", roles = "EDITOR")

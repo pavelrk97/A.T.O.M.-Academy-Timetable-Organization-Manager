@@ -33,16 +33,18 @@ public class WorkloadController {
     @GetMapping
     public List<WorkloadDto> getWorkload(
             @RequestParam(required = false) UUID instructorId,
+            @RequestParam(name = "instructorIds", required = false) List<UUID> instructorIds,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             Authentication authentication
     ) {
-        return lessonService.getWorkload(instructorId, from, to, authentication);
+        return lessonService.getWorkload(instructorId, instructorIds, from, to, authentication);
     }
 
     @GetMapping("/export")
     public ResponseEntity<byte[]> exportWorkload(
             @RequestParam(required = false) UUID instructorId,
+            @RequestParam(name = "instructorIds", required = false) List<UUID> instructorIds,
             @RequestParam(required = false) String instructorQuery,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -50,8 +52,18 @@ public class WorkloadController {
     ) {
         LocalDate effectiveFrom = from != null ? from : LocalDate.of(1900, 1, 1);
         LocalDate effectiveTo = to != null ? to : LocalDate.of(3000, 12, 31);
-        byte[] workbook = lessonService.exportWorkloadExcel(instructorId, instructorQuery, from, to, authentication);
-        String scope = instructorId != null ? "single" : (instructorQuery != null && !instructorQuery.isBlank() ? "filtered" : "all");
+        byte[] workbook = lessonService.exportWorkloadExcel(
+                instructorId, instructorIds, instructorQuery, from, to, authentication);
+        String scope;
+        if (instructorIds != null && !instructorIds.isEmpty()) {
+            scope = "selected-" + instructorIds.size();
+        } else if (instructorId != null) {
+            scope = "single";
+        } else if (instructorQuery != null && !instructorQuery.isBlank()) {
+            scope = "filtered";
+        } else {
+            scope = "all";
+        }
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"workload-%s-%s-%s.xlsx\"".formatted(scope, effectiveFrom, effectiveTo))

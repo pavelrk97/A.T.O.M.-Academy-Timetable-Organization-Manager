@@ -1,6 +1,7 @@
 package ru.client;
 
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,4 +52,8 @@ public interface IdentityClient {
     UserDto updateUser(@RequestHeader("Authorization") String authorization,
                        @PathVariable UUID id,
                        @RequestBody UserUpsertRequest request);
+
+    @DeleteMapping("/api/users/{id}")
+    void deleteUser(@RequestHeader("Authorization") String authorization,
+                    @PathVariable UUID id);
 }
