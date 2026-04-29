@@ -37,10 +37,12 @@ public class AutoImportService {
     private static final Logger log = LoggerFactory.getLogger(AutoImportService.class);
     private static final ZoneId MOSCOW_ZONE = ZoneId.of("Europe/Moscow");
     private static final List<LocalTime> RUN_TIMES = List.of(LocalTime.of(13, 0), LocalTime.of(23, 0));
-    private static final Pattern SHEET_ID_PATTERN = Pattern.compile("/spreadsheets/d/([a-zA-Z0-9_-]+)");
-    private static final Pattern GID_PATTERN = Pattern.compile("[?#&]gid=(\\d+)");
+    private static final String GOOGLE_SHEETS_HOST = "docs.google.com";
+    private static final Pattern SHEET_PATH_PATTERN = Pattern.compile("^/spreadsheets/d/([a-zA-Z0-9_-]+)(?:/.*)?$");
+    private static final Pattern GID_PATTERN = Pattern.compile("(?:^|&)gid=(\\d+)(?:&|$)");
     private static final Duration HTTP_CONNECT_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration HTTP_READ_TIMEOUT = Duration.ofSeconds(60);
+    private static final int MAX_REDIRECTS = 3;
 
     private final AutoImportSettingsRepository repository;
     private final CsvImportService csvImportService;
@@ -54,7 +56,7 @@ public class AutoImportService {
         this.csvImportService = csvImportService;
         this.userAgent = userAgent;
         this.httpClient = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .connectTimeout(HTTP_CONNECT_TIMEOUT)
                 .build();
     }
@@ -69,7 +71,9 @@ public class AutoImportService {
         AutoImportSettings settings = loadOrCreate();
         settings.setEnabled(request.isEnabled());
         if (request.getSourceUrl() != null && !request.getSourceUrl().isBlank()) {
-            settings.setSourceUrl(request.getSourceUrl().trim());
+            String sourceUrl = request.getSourceUrl().trim();
+            validateSourceUrl(sourceUrl);
+            settings.setSourceUrl(sourceUrl);
         }
         settings.setUpdatedBy(username);
         settings.setUpdatedAt(LocalDateTime.now());
@@ -161,47 +165,113 @@ public class AutoImportService {
     }
 
     private byte[] downloadCsv(String sourceUrl) throws Exception {
-        URI exportUri = buildExportUri(sourceUrl);
-        log.info("Auto-import: downloading CSV from {}", exportUri);
-        HttpRequest request = HttpRequest.newBuilder(exportUri)
-                .timeout(HTTP_READ_TIMEOUT)
-                .header("User-Agent", userAgent)
-                .GET()
-                .build();
-        HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IllegalStateException("Источник вернул HTTP " + response.statusCode());
+        URI currentUri = buildExportUri(sourceUrl);
+        for (int redirect = 0; redirect <= MAX_REDIRECTS; redirect++) {
+            validateGoogleSheetsUri(currentUri);
+            log.info("Auto-import: downloading CSV from {}", currentUri);
+            HttpRequest request = HttpRequest.newBuilder(currentUri)
+                    .timeout(HTTP_READ_TIMEOUT)
+                    .header("User-Agent", userAgent)
+                    .GET()
+                    .build();
+            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            if (isRedirect(response.statusCode())) {
+                currentUri = resolveRedirect(currentUri, response);
+                continue;
+            }
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Source returned HTTP " + response.statusCode());
+            }
+            byte[] body = response.body();
+            if (body == null || body.length == 0) {
+                throw new IllegalStateException("Received empty CSV from source");
+            }
+            // Google login pages and permission screens are HTML, not CSV.
+            String head = new String(body, 0, Math.min(body.length, 200), StandardCharsets.UTF_8).trim().toLowerCase();
+            if (head.startsWith("<!doctype html") || head.startsWith("<html")) {
+                throw new IllegalStateException("Source returned HTML instead of CSV. Check that the sheet is public by link");
+            }
+            return body;
         }
-        byte[] body = response.body();
-        if (body == null || body.length == 0) {
-            throw new IllegalStateException("Получен пустой CSV из источника");
-        }
-        // Sanity-check: first bytes should not look like HTML (Google login page returns HTML)
-        String head = new String(body, 0, Math.min(body.length, 200), StandardCharsets.UTF_8).trim().toLowerCase();
-        if (head.startsWith("<!doctype html") || head.startsWith("<html")) {
-            throw new IllegalStateException("Источник вернул HTML вместо CSV — проверь, что лист доступен по ссылке");
-        }
-        return body;
+        throw new IllegalStateException("Too many redirects while downloading CSV");
     }
 
     static URI buildExportUri(String sourceUrl) throws URISyntaxException {
         if (sourceUrl == null || sourceUrl.isBlank()) {
-            throw new IllegalArgumentException("URL источника не задан");
+            throw new IllegalArgumentException("Source URL is required");
         }
-        Matcher idMatcher = SHEET_ID_PATTERN.matcher(sourceUrl);
-        if (!idMatcher.find()) {
-            // Не Google Sheets — даём как есть (возможно прямой CSV).
-            return new URI(sourceUrl);
-        }
-        String sheetId = idMatcher.group(1);
-        Matcher gidMatcher = GID_PATTERN.matcher(sourceUrl);
+        URI sourceUri = new URI(sourceUrl.trim());
+        String sheetId = validateGoogleSheetsUri(sourceUri);
         StringBuilder export = new StringBuilder("https://docs.google.com/spreadsheets/d/")
                 .append(sheetId)
                 .append("/export?format=csv");
-        if (gidMatcher.find()) {
-            export.append("&gid=").append(gidMatcher.group(1));
+        String gid = extractGid(sourceUri);
+        if (gid != null) {
+            export.append("&gid=").append(gid);
         }
         return new URI(export.toString());
+    }
+
+    private static void validateSourceUrl(String sourceUrl) {
+        try {
+            buildExportUri(sourceUrl);
+        } catch (URISyntaxException ex) {
+            throw new IllegalArgumentException("Auto-import source URL is invalid", ex);
+        }
+    }
+
+    private static boolean isRedirect(int statusCode) {
+        return statusCode == 301
+                || statusCode == 302
+                || statusCode == 303
+                || statusCode == 307
+                || statusCode == 308;
+    }
+
+    private static URI resolveRedirect(URI currentUri, HttpResponse<?> response) {
+        String location = response.headers().firstValue("Location")
+                .orElseThrow(() -> new IllegalStateException("Redirect response without Location header"));
+        URI nextUri = currentUri.resolve(location);
+        validateGoogleSheetsUri(nextUri);
+        return nextUri;
+    }
+
+    private static String validateGoogleSheetsUri(URI uri) {
+        if (uri == null) {
+            throw new IllegalArgumentException("Source URL is required");
+        }
+        if (!"https".equalsIgnoreCase(uri.getScheme())) {
+            throw new IllegalArgumentException("Auto-import source must use HTTPS");
+        }
+        if (uri.getUserInfo() != null) {
+            throw new IllegalArgumentException("Auto-import source must not contain user info");
+        }
+        if (uri.getPort() != -1 && uri.getPort() != 443) {
+            throw new IllegalArgumentException("Auto-import source must use the default HTTPS port");
+        }
+        String host = uri.getHost();
+        if (!GOOGLE_SHEETS_HOST.equalsIgnoreCase(host)) {
+            throw new IllegalArgumentException("Auto-import source must be a docs.google.com Google Sheets URL");
+        }
+        String path = uri.getPath() == null ? "" : uri.getPath();
+        Matcher idMatcher = SHEET_PATH_PATTERN.matcher(path);
+        if (!idMatcher.matches()) {
+            throw new IllegalArgumentException("Auto-import source must point to a Google Sheets spreadsheet");
+        }
+        return idMatcher.group(1);
+    }
+
+    private static String extractGid(URI sourceUri) {
+        String queryGid = extractGid(sourceUri.getRawQuery());
+        return queryGid != null ? queryGid : extractGid(sourceUri.getRawFragment());
+    }
+
+    private static String extractGid(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        Matcher gidMatcher = GID_PATTERN.matcher(value);
+        return gidMatcher.find() ? gidMatcher.group(1) : null;
     }
 
     private static String buildErrorMessage(Exception cause) {
