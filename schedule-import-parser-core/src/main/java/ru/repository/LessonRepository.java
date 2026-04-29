@@ -17,15 +17,15 @@ public interface LessonRepository extends JpaRepository<Lesson, UUID> {
             join fetch l.day d
             join fetch d.group g
             left join fetch l.assignedInstructors ai
-            where (:groupCode is null or lower(g.code) = lower(:groupCode))
+            where lower(g.code) = lower(:groupCode)
               and d.date >= :from
               and d.date <= :to
-              and (:instructorId is null or exists (
+              and exists (
                     select 1
                     from Lesson l2
                     join l2.assignedInstructors ai2
                     where l2.id = l.id and ai2.id = :instructorId
-              ))
+              )
             """)
     List<Lesson> findForSchedule(@Param("groupCode") String groupCode,
                                  @Param("instructorId") UUID instructorId,

@@ -269,7 +269,7 @@ public class LessonService {
         LocalDate effectiveTo = normalizeTo(to);
 
         Map<UUID, WorkloadDto> totals = new LinkedHashMap<>();
-        for (Lesson lesson : lessonRepository.findForSchedule(null, effectiveInstructorId, effectiveFrom, effectiveTo)) {
+        for (Lesson lesson : loadLessonsForSchedule(null, effectiveInstructorId, effectiveFrom, effectiveTo)) {
             for (User instructor : lesson.getAssignedInstructors()) {
                 if (effectiveInstructorId != null && !effectiveInstructorId.equals(instructor.getId())) {
                     continue;

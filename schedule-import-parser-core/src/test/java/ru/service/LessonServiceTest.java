@@ -75,7 +75,7 @@ class LessonServiceTest {
         Lesson lesson = lesson("гр.6 ()", LocalDate.of(2026, 1, 5), 4, firstInstructor, secondInstructor);
 
         when(userService.getCurrentUser(authentication)).thenReturn(admin);
-        when(lessonRepository.findForSchedule(null, null, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+        when(lessonRepository.findForDateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
                 .thenReturn(List.of(lesson));
 
         List<WorkloadDto> workload = lessonService.getWorkload(null, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), authentication);
@@ -249,7 +249,7 @@ class LessonServiceTest {
         Lesson lesson = lesson("group-1", LocalDate.of(2026, 1, 5), 4, anotherInstructor);
 
         when(userService.getCurrentUser(authentication)).thenReturn(actor);
-        when(lessonRepository.findForSchedule(null, anotherInstructor.getId(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+        when(lessonRepository.findForInstructorAndDateRange(anotherInstructor.getId(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
                 .thenReturn(List.of(lesson));
 
         List<WorkloadDto> workload = lessonService.getWorkload(
