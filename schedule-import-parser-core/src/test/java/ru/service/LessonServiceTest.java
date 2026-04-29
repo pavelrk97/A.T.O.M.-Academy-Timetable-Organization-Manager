@@ -290,16 +290,16 @@ class LessonServiceTest {
     }
 
     @Test
-    void exportWorkloadExcel_requiresAdmin() {
+    void exportWorkloadExcel_rejectsPlainInstructor() {
         LessonService lessonService = lessonService();
         Authentication authentication = mock(Authentication.class);
-        User actor = user("editor", "Schedule Editor", Role.EDITOR);
+        User actor = user("instructor", "Course Instructor", Role.INSTRUCTOR);
 
         when(userService.getCurrentUser(authentication)).thenReturn(actor);
 
         assertThatThrownBy(() -> lessonService.exportWorkloadExcel(null, null, null, null, authentication))
                 .isInstanceOf(ForbiddenEditException.class)
-                .hasMessage("Only admin can export workload catalog");
+                .hasMessage("Only admin or editor can export workload catalog");
     }
 
     @Test
