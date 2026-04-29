@@ -105,8 +105,7 @@ class WorkloadControllerTest {
         // EDITOR теперь имеет доступ к экспорту workload — это прокидывается далее
         // в schedule-service, где LessonService так же пропускает ADMIN/EDITOR/editorAccess.
         given(authHeaderFactory.bearerHeader(any())).willReturn("Bearer editor-token");
-        given(scheduleClient.exportWorkload("Bearer editor-token", null, null, null,
-                java.time.LocalDate.of(1900, 1, 1), java.time.LocalDate.of(3000, 12, 31)))
+        given(scheduleClient.exportWorkload("Bearer editor-token", null, null, null, null, null))
                 .willReturn(new byte[]{1, 2, 3});
 
         mockMvc.perform(get("/api/workload/export")
@@ -120,14 +119,21 @@ class WorkloadControllerTest {
     }
 
     @Test
-    void instructorCannotExportWorkloadCsv() throws Exception {
+    void instructorCanExportWorkloadCsv() throws Exception {
+        given(authHeaderFactory.bearerHeader(any())).willReturn("Bearer instructor-token");
+        given(scheduleClient.exportWorkload("Bearer instructor-token", null, null, null, null, null))
+                .willReturn(new byte[]{4, 5, 6});
+
         mockMvc.perform(get("/api/workload/export")
                         .with(jwt()
                                 .jwt(jwt -> jwt
-                                        .tokenValue("test-token")
+                                        .tokenValue("instructor-token")
                                         .subject("instructor")
                                         .claim("roles", List.of("INSTRUCTOR")))
                                 .authorities(new SimpleGrantedAuthority("ROLE_INSTRUCTOR"))))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes(new byte[]{4, 5, 6}));
+
+        verify(scheduleClient).exportWorkload("Bearer instructor-token", null, null, null, null, null);
     }
 }
