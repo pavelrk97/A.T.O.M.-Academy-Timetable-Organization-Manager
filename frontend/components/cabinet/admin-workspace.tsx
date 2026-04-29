@@ -176,14 +176,16 @@ export function AdminWorkspace({
           />
         </OpsSection>
 
-        <OpsSection
-          value="auto-import"
-          icon={<Timer className="h-5 w-5 text-primary" />}
-          title="Автоимпорт CSV"
-          subtitle="Расписание, по которому планировщик подтягивает CSV из источника."
-        >
-          <AutoImportCard onImported={onRefresh} />
-        </OpsSection>
+        {currentUser.role === 'ADMIN' ? (
+          <OpsSection
+            value="auto-import"
+            icon={<Timer className="h-5 w-5 text-primary" />}
+            title="Автоимпорт CSV"
+            subtitle="Расписание, по которому планировщик подтягивает CSV из источника."
+          >
+            <AutoImportCard onImported={onRefresh} />
+          </OpsSection>
+        ) : null}
 
         {canManageUsers ? (
           <OpsSection
