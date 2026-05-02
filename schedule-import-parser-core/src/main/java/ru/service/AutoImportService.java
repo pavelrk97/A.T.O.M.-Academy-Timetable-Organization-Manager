@@ -99,6 +99,11 @@ public class AutoImportService {
         String url = settings.getSourceUrl();
         try {
             byte[] csvBytes = downloadCsv(url);
+            // Диагностика: логируем размер и первые две строки CSV. Помогает увидеть,
+            // если Google отдаёт CSV с другой структурой/локалью, чем ожидает парсер
+            // (напр. шапка с месяцем "янв." вместо "1.янв").
+            log.info("Auto-import: downloaded CSV ({} bytes), preview: {}",
+                    csvBytes.length, previewCsvHead(csvBytes));
             int importedGroups;
             try (ByteArrayInputStream stream = new ByteArrayInputStream(csvBytes)) {
                 importedGroups = csvImportService.importFromCsv(stream);
@@ -314,6 +319,26 @@ public class AutoImportService {
         }
         Matcher gidMatcher = GID_PATTERN.matcher(value);
         return gidMatcher.find() ? gidMatcher.group(1) : null;
+    }
+
+    /**
+     * Возвращает первые две строки CSV для диагностики (заголовки + датная шапка).
+     * Перевод строк превращается в '\n', чтобы строка влезла в один лог-эвент.
+     */
+    private static String previewCsvHead(byte[] body) {
+        if (body == null || body.length == 0) {
+            return "<empty>";
+        }
+        int previewLen = Math.min(body.length, 500);
+        String head = new String(body, 0, previewLen, StandardCharsets.UTF_8);
+        // Берём максимум первые две строки, чтобы не засирать лог.
+        String[] lines = head.split("\\r?\\n", 3);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < Math.min(lines.length, 2); i++) {
+            if (i > 0) sb.append("\\n");
+            sb.append(lines[i]);
+        }
+        return sb.toString();
     }
 
     private static String buildErrorMessage(Exception cause) {

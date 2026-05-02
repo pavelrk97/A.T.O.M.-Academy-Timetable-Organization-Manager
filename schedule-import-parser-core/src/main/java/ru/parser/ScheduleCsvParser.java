@@ -95,8 +95,23 @@ public class ScheduleCsvParser {
                     continue;
                 }
 
+                LocalDate date;
+                try {
+                    date = parseDate(datesRow[c]);
+                } catch (RuntimeException ex) {
+                    // Если в шапке столбца не настоящая дата (напр. «янв.» — заголовок месяца
+                    // из Google Sheets), пропускаем колонку, а не валим весь импорт. Иначе одна
+                    // мусорная ячейка ломает скачивание всего расписания.
+                    log.warn("Skipping CSV column with unparseable date header: group={}, column={}, header='{}', cell preview={}",
+                            group.getCode(),
+                            c,
+                            datesRow[c],
+                            preview(row[c]));
+                    continue;
+                }
+
                 Day day = new Day();
-                day.setDate(parseDate(datesRow[c]));
+                day.setDate(date);
                 if (activeCourseCode != null) {
                     day.getMeta().put("courseCode", activeCourseCode);
                 }
