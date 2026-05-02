@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import ru.client.ScheduleClient;
 import ru.config.SecurityConfig;
 import ru.dto.AutoImportSettingsDto;
+import ru.dto.AutoImportSettingsUpdateRequest;
 import ru.security.DownstreamAuthHeaderFactory;
 
 import java.util.List;
@@ -40,7 +41,28 @@ class AutoImportControllerSecurityTest {
     private DownstreamAuthHeaderFactory authHeaderFactory;
 
     @Test
-    void editorCannotRunAutoImport() throws Exception {
+    void updateSettings_isForbiddenForEditor() throws Exception {
+        mockMvc.perform(put("/api/auto-import/settings")
+                        .with(jwt()
+                                .jwt(jwt -> jwt
+                                        .tokenValue("editor-token")
+                                        .subject("editor")
+                                        .claim("roles", List.of("EDITOR")))
+                                .authorities(new SimpleGrantedAuthority("ROLE_EDITOR")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "enabled": true,
+                                  "sourceUrl": "https://docs.google.com/spreadsheets/d/sheet_123-ABC/edit"
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+
+        verify(scheduleClient, never()).updateAutoImportSettings(any(), any(AutoImportSettingsUpdateRequest.class));
+    }
+
+    @Test
+    void runNow_isForbiddenForEditor() throws Exception {
         mockMvc.perform(post("/api/auto-import/run")
                         .with(jwt()
                                 .jwt(jwt -> jwt
@@ -54,31 +76,42 @@ class AutoImportControllerSecurityTest {
     }
 
     @Test
-    void editorCannotUpdateAutoImportSettings() throws Exception {
+    void updateSettings_isAllowedForAdmin() throws Exception {
+        given(authHeaderFactory.bearerHeader(any())).willReturn("Bearer admin-token");
+        given(scheduleClient.updateAutoImportSettings(any(), any(AutoImportSettingsUpdateRequest.class)))
+                .willReturn(AutoImportSettingsDto.builder()
+                        .enabled(true)
+                        .sourceUrl("https://docs.google.com/spreadsheets/d/sheet_123-ABC/edit")
+                        .updatedBy("admin")
+                        .build());
+
         mockMvc.perform(put("/api/auto-import/settings")
                         .with(jwt()
                                 .jwt(jwt -> jwt
-                                        .tokenValue("editor-token")
-                                        .subject("editor")
-                                        .claim("roles", List.of("EDITOR")))
-                                .authorities(new SimpleGrantedAuthority("ROLE_EDITOR")))
+                                        .tokenValue("admin-token")
+                                        .subject("admin")
+                                        .claim("roles", List.of("ADMIN")))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "enabled": true,
-                                  "sourceUrl": "https://example.test/schedule.csv"
+                                  "sourceUrl": "https://docs.google.com/spreadsheets/d/sheet_123-ABC/edit"
                                 }
                                 """))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
 
-        verify(scheduleClient, never()).updateAutoImportSettings(any(), any());
+        verify(scheduleClient).updateAutoImportSettings(any(), any(AutoImportSettingsUpdateRequest.class));
     }
 
     @Test
-    void adminCanRunAutoImport() throws Exception {
+    void runNow_isAllowedForAdmin() throws Exception {
         given(authHeaderFactory.bearerHeader(any())).willReturn("Bearer admin-token");
         given(scheduleClient.runAutoImport("Bearer admin-token"))
-                .willReturn(AutoImportSettingsDto.builder().enabled(true).lastStatus("OK").build());
+                .willReturn(AutoImportSettingsDto.builder()
+                        .enabled(true)
+                        .updatedBy("admin")
+                        .build());
 
         mockMvc.perform(post("/api/auto-import/run")
                         .with(jwt()

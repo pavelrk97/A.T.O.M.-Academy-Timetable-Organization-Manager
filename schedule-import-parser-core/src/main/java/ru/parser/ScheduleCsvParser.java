@@ -3,6 +3,7 @@ package ru.parser;
 import com.opencsv.CSVReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.exception.ScheduleParseException;
 import ru.model.Day;
 import ru.model.Group;
 import ru.model.Lesson;
@@ -75,6 +76,17 @@ public class ScheduleCsvParser {
         if (rows.size() < 2) return Collections.emptyList();
 
         String[] datesRow = rows.get(1);
+        // Sanity-check: в правильном CSV расписания во второй строке лежат даты вида "1.янв.".
+        // Если ни одна ячейка датного ряда не разбирается как дата — это сводная вкладка
+        // (нагрузка по месяцам) или другая «не та» страница. Тихо импортировать пустоту нельзя:
+        // пользователь забудет добавить gid в URL и думает, что всё ОК.
+        if (!hasAnyParseableDate(datesRow)) {
+            throw new ScheduleParseException(
+                    "CSV не содержит ни одной валидной даты в строке заголовков. "
+                            + "Проверь, что URL ведёт на вкладку с расписанием (нужен параметр gid в URL — "
+                            + "скопируй ссылку из адресной строки браузера, ссылка из «Поделиться» указывает "
+                            + "на первую вкладку).");
+        }
         List<Group> result = new ArrayList<>();
         String activeCourseCode = null;
 
@@ -95,8 +107,23 @@ public class ScheduleCsvParser {
                     continue;
                 }
 
+                LocalDate date;
+                try {
+                    date = parseDate(datesRow[c]);
+                } catch (RuntimeException ex) {
+                    // Если в шапке столбца не настоящая дата (напр. «янв.» — заголовок месяца
+                    // из Google Sheets), пропускаем колонку, а не валим весь импорт. Иначе одна
+                    // мусорная ячейка ломает скачивание всего расписания.
+                    log.warn("Skipping CSV column with unparseable date header: group={}, column={}, header='{}', cell preview={}",
+                            group.getCode(),
+                            c,
+                            datesRow[c],
+                            preview(row[c]));
+                    continue;
+                }
+
                 Day day = new Day();
-                day.setDate(parseDate(datesRow[c]));
+                day.setDate(date);
                 if (activeCourseCode != null) {
                     day.getMeta().put("courseCode", activeCourseCode);
                 }
@@ -311,6 +338,26 @@ public class ScheduleCsvParser {
 
     private static LocalDate parseDate(String s) {
         return DateParser.parse(s);
+    }
+
+    /**
+     * True если в строке-заголовке дат есть хотя бы одна ячейка, которую
+     * {@link DateParser#parse} распознаёт как дату. Используется как ранний
+     * sanity-check, чтобы не допустить «успешный» импорт сводной вкладки или
+     * любого другого CSV без дат.
+     */
+    private static boolean hasAnyParseableDate(String[] datesRow) {
+        if (datesRow == null) return false;
+        for (String cell : datesRow) {
+            if (cell == null || cell.isBlank()) continue;
+            try {
+                DateParser.parse(cell);
+                return true;
+            } catch (RuntimeException ignored) {
+                // ячейка не дата — пробуем следующую
+            }
+        }
+        return false;
     }
 
     private static String preview(String cell) {

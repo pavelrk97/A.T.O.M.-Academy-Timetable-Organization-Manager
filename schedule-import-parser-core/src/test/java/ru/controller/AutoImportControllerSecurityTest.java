@@ -7,9 +7,11 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.config.SecurityConfig;
 import ru.dto.AutoImportSettingsDto;
+import ru.dto.AutoImportSettingsUpdateRequest;
 import ru.service.AutoImportService;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -23,6 +25,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(AutoImportController.class)
 @Import(SecurityConfig.class)
+@TestPropertySource(properties = {
+        "security.jwt.secret=test-jwt-secret-test-jwt-secret-123456",
+        "internal.security.api-key=test-internal-api-key"
+})
 class AutoImportControllerSecurityTest {
 
     @Autowired
@@ -33,7 +39,23 @@ class AutoImportControllerSecurityTest {
 
     @Test
     @WithMockUser(username = "editor", roles = "EDITOR")
-    void editorCannotRunAutoImport() throws Exception {
+    void updateSettings_isForbiddenForEditor() throws Exception {
+        mockMvc.perform(put("/api/auto-import/settings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "enabled": true,
+                                  "sourceUrl": "https://docs.google.com/spreadsheets/d/sheet_123-ABC/edit"
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+
+        verify(autoImportService, never()).updateSettings(any(AutoImportSettingsUpdateRequest.class), any());
+    }
+
+    @Test
+    @WithMockUser(username = "editor", roles = "EDITOR")
+    void runNow_isForbiddenForEditor() throws Exception {
         mockMvc.perform(post("/api/auto-import/run"))
                 .andExpect(status().isForbidden());
 
@@ -41,49 +63,40 @@ class AutoImportControllerSecurityTest {
     }
 
     @Test
-    @WithMockUser(username = "editor", roles = "EDITOR")
-    void editorCannotUpdateAutoImportSettings() throws Exception {
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void updateSettings_isAllowedForAdmin() throws Exception {
+        given(autoImportService.updateSettings(any(AutoImportSettingsUpdateRequest.class), eq("admin")))
+                .willReturn(AutoImportSettingsDto.builder()
+                        .enabled(true)
+                        .sourceUrl("https://docs.google.com/spreadsheets/d/sheet_123-ABC/edit")
+                        .updatedBy("admin")
+                        .build());
+
         mockMvc.perform(put("/api/auto-import/settings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "enabled": true,
-                                  "sourceUrl": "https://example.test/schedule.csv"
+                                  "sourceUrl": "https://docs.google.com/spreadsheets/d/sheet_123-ABC/edit"
                                 }
                                 """))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
 
-        verify(autoImportService, never()).updateSettings(any(), any());
+        verify(autoImportService).updateSettings(any(AutoImportSettingsUpdateRequest.class), eq("admin"));
     }
 
     @Test
     @WithMockUser(username = "admin", roles = "ADMIN")
-    void adminCanRunAutoImport() throws Exception {
+    void runNow_isAllowedForAdmin() throws Exception {
         given(autoImportService.runImport("admin"))
-                .willReturn(AutoImportSettingsDto.builder().enabled(true).lastStatus("OK").build());
+                .willReturn(AutoImportSettingsDto.builder()
+                        .enabled(true)
+                        .updatedBy("admin")
+                        .build());
 
         mockMvc.perform(post("/api/auto-import/run"))
                 .andExpect(status().isOk());
 
         verify(autoImportService).runImport("admin");
-    }
-
-    @Test
-    @WithMockUser(username = "admin", roles = "ADMIN")
-    void adminCanUpdateAutoImportSettings() throws Exception {
-        given(autoImportService.updateSettings(any(), eq("admin")))
-                .willReturn(AutoImportSettingsDto.builder().enabled(true).build());
-
-        mockMvc.perform(put("/api/auto-import/settings")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "enabled": true,
-                                  "sourceUrl": "https://example.test/schedule.csv"
-                                }
-                                """))
-                .andExpect(status().isOk());
-
-        verify(autoImportService).updateSettings(any(), eq("admin"));
     }
 }

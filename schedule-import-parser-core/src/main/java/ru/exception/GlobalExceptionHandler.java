@@ -51,6 +51,13 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "Validation error", message);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<?> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        log.warn("Request failed with 400: method={}, path={}, message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, "Validation error", ex.getMessage());
+    }
+
     @ExceptionHandler(ScheduleParseException.class)
     public ResponseEntity<?> handleScheduleParseException(ScheduleParseException ex, HttpServletRequest request) {
         log.warn("Request failed with schedule parse error: method={}, path={}, message={}",
