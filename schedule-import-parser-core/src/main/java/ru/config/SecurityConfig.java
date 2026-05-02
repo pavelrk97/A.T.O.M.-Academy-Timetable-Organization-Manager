@@ -45,7 +45,11 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/internal/import/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/workload/export").hasRole("ADMIN")
+                        // Синхронизировано с api-gateway: экспорт нагрузки доступен ADMIN и EDITOR.
+                        // Если оставить ADMIN-only здесь, EDITOR проходит через gateway, но получает
+                        // 403 от downstream — это рассинхрон, который проявляется как «у меня
+                        // в UI кнопка есть, а скачать не получается».
+                        .requestMatchers(HttpMethod.GET, "/api/workload/export").hasAnyRole("ADMIN", "EDITOR")
                         .requestMatchers(HttpMethod.GET, "/api/groups/**", "/api/lessons/**", "/api/workload/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/groups/**", "/api/lessons/**").hasAnyRole("ADMIN", "EDITOR")
                         .requestMatchers(HttpMethod.PUT, "/api/groups/**", "/api/lessons/**").hasAnyRole("ADMIN", "EDITOR")
