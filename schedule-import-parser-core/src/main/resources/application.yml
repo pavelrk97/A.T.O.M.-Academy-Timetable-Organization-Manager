@@ -49,6 +49,12 @@ spring:
         format_sql: true
         jdbc:
           time_zone: UTC
+          # Группируем INSERT'ы по 50 — иначе при импорте CSV (десятки тысяч
+          # lessons + lesson_instructors) каждый INSERT идёт отдельным roundtrip.
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
 
   servlet:
     multipart:
@@ -81,6 +87,12 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         jdbc:
           time_zone: UTC
+          # См. комментарий в dev-профиле — без batch_size импорт CSV в десятки
+          # тысяч строк делает столько же roundtrip'ов к Postgres.
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
 
   servlet:
     multipart:

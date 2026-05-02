@@ -11,6 +11,7 @@ import ru.model.Lesson;
 import ru.model.User;
 import ru.parser.ScheduleCsvParser;
 import ru.repository.GroupRepository;
+import ru.repository.UserRepository;
 
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -32,17 +33,20 @@ public class CsvImportService {
 
     private final GroupRepository groupRepository;
     private final UserService userService;
+    private final UserRepository userRepository;
     private final CsvImportArchiveService csvImportArchiveService;
     private final InstructorIdentitySyncService instructorIdentitySyncService;
     private final EntityManager entityManager;
 
     public CsvImportService(GroupRepository groupRepository,
                             UserService userService,
+                            UserRepository userRepository,
                             CsvImportArchiveService csvImportArchiveService,
                             InstructorIdentitySyncService instructorIdentitySyncService,
                             EntityManager entityManager) {
         this.groupRepository = groupRepository;
         this.userService = userService;
+        this.userRepository = userRepository;
         this.csvImportArchiveService = csvImportArchiveService;
         this.instructorIdentitySyncService = instructorIdentitySyncService;
         this.entityManager = entityManager;
@@ -81,14 +85,57 @@ public class CsvImportService {
     @Transactional
     public int importGroups(List<Group> groups) {
         int imported = 0;
-        Map<String, User> instructorCache = new HashMap<>();
-        log.info("Importing group batch: groups={}", groups.size());
+        // Pre-load всех потенциальных инструкторов одним SELECT'ом и складываем в кеш
+        // по lower(fullName). Раньше для каждого имени делался отдельный запрос
+        // через findOrCreateInstructor → findAllByFullNameIgnoreCase, и при ~100
+        // инструкторах это было ~100 round-trip'ов. Теперь — один.
+        Map<String, User> instructorCache = preloadInstructorCache();
+        log.info("Importing group batch: groups={}, preloadedInstructors={}",
+                groups.size(), instructorCache.size());
         for (Group importedGroup : groups) {
             upsertGroup(importedGroup, instructorCache);
             imported++;
         }
         log.info("Group batch imported: groups={}, instructorCacheSize={}", imported, instructorCache.size());
         return imported;
+    }
+
+    /**
+     * Возвращает map &lt;lower-case fullName&gt; → лучший кандидат на инструктора.
+     * Один SELECT по всем canTeach=true пользователям заменяет N+1 запрос
+     * findAllByFullNameIgnoreCase для каждого имени из CSV. При множественных
+     * совпадениях по ФИО берётся тот же «лучший» кандидат, как и в
+     * UserService.pickBestInstructorMatch — активный, INSTRUCTOR, не imported-*.
+     */
+    private Map<String, User> preloadInstructorCache() {
+        Map<String, User> cache = new HashMap<>();
+        for (User user : userRepository.findAllByCanTeachTrueOrderByFullNameAsc()) {
+            String fullName = user.getFullName();
+            if (!userService.isMeaningfulInstructorName(fullName)) {
+                continue;
+            }
+            String key = fullName.trim().toLowerCase(Locale.ROOT);
+            // Если по этому ФИО уже есть запись, оставляем «лучшего»: активный >
+            // INSTRUCTOR > canTeach > не imported-*. Чтобы не зависеть от UserService
+            // (его pickBestInstructorMatch private), повторим логику простым
+            // компаратором.
+            User existing = cache.get(key);
+            if (existing == null || compareInstructors(user, existing) > 0) {
+                cache.put(key, user);
+            }
+        }
+        return cache;
+    }
+
+    private int compareInstructors(User a, User b) {
+        int byActive = Boolean.compare(a.isActive(), b.isActive());
+        if (byActive != 0) return byActive;
+        int byCanTeach = Boolean.compare(a.isCanTeach(), b.isCanTeach());
+        if (byCanTeach != 0) return byCanTeach;
+        boolean aImported = a.getUsername() != null && a.getUsername().startsWith("imported-");
+        boolean bImported = b.getUsername() != null && b.getUsername().startsWith("imported-");
+        // не imported лучше imported
+        return Boolean.compare(!aImported, !bImported);
     }
 
     private void clearScheduleData() {
@@ -150,11 +197,15 @@ public class CsvImportService {
         }
 
         groupRepository.save(group);
-        log.info("Group {}: code={}, days={}, lessons={}",
-                existed ? "updated" : "created",
-                group.getCode(),
-                group.getDays().size(),
-                group.getDays().stream().mapToInt(day -> day.getLessons().size()).sum());
+        // На крупных импортах (50+ групп) этот INFO-лог замедлял работу и забивал
+        // вывод. Переводим в DEBUG — суммарную статистику оставляем в importGroups.
+        if (log.isDebugEnabled()) {
+            log.debug("Group {}: code={}, days={}, lessons={}",
+                    existed ? "updated" : "created",
+                    group.getCode(),
+                    group.getDays().size(),
+                    group.getDays().stream().mapToInt(day -> day.getLessons().size()).sum());
+        }
     }
 
     private List<String> resolveLecturerNames(Lesson importedLesson) {
@@ -172,10 +223,16 @@ public class CsvImportService {
         Map<String, User> uniqueInstructors = new LinkedHashMap<>();
         for (String name : resolveLecturerNames(importedLesson)) {
             String key = name.trim().toLowerCase(Locale.ROOT);
-            uniqueInstructors.computeIfAbsent(
-                    key,
-                    ignored -> instructorCache.computeIfAbsent(key, anotherIgnored -> userService.findOrCreateInstructor(name))
-            );
+            // Сначала смотрим в пред-загруженный кеш (preloadInstructorCache).
+            // Если нет — это новый инструктор: создаём через findOrCreateInstructor
+            // (он сам сохранит и вернёт persisted entity), и кладём в кеш, чтобы
+            // повторные встречи того же имени в других занятиях брались отсюда же.
+            User instructor = instructorCache.get(key);
+            if (instructor == null) {
+                instructor = userService.findOrCreateInstructor(name);
+                instructorCache.put(key, instructor);
+            }
+            uniqueInstructors.putIfAbsent(key, instructor);
         }
         return new ArrayList<>(uniqueInstructors.values());
     }
