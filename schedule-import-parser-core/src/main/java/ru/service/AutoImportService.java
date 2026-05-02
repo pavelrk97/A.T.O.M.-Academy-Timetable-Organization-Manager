@@ -38,11 +38,16 @@ public class AutoImportService {
     private static final ZoneId MOSCOW_ZONE = ZoneId.of("Europe/Moscow");
     private static final List<LocalTime> RUN_TIMES = List.of(LocalTime.of(13, 0), LocalTime.of(23, 0));
     private static final String GOOGLE_SHEETS_HOST = "docs.google.com";
+    // Google для скачивания экспортированного CSV редиректит на свой CDN
+    // (*.googleusercontent.com). Этот хост допустим только при следовании по
+    // редиректу — как «вход» (сохранение URL пользователем) он по-прежнему
+    // запрещён, иначе админ мог бы подсунуть произвольный googleusercontent URL.
+    private static final String GOOGLE_USER_CONTENT_SUFFIX = ".googleusercontent.com";
     private static final Pattern SHEET_PATH_PATTERN = Pattern.compile("^/spreadsheets/d/([a-zA-Z0-9_-]+)(?:/.*)?$");
     private static final Pattern GID_PATTERN = Pattern.compile("(?:^|&)gid=(\\d+)(?:&|$)");
     private static final Duration HTTP_CONNECT_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration HTTP_READ_TIMEOUT = Duration.ofSeconds(60);
-    private static final int MAX_REDIRECTS = 3;
+    private static final int MAX_REDIRECTS = 5;
 
     private final AutoImportSettingsRepository repository;
     private final CsvImportService csvImportService;
@@ -51,7 +56,10 @@ public class AutoImportService {
 
     public AutoImportService(AutoImportSettingsRepository repository,
                              CsvImportService csvImportService,
-                             @Value("${atom.auto-import.user-agent:ATOM-AutoImport/1.0}") String userAgent) {
+                             // Google любит «нормальные» User-Agent: с экзотическим UA он чаще отдаёт
+                             // редирект на login/throttle. Дефолт оставляем браузерный, но позволяем
+                             // переопределить через ENV, если понадобится.
+                             @Value("${atom.auto-import.user-agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36}") String userAgent) {
         this.repository = repository;
         this.csvImportService = csvImportService;
         this.userAgent = userAgent;
@@ -166,8 +174,10 @@ public class AutoImportService {
 
     private byte[] downloadCsv(String sourceUrl) throws Exception {
         URI currentUri = buildExportUri(sourceUrl);
+        // Первый hop — это построенный нами URL https://docs.google.com/.../export.
+        // Проверяем строгой валидацией: только docs.google.com.
+        validateGoogleSheetsUri(currentUri);
         for (int redirect = 0; redirect <= MAX_REDIRECTS; redirect++) {
-            validateGoogleSheetsUri(currentUri);
             log.info("Auto-import: downloading CSV from {}", currentUri);
             HttpRequest request = HttpRequest.newBuilder(currentUri)
                     .timeout(HTTP_READ_TIMEOUT)
@@ -232,11 +242,53 @@ public class AutoImportService {
         String location = response.headers().firstValue("Location")
                 .orElseThrow(() -> new IllegalStateException("Redirect response without Location header"));
         URI nextUri = currentUri.resolve(location);
-        validateGoogleSheetsUri(nextUri);
+        validateRedirectUri(nextUri);
         return nextUri;
     }
 
-    private static String validateGoogleSheetsUri(URI uri) {
+    /**
+     * Жёсткая валидация для пользовательского ввода и для первого hop'а:
+     * только https://docs.google.com/spreadsheets/d/&lt;id&gt;[/...]
+     * Возвращает извлечённый sheet ID. Package-private для тестов.
+     */
+    static String validateGoogleSheetsUri(URI uri) {
+        validateCommonHardening(uri);
+        String host = uri.getHost();
+        if (!GOOGLE_SHEETS_HOST.equalsIgnoreCase(host)) {
+            throw new IllegalArgumentException("Auto-import source must be a docs.google.com Google Sheets URL");
+        }
+        String path = uri.getPath() == null ? "" : uri.getPath();
+        Matcher idMatcher = SHEET_PATH_PATTERN.matcher(path);
+        if (!idMatcher.matches()) {
+            throw new IllegalArgumentException("Auto-import source must point to a Google Sheets spreadsheet");
+        }
+        return idMatcher.group(1);
+    }
+
+    /**
+     * Мягче, чем {@link #validateGoogleSheetsUri}: разрешает редиректы на CDN
+     * Google (*.googleusercontent.com), куда docs.google.com отправляет за
+     * самим CSV. Остальные требования (https, без user-info, порт 443) — те же.
+     * Этот метод НЕ должен вызываться для пользовательского ввода — иначе
+     * админ сможет сохранить произвольный googleusercontent URL.
+     * Package-private для тестов.
+     */
+    static void validateRedirectUri(URI uri) {
+        validateCommonHardening(uri);
+        String host = uri.getHost();
+        if (host == null) {
+            throw new IllegalArgumentException("Redirect target has no host");
+        }
+        String lowerHost = host.toLowerCase();
+        boolean allowed = GOOGLE_SHEETS_HOST.equals(lowerHost)
+                || lowerHost.endsWith(GOOGLE_USER_CONTENT_SUFFIX);
+        if (!allowed) {
+            throw new IllegalArgumentException(
+                    "Redirect target host is not allowed: " + host);
+        }
+    }
+
+    private static void validateCommonHardening(URI uri) {
         if (uri == null) {
             throw new IllegalArgumentException("Source URL is required");
         }
@@ -249,16 +301,6 @@ public class AutoImportService {
         if (uri.getPort() != -1 && uri.getPort() != 443) {
             throw new IllegalArgumentException("Auto-import source must use the default HTTPS port");
         }
-        String host = uri.getHost();
-        if (!GOOGLE_SHEETS_HOST.equalsIgnoreCase(host)) {
-            throw new IllegalArgumentException("Auto-import source must be a docs.google.com Google Sheets URL");
-        }
-        String path = uri.getPath() == null ? "" : uri.getPath();
-        Matcher idMatcher = SHEET_PATH_PATTERN.matcher(path);
-        if (!idMatcher.matches()) {
-            throw new IllegalArgumentException("Auto-import source must point to a Google Sheets spreadsheet");
-        }
-        return idMatcher.group(1);
     }
 
     private static String extractGid(URI sourceUri) {
