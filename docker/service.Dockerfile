@@ -11,7 +11,7 @@ COPY import-service import-service
 COPY schedule-api-service schedule-api-service
 COPY schedule-import-parser-core schedule-import-parser-core
 
-RUN mvn -B -pl ${MODULE_PATH} -am clean package -DskipTests
+RUN mvn -B -pl ${MODULE_PATH} -am clean package -Dmaven.test.skip=true
 RUN find "/build/${MODULE_PATH}/target" -maxdepth 1 -name "${MODULE_ARTIFACT}-*.jar" ! -name "*original*.jar" -exec cp {} /tmp/app.jar \;
 
 FROM eclipse-temurin:21-jre-alpine
