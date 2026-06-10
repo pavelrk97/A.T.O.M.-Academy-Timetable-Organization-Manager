@@ -4,14 +4,15 @@ import Link from 'next/link'
 import { BellRing, CalendarRange, ChevronRight, Info, NotebookTabs } from 'lucide-react'
 import type { Notification } from '@/lib/types'
 import { Button } from '@/components/ui/button'
+import { useI18n } from '@/lib/i18n'
 
 interface NotificationsFeedProps {
   notifications: Notification[]
   maxItems?: number
 }
 
-function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('ru-RU', {
+function formatDate(date: string, locale: string) {
+  return new Date(date).toLocaleDateString(locale, {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
@@ -30,15 +31,17 @@ export function NotificationsFeed({
   notifications,
   maxItems = 10,
 }: NotificationsFeedProps) {
+  const { t, lang } = useI18n()
+  const dateLocale = lang === 'en' ? 'en-US' : 'ru-RU'
   const items = notifications.slice(0, maxItems)
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-950">Уведомления</h3>
+          <h3 className="text-lg font-semibold text-slate-950">{t('header.notifications')}</h3>
           <p className="text-sm text-muted-foreground">
-            Пока это коллекция ссылок на дни с занятиями. Позже сюда можно добавить почту и пуши.
+            {t('notif.subtitle')}
           </p>
         </div>
         <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
@@ -49,10 +52,9 @@ export function NotificationsFeed({
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
           <BellRing className="mb-3 h-8 w-8 text-slate-300" />
-          <div className="text-sm font-medium text-slate-950">Уведомлений нет</div>
+          <div className="text-sm font-medium text-slate-950">{t('notif.empty')}</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Как только у инструктора появятся занятия в выбранном периоде, здесь появятся ссылки
-            на соответствующие дни.
+            {t('notif.emptyBody')}
           </div>
         </div>
       ) : (
@@ -70,7 +72,7 @@ export function NotificationsFeed({
                     </span>
                     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                       <CalendarRange className="h-3.5 w-3.5" />
-                      {formatDate(notification.date)}
+                      {formatDate(notification.date, dateLocale)}
                     </span>
                   </div>
 
@@ -79,14 +81,14 @@ export function NotificationsFeed({
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Link href={buildNotificationHref(notification)}>
                       <Button variant="outline" size="sm">
-                        Открыть день в расписании
+                        {t('notif.openInSchedule')}
                         <ChevronRight className="ml-2 h-4 w-4" />
                       </Button>
                     </Link>
                     <Link href={`/cabinet?tab=schedule&from=${notification.date}&to=${notification.date}`}>
                       <Button variant="ghost" size="sm">
                         <NotebookTabs className="mr-2 h-4 w-4" />
-                        Открыть в ЛК
+                        {t('notif.openInCabinet')}
                       </Button>
                     </Link>
                   </div>

@@ -8,10 +8,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n'
 
 export default function LoginPage() {
   const router = useRouter()
   const { login, isLoading } = useAuth()
+  const { t } = useI18n()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -26,7 +28,7 @@ export default function LoginPage() {
     if (success) {
       router.push('/cabinet')
     } else {
-      setError('Проверь логин и пароль. Backend не выдал токен доступа.')
+      setError(t('login.error'))
     }
 
     setSubmitting(false)
@@ -40,34 +42,34 @@ export default function LoginPage() {
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
               <span className="text-lg font-bold">A</span>
             </div>
-            <h1 className="mt-6 text-3xl font-semibold text-slate-950">Вход в A.T.O.M.</h1>
+            <h1 className="mt-6 text-3xl font-semibold text-slate-950">{t('login.title')}</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Используй свою учётную запись, чтобы открыть{' '}
-              <span className="font-medium">Academic Timetable Organization Manager</span>. Вход
-              выполняется через <code>POST /api/auth/login</code>, а защищённые запросы идут с
-              bearer-токеном доступа.
+              {t('login.introBefore')}{' '}
+              <span className="font-medium">Academic Timetable Organization Manager</span>
+              {t('login.introMid')} <code>POST /api/auth/login</code>
+              {t('login.introAfter')}
             </p>
 
             <form onSubmit={submit} className="mt-8 space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username">Логин</Label>
+                <Label htmlFor="username">{t('login.username')}</Label>
                 <Input
                   id="username"
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
                   autoComplete="username"
-                  placeholder="Введите логин"
+                  placeholder={t('login.usernamePlaceholder')}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Пароль</Label>
+                <Label htmlFor="password">{t('login.password')}</Label>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="current-password"
-                  placeholder="Введите пароль"
+                  placeholder={t('login.passwordPlaceholder')}
                 />
               </div>
 
@@ -82,30 +84,28 @@ export default function LoginPage() {
                 {submitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Вхожу...
+                    {t('login.signingIn')}
                   </>
                 ) : (
                   <>
                     <LogIn className="mr-2 h-4 w-4" />
-                    Войти
+                    {t('header.login')}
                   </>
                 )}
               </Button>
             </form>
 
             <div className="mt-6 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-600">
-              <div className="font-medium text-slate-950">Управление доступом</div>
+              <div className="font-medium text-slate-950">{t('login.accessTitle')}</div>
               <div className="mt-2 text-xs leading-5 text-muted-foreground">
-                Учётные записи, роли и временные пароли управляются через backend и
-                административные сценарии. Экран не показывает служебные подсказки и личные
-                данные для входа.
+                {t('login.accessBody')}
               </div>
             </div>
 
             <div className="mt-6 text-sm text-muted-foreground">
-              Или открой{' '}
+              {t('login.orOpen')}{' '}
               <Link href="/schedule" className="font-medium text-primary hover:underline">
-                публичное расписание
+                {t('login.publicSchedule')}
               </Link>
               .
             </div>
@@ -114,32 +114,27 @@ export default function LoginPage() {
           <section className="rounded-[28px] border border-border bg-gradient-to-br from-primary/8 via-white to-sky-50 p-8">
             <div className="max-w-xl">
               <div className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                кабинет + расписание
+                {t('login.badge')}
               </div>
               <h2 className="mt-6 text-4xl font-semibold tracking-tight text-slate-950">
-                Один вход,
+                {t('login.heroTitle1')}
                 <br />
-                две рабочие зоны
+                {t('login.heroTitle2')}
               </h2>
               <p className="mt-4 text-lg leading-8 text-slate-600">
-                После входа открывается личный кабинет с профилем, расписанием, уведомлениями,
-                нагрузкой и ролевыми операциями. Публичная страница расписания остаётся отдельной
-                поверхностью только для чтения.
+                {t('login.heroText')}
               </p>
               <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                {[
-                  'Личное расписание и нагрузка',
-                  'Пароль и безопасность аккаунта',
-                  'Уведомления по дням',
-                  'Операции по роли пользователя',
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-border bg-white/80 px-4 py-4 text-sm text-slate-700 shadow-sm"
-                  >
-                    {item}
-                  </div>
-                ))}
+                {['login.feature1', 'login.feature2', 'login.feature3', 'login.feature4'].map(
+                  (key) => (
+                    <div
+                      key={key}
+                      className="rounded-2xl border border-border bg-white/80 px-4 py-4 text-sm text-slate-700 shadow-sm"
+                    >
+                      {t(key)}
+                    </div>
+                  )
+                )}
               </div>
             </div>
           </section>

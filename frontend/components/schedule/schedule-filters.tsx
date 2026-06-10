@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
+import { useI18n } from '@/lib/i18n'
 
 export interface ScheduleFilterValues {
   from: string
@@ -41,6 +42,8 @@ export function ScheduleFilters({
   showMyLessons = false,
   isAuthenticated = false,
 }: ScheduleFiltersProps) {
+  const { t } = useI18n()
+
   const setValue = <K extends keyof ScheduleFilterValues>(
     key: K,
     value: ScheduleFilterValues[K]
@@ -98,27 +101,27 @@ export function ScheduleFilters({
 
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => applyPreset('today')}>
-            Сегодня
+            {t('filters.today')}
           </Button>
           <Button variant="outline" size="sm" onClick={() => applyPreset('week')}>
-            7 дней
+            {t('filters.days7')}
           </Button>
           <Button variant="outline" size="sm" onClick={() => applyPreset('month')}>
-            30 дней
+            {t('filters.days30')}
           </Button>
         </div>
 
         <div className="grid flex-1 gap-3 md:grid-cols-[minmax(220px,320px)_minmax(220px,320px)] xl:max-w-3xl">
           <div className="space-y-1">
             <Label htmlFor="group-code" className="text-xs text-muted-foreground">
-              Группа
+              {t('lesson.group')}
             </Label>
             <Input
               id="group-code"
               list="group-code-options"
               value={values.groupCode}
               onChange={(event) => setValue('groupCode', event.target.value)}
-              placeholder="Например, гр.6 ()"
+              placeholder={t('filters.groupPlaceholder')}
               className="h-10"
             />
             <datalist id="group-code-options">
@@ -130,7 +133,7 @@ export function ScheduleFilters({
 
           <div className="space-y-1">
             <Label htmlFor="instructor-search" className="text-xs text-muted-foreground">
-              Преподаватель
+              {t('filters.instructor')}
             </Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -138,7 +141,7 @@ export function ScheduleFilters({
                 id="instructor-search"
                 value={values.instructorSearch}
                 onChange={(event) => setValue('instructorSearch', event.target.value)}
-                placeholder="Поиск по имени преподавателя"
+                placeholder={t('filters.instructorSearchPlaceholder')}
                 className="h-10 pl-9"
               />
             </div>
@@ -154,7 +157,7 @@ export function ScheduleFilters({
               />
               <span className="inline-flex items-center gap-2">
                 <UserRound className="h-4 w-4 text-primary" />
-                Только мои занятия
+                {t('filters.onlyMyLessons')}
               </span>
             </label>
           ) : null}
@@ -162,7 +165,7 @@ export function ScheduleFilters({
           {hasExtras ? (
             <Button variant="ghost" size="sm" onClick={resetFilters}>
               <X className="mr-1 h-4 w-4" />
-              Сбросить
+              {t('multiselect.reset')}
             </Button>
           ) : null}
 
@@ -170,37 +173,37 @@ export function ScheduleFilters({
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
                 <SlidersHorizontal className="mr-2 h-4 w-4" />
-                Фильтры
+                {t('filters.filters')}
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80 space-y-4">
               <div>
-                <h4 className="font-medium text-slate-950">Панель фильтров</h4>
+                <h4 className="font-medium text-slate-950">{t('filters.panelTitle')}</h4>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Рабочий диапазон можно держать до 100 дней, но на практике удобнее короче.
+                  {t('filters.panelDesc')}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Код группы</Label>
+                <Label className="text-xs text-muted-foreground">{t('lesson.groupCode')}</Label>
                 <Input
                   value={values.groupCode}
                   onChange={(event) => setValue('groupCode', event.target.value)}
-                  placeholder="гр.6 ()"
+                  placeholder={t('filters.groupShortPlaceholder')}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Поиск преподавателя</Label>
+                <Label className="text-xs text-muted-foreground">{t('filters.instructorSearchLabel')}</Label>
                 <Input
                   value={values.instructorSearch}
                   onChange={(event) => setValue('instructorSearch', event.target.value)}
-                  placeholder="Меняйло"
+                  placeholder={t('filters.instructorExample')}
                 />
               </div>
               <div className="flex justify-between">
                 <Button variant="ghost" size="sm" onClick={resetFilters}>
-                  Сбросить
+                  {t('multiselect.reset')}
                 </Button>
-                <Button size="sm">Готово</Button>
+                <Button size="sm">{t('filters.done')}</Button>
               </div>
             </PopoverContent>
           </Popover>

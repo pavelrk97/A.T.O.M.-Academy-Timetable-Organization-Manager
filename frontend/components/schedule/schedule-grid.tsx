@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, GraduationCap, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 import type { ScheduleGridData, ScheduleGridLessonCell } from '@/lib/types'
 import { limitGrid } from '@/lib/schedule'
 import { LessonCard } from '@/components/schedule/lesson-card'
@@ -34,12 +35,12 @@ interface ScheduleGridProps {
   zoom?: number
 }
 
-function formatDateLabel(date: string) {
+function formatDateLabel(date: string, locale: string) {
   const value = new Date(date)
   return {
-    day: value.toLocaleDateString('ru-RU', { day: '2-digit' }),
-    weekday: value.toLocaleDateString('ru-RU', { weekday: 'short' }),
-    month: value.toLocaleDateString('ru-RU', { month: 'short' }),
+    day: value.toLocaleDateString(locale, { day: '2-digit' }),
+    weekday: value.toLocaleDateString(locale, { weekday: 'short' }),
+    month: value.toLocaleDateString(locale, { month: 'short' }),
   }
 }
 
@@ -50,6 +51,8 @@ export function ScheduleGrid({
   compact = false,
   zoom = 100,
 }: ScheduleGridProps) {
+  const { t, lang } = useI18n()
+  const dateLocale = lang === 'en' ? 'en-US' : 'ru-RU'
   const viewportRef = useRef<HTMLDivElement>(null)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const { data: limitedData, meta } = limitGrid(data)
@@ -68,7 +71,7 @@ export function ScheduleGrid({
   if (!limitedData.groups.length || !limitedData.dates.length) {
     return (
       <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-border bg-white text-sm text-muted-foreground">
-        По выбранным фильтрам занятий нет.
+        {t('grid.noLessonsFilters')}
       </div>
     )
   }
@@ -77,10 +80,10 @@ export function ScheduleGrid({
     <div className="max-w-full overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
       <div className="flex items-center justify-between gap-4 border-b border-border bg-slate-50/80 px-4 py-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-950">Таблица расписания</h3>
+          <h3 className="text-sm font-semibold text-slate-950">{t('grid.tableTitle')}</h3>
           <p className="text-xs text-muted-foreground">
-            Показано {meta.shownGroups} из {meta.totalGroups} групп и {meta.shownDates} из{' '}
-            {meta.totalDates} дат.
+            {t('grid.showing')} {meta.shownGroups} {t('grid.of')} {meta.totalGroups} {t('grid.groupsWord')} {t('grid.and')} {meta.shownDates} {t('grid.of')}{' '}
+            {meta.totalDates} {t('grid.datesWord')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -102,13 +105,13 @@ export function ScheduleGrid({
         >
           <div className="sticky left-0 top-0 z-20 border-b border-r border-border bg-slate-100 px-2 py-3">
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-              Группа
+              {t('lesson.group')}
             </div>
-            <div className="mt-1 text-xs text-slate-700">Даты</div>
+            <div className="mt-1 text-xs text-slate-700">{t('grid.dates')}</div>
           </div>
 
           {limitedData.dates.map((date) => {
-            const label = formatDateLabel(date)
+            const label = formatDateLabel(date, dateLocale)
             return (
               <div
                 key={date}
@@ -157,6 +160,7 @@ function FragmentRow({
   onSelect: (date: string, lessons: ScheduleGridLessonCell[]) => void
   highlightInstructor: string
 }) {
+  const { t } = useI18n()
   return (
     <>
       <div
@@ -177,7 +181,7 @@ function FragmentRow({
             {group.course ? (
               <div className="inline-flex items-center gap-1">
                 <GraduationCap className="h-3 w-3 shrink-0" />
-                <span className="truncate">Курс {group.course}</span>
+                <span className="truncate">{t('lesson.course')} {group.course}</span>
               </div>
             ) : null}
           </div>
@@ -216,7 +220,7 @@ function FragmentRow({
                   isMobile ? 'min-h-[80px]' : 'min-h-[56px]'
                 )}
               >
-                Пусто
+                {t('lesson.empty')}
               </div>
             ) : (
               <div className="space-y-1.5">

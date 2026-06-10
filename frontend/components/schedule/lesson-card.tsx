@@ -2,6 +2,7 @@
 
 import { Clock3, UserRound } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 
 export type LessonCardType = 'LECTURE' | 'SELF_STUDY' | 'ASSESSMENT' | string | null | undefined
 
@@ -21,11 +22,11 @@ interface LessonCardProps {
   dense?: boolean
 }
 
-export function lessonTypeLabel(type?: LessonCardType): string {
-  if (type === 'LECTURE') return 'Лекция'
-  if (type === 'SELF_STUDY') return 'Самостоятельная'
-  if (type === 'ASSESSMENT') return 'Контроль'
-  return 'Занятие'
+export function lessonTypeLabel(type: LessonCardType, t: (key: string) => string): string {
+  if (type === 'LECTURE') return t('lesson.typeLecture')
+  if (type === 'SELF_STUDY') return t('lesson.typeSelfStudy')
+  if (type === 'ASSESSMENT') return t('lesson.typeAssessment')
+  return t('lesson.typeDefault')
 }
 
 export function lessonTypeBadgeClass(type?: LessonCardType): string {
@@ -36,6 +37,7 @@ export function lessonTypeBadgeClass(type?: LessonCardType): string {
 }
 
 export function LessonCard({ lesson, compact = false, dense = false }: LessonCardProps) {
+  const { t } = useI18n()
   const instructors = lesson.instructorNames || []
   const padding = dense ? 'px-2 py-1.5' : 'px-2 py-2'
 
@@ -58,7 +60,7 @@ export function LessonCard({ lesson, compact = false, dense = false }: LessonCar
             lessonTypeBadgeClass(lesson.type)
           )}
         >
-          {lessonTypeLabel(lesson.type)}
+          {lessonTypeLabel(lesson.type, t)}
         </span>
       </div>
 
@@ -68,12 +70,12 @@ export function LessonCard({ lesson, compact = false, dense = false }: LessonCar
           dense ? 'line-clamp-2' : 'line-clamp-3'
         )}
       >
-        {lesson.title || 'Без названия'}
+        {lesson.title || t('lesson.untitled')}
       </div>
 
       <div className="flex items-center gap-1 text-[11px] text-slate-600">
         <Clock3 className="h-3.5 w-3.5 shrink-0" />
-        <span className="tabular-nums">{lesson.durationHours} ч</span>
+        <span className="tabular-nums">{lesson.durationHours} {t('lesson.hoursH')}</span>
       </div>
 
       {!compact && instructors.length > 0 ? (

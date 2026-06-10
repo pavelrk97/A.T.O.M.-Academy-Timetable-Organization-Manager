@@ -33,6 +33,7 @@ import { ScheduleGrid } from '@/components/schedule/schedule-grid'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n'
 import {
   groupsApi,
   importApi,
@@ -87,39 +88,40 @@ function canUseOperations(user?: User | null) {
   return Boolean(user && (user.role === 'ADMIN' || user.role === 'EDITOR' || user.editorAccess))
 }
 
-function roleLabel(user?: User | null) {
+function roleLabel(user: User | null | undefined, t: (key: string) => string) {
   if (!user) {
     return ''
   }
-  if (user.role === 'ADMIN') return 'Администратор'
-  if (user.role === 'EDITOR') return 'Редактор'
-  if (user.editorAccess) return 'Инструктор / Редактор'
-  return 'Инструктор'
+  if (user.role === 'ADMIN') return t('role.admin')
+  if (user.role === 'EDITOR') return t('role.editor')
+  if (user.editorAccess) return t('role.instructorEditor')
+  return t('role.instructor')
 }
 
 function createTabItems(user?: User | null) {
-  const items: { id: CabinetTab; label: string; icon: ComponentType<{ className?: string }> }[] = [
-    { id: 'dashboard', label: 'Обзор', icon: LayoutDashboard },
-    { id: 'profile', label: 'Профиль', icon: UserRound },
-    { id: 'schedule', label: 'Моё расписание', icon: Rows3 },
-    { id: 'workload', label: 'Нагрузка', icon: Rows3 },
-    { id: 'notifications', label: 'Уведомления', icon: Bell },
-    { id: 'security', label: 'Безопасность', icon: LockKeyhole },
+  const items: { id: CabinetTab; labelKey: string; icon: ComponentType<{ className?: string }> }[] = [
+    { id: 'dashboard', labelKey: 'cabinet.tab.dashboard', icon: LayoutDashboard },
+    { id: 'profile', labelKey: 'cabinet.tab.profile', icon: UserRound },
+    { id: 'schedule', labelKey: 'cabinet.tab.schedule', icon: Rows3 },
+    { id: 'workload', labelKey: 'cabinet.tab.workload', icon: Rows3 },
+    { id: 'notifications', labelKey: 'cabinet.tab.notifications', icon: Bell },
+    { id: 'security', labelKey: 'cabinet.tab.security', icon: LockKeyhole },
   ]
 
   if (canUseOperations(user)) {
-    items.push({ id: 'admin', label: 'Операции', icon: FileCog })
+    items.push({ id: 'admin', labelKey: 'cabinet.tab.operations', icon: FileCog })
   }
 
   return items
 }
 
 function CabinetPageFallback() {
+  const { t } = useI18n()
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="inline-flex items-center gap-3 rounded-2xl border border-border bg-white px-5 py-4 text-sm text-muted-foreground shadow-sm">
         <Loader2 className="h-5 w-5 animate-spin text-primary" />
-        Загружаю личный кабинет...
+        {t('cabinet.loadingAccount')}
       </div>
     </div>
   )
@@ -135,6 +137,7 @@ function CabinetPageContent() {
     refreshUser,
     updateStoredPassword,
   } = useAuth()
+  const { t } = useI18n()
 
   const defaultRange = useMemo(() => createDefaultRange(), [])
   const urlTab = (searchParams.get('tab') as CabinetTab) || 'dashboard'
@@ -218,7 +221,7 @@ function CabinetPageContent() {
           setError(
             caught instanceof Error && caught.message
               ? caught.message
-              : 'Не удалось загрузить личный кабинет.'
+              : t('cabinet.errLoad')
           )
         }
       } finally {
@@ -283,7 +286,7 @@ function CabinetPageContent() {
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Не удалось загрузить полную сетку академии.'
+          : t('cabinet.errFullGrid')
       )
     } finally {
       setLoading(false)
@@ -317,7 +320,7 @@ function CabinetPageContent() {
       setError(
         reason instanceof Error && reason.message
           ? reason.message
-          : 'Не удалось загрузить данные операционного блока.'
+          : t('cabinet.errOps')
       )
     }
 
@@ -332,7 +335,7 @@ function CabinetPageContent() {
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Не удалось загрузить список инструкторов для нагрузки.'
+          : t('cabinet.errWorkloadList')
       )
     }
   }
@@ -409,7 +412,7 @@ function CabinetPageContent() {
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Не удалось выгрузить сводную нагрузку.'
+          : t('cabinet.errExport')
       )
     } finally {
       setWorkloadExporting(false)
@@ -432,11 +435,11 @@ function CabinetPageContent() {
               instructors={workloadInstructorOptions}
               selectedIds={workloadInstructorIds}
               onChange={setWorkloadInstructorIds}
-              placeholder="Все инструкторы (выбрать)"
+              placeholder={t('cabinet.allInstructorsSelect')}
               emptyHint={
                 adminLoading
-                  ? 'Загружаю список преподавателей…'
-                  : 'Нет инструкторов с canTeach=true.'
+                  ? t('cabinet.loadingInstructors')
+                  : t('cabinet.noCanTeach')
               }
             />
           </div>
@@ -447,7 +450,7 @@ function CabinetPageContent() {
             disabled={workloadExporting || !hasSelection}
           >
             <Download className="mr-2 h-4 w-4" />
-            {hasSelection ? `Выбранные (${workloadInstructorIds.length})` : 'Выбранные'}
+            {hasSelection ? `${t('cabinet.selected')} (${workloadInstructorIds.length})` : t('cabinet.selected')}
           </Button>
           <Button
             variant="outline"
@@ -456,7 +459,7 @@ function CabinetPageContent() {
             disabled={workloadExporting}
           >
             <Download className="mr-2 h-4 w-4" />
-            Все
+            {t('cabinet.all')}
           </Button>
         </div>
       </div>
@@ -512,12 +515,12 @@ function CabinetPageContent() {
           <div className="sticky top-24 space-y-4 rounded-[28px] border border-border bg-white p-5 shadow-sm">
             <div className="rounded-2xl bg-primary/8 p-4">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                Личный кабинет
+                {t('cabinet.sidebarTitle')}
               </div>
               <div className="mt-2 text-lg font-semibold text-slate-950">
                 {user.displayName || user.fullName || user.username}
               </div>
-              <div className="text-sm text-muted-foreground">{roleLabel(user)}</div>
+              <div className="text-sm text-muted-foreground">{roleLabel(user, t)}</div>
             </div>
 
             <nav className="space-y-1">
@@ -534,7 +537,7 @@ function CabinetPageContent() {
                   )}
                 >
                   <tab.icon className="h-4 w-4" />
-                  {tab.label}
+                  {t(tab.labelKey)}
                 </button>
               ))}
             </nav>
@@ -549,18 +552,16 @@ function CabinetPageContent() {
                   Cabinet / {activeTab}
                 </div>
                 <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-                  Рабочее пространство пользователя
+                  {t('cabinet.workspaceTitle')}
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Профиль, расписание, уведомления, безопасность и нагрузка собраны в одном месте.
-                  Администратор дополнительно получает импорт, управление пользователями и полную
-                  операционную сетку. Инструктор с editor access может создавать группы и занятия.
+                  {t('cabinet.workspaceDesc')}
                 </p>
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">
                 <label className="space-y-1">
-                  <span className="text-xs uppercase tracking-wide text-slate-500">От</span>
+                  <span className="text-xs uppercase tracking-wide text-slate-500">{t('cabinet.from')}</span>
                   <input
                     type="date"
                     value={range.from}
@@ -571,7 +572,7 @@ function CabinetPageContent() {
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="text-xs uppercase tracking-wide text-slate-500">До</span>
+                  <span className="text-xs uppercase tracking-wide text-slate-500">{t('cabinet.to')}</span>
                   <input
                     type="date"
                     value={range.to}
@@ -595,7 +596,7 @@ function CabinetPageContent() {
                 className="rounded-xl"
               >
                 <tab.icon className="mr-2 h-4 w-4" />
-                {tab.label}
+                {t(tab.labelKey)}
               </Button>
             ))}
           </div>
@@ -610,7 +611,7 @@ function CabinetPageContent() {
             <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-border bg-white shadow-sm">
               <div className="inline-flex items-center gap-3 text-sm text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                Загружаю кабинет...
+                {t('cabinet.loadingShort')}
               </div>
             </div>
           ) : null}
@@ -636,10 +637,9 @@ function CabinetPageContent() {
                     <section className="min-w-0 space-y-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <h2 className="text-xl font-semibold text-slate-950">Моя сетка занятий</h2>
+                          <h2 className="text-xl font-semibold text-slate-950">{t('cabinet.myGridTitle')}</h2>
                           <p className="text-sm text-muted-foreground">
-                            Масштаб применяется после отпускания ползунка и не дёргает таблицу во
-                            время перетаскивания.
+                            {t('cabinet.myGridDesc')}
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
@@ -651,14 +651,14 @@ function CabinetPageContent() {
                                 size="sm"
                                 onClick={() => setScheduleMode('my')}
                               >
-                                Только мои
+                                {t('cabinet.onlyMine')}
                               </Button>
                               <Button
                                 variant={scheduleMode === 'all' ? 'default' : 'outline'}
                                 size="sm"
                                 onClick={loadFullSchedule}
                               >
-                                Вся академия
+                                {t('cabinet.wholeAcademy')}
                               </Button>
                             </div>
                           ) : null}
@@ -692,9 +692,9 @@ function CabinetPageContent() {
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h2 className="text-xl font-semibold text-slate-950">Сетка расписания</h2>
+                      <h2 className="text-xl font-semibold text-slate-950">{t('cabinet.scheduleGridTitle')}</h2>
                       <p className="text-sm text-muted-foreground">
-                        Табличный вид с управляемым масштабом и диапазоном до 100 дней.
+                        {t('cabinet.scheduleGridDesc')}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -706,14 +706,14 @@ function CabinetPageContent() {
                             size="sm"
                             onClick={() => setScheduleMode('my')}
                           >
-                            Мои занятия
+                            {t('cabinet.myLessons')}
                           </Button>
                           <Button
                             variant={scheduleMode === 'all' ? 'default' : 'outline'}
                             size="sm"
                             onClick={loadFullSchedule}
                           >
-                            Полная сетка
+                            {t('cabinet.fullGrid')}
                           </Button>
                         </div>
                       ) : null}

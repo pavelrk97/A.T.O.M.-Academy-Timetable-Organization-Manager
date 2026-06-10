@@ -32,6 +32,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n'
 import { meApi, publicApi } from '@/lib/api'
 import { buildGridFromEntries, filterGridByInstructor } from '@/lib/schedule'
 import type { ScheduleGridData, ScheduleGridLessonCell } from '@/lib/types'
@@ -100,11 +101,12 @@ function useBelowXl(): boolean {
 }
 
 function SchedulePageFallback() {
+  const { t } = useI18n()
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="inline-flex items-center gap-3 rounded-2xl border border-border bg-white px-5 py-4 text-sm text-muted-foreground shadow-sm">
         <Loader2 className="h-5 w-5 animate-spin text-primary" />
-        Загружаю страницу расписания...
+        {t('schedule.loadingPage')}
       </div>
     </div>
   )
@@ -114,6 +116,7 @@ function SchedulePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAuthenticated } = useAuth()
+  const { t } = useI18n()
   const showMobileSheet = useBelowXl()
 
   const [filters, setFilters] = useState<ScheduleFilterValues>(() =>
@@ -151,7 +154,7 @@ function SchedulePageContent() {
 
       if (rangeDays > MAX_DAYS) {
         setGrid(null)
-        setError(`Для стабильной работы держи диапазон до ${MAX_DAYS} дней.`)
+        setError(`${t('schedule.rangeLimit1')} ${MAX_DAYS} ${t('schedule.daysWord')}`)
         setLoading(false)
         return
       }
@@ -205,7 +208,7 @@ function SchedulePageContent() {
           setError(
             caught instanceof Error && caught.message
               ? caught.message
-              : 'Не удалось загрузить расписание.'
+              : t('schedule.errLoad')
           )
         }
       } finally {
@@ -249,28 +252,27 @@ function SchedulePageContent() {
                 Schedule workspace
               </div>
               <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950">
-                Расписание в формате рабочей таблицы
+                {t('schedule.title')}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                Группы слева, даты сверху, занятия внутри ячеек. Диапазон можно держать до 100
-                дней, а масштаб менять прямо на странице.
+                {t('schedule.subtitle')}
               </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
               <InfoCard
                 icon={<CalendarDays className="h-5 w-5 text-primary" />}
-                label="Дат в выдаче"
+                label={t('schedule.datesShown')}
                 value={grid?.dates.length || 0}
               />
               <InfoCard
                 icon={<UsersRound className="h-5 w-5 text-primary" />}
-                label="Групп"
+                label={t('schedule.groups')}
                 value={grid?.groups.length || 0}
               />
               <InfoCard
                 icon={<Rows3 className="h-5 w-5 text-primary" />}
-                label="Занятий"
+                label={t('schedule.lessons')}
                 value={lessonCount}
               />
             </div>
@@ -313,7 +315,7 @@ function SchedulePageContent() {
             <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-border bg-white shadow-sm">
               <div className="inline-flex items-center gap-3 text-sm text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                Загружаю расписание...
+                {t('schedule.loading')}
               </div>
             </div>
           ) : grid ? (
@@ -328,7 +330,7 @@ function SchedulePageContent() {
             />
           ) : (
             <div className="rounded-2xl border border-dashed border-border bg-white px-5 py-16 text-center text-sm text-muted-foreground">
-              Сетка пока пустая.
+              {t('schedule.emptyGrid')}
             </div>
           )}
         </div>
@@ -345,9 +347,9 @@ function SchedulePageContent() {
               />
             ) : (
               <div className="px-5 py-16 text-center">
-                <div className="text-base font-semibold text-slate-950">Выбери ячейку</div>
+                <div className="text-base font-semibold text-slate-950">{t('schedule.selectCell')}</div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Здесь появятся занятия выбранного дня: состав, часы и примечания.
+                  {t('schedule.selectCellDesc')}
                 </p>
               </div>
             )}
@@ -369,7 +371,7 @@ function SchedulePageContent() {
         >
           <SheetContent side="bottom" className="h-[90vh] overflow-y-auto p-0">
             <SheetHeader className="sr-only">
-              <SheetTitle>Расписание дня</SheetTitle>
+              <SheetTitle>{t('schedule.dayScheduleTitle')}</SheetTitle>
             </SheetHeader>
             {selected ? (
               <LessonDetails

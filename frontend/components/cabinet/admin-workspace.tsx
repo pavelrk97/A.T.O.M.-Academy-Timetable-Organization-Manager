@@ -25,6 +25,7 @@ import { AutoImportCard } from '@/components/cabinet/auto-import-card'
 import { LessonAdminEditor } from '@/components/cabinet/lesson-admin-editor'
 import { UserActivityCard } from '@/components/cabinet/user-activity-card'
 import { UserAdminEditor } from '@/components/cabinet/user-admin-editor'
+import { useI18n } from '@/lib/i18n'
 import type { GroupDto, ImportResult, User } from '@/lib/types'
 
 interface AdminWorkspaceProps {
@@ -44,27 +45,27 @@ interface AdminWorkspaceProps {
   }
 }
 
-function workspaceTitle(user: User) {
+function workspaceTitle(user: User, t: (key: string) => string) {
   if (user.role === 'ADMIN') {
-    return 'Административный контур'
+    return t('admin.titleAdmin')
   }
   if (user.role === 'EDITOR') {
-    return 'Редактор расписания'
+    return t('admin.titleEditor')
   }
   if (user.editorAccess) {
-    return 'Инструктор с правом редактирования'
+    return t('admin.titleInstructorEditor')
   }
-  return 'Операции'
+  return t('admin.titleOps')
 }
 
-function workspaceDescription(user: User) {
+function workspaceDescription(user: User, t: (key: string) => string) {
   if (user.role === 'ADMIN') {
-    return 'Администратор управляет импортом CSV, пользователями, группами, пустыми днями и занятиями.'
+    return t('admin.descAdmin')
   }
   if (user.role === 'EDITOR' || user.editorAccess) {
-    return 'Редакторский контур работает с сеткой расписания: создание групп, дней, занятий и назначение преподавателей.'
+    return t('admin.descEditor')
   }
-  return 'Доступ к операциям ограничен.'
+  return t('admin.descLimited')
 }
 
 export function AdminWorkspace({
@@ -80,6 +81,7 @@ export function AdminWorkspace({
   onRefresh,
   range,
 }: AdminWorkspaceProps) {
+  const { t } = useI18n()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   const teacherCount = useMemo(
@@ -114,30 +116,30 @@ export function AdminWorkspace({
       <div className="grid gap-4 xl:grid-cols-4">
         <InfoTile
           icon={<UsersRound className="h-5 w-5 text-primary" />}
-          label="Пользователи"
+          label={t('admin.tileUsers')}
           value={users.length}
-          helper={`${teacherCount} могут вести занятия`}
+          helper={`${teacherCount} ${t('admin.canTeachSuffix')}`}
         />
         <InfoTile
           icon={<ShieldCheck className="h-5 w-5 text-primary" />}
-          label="Доступ к операциям"
+          label={t('admin.tileOpsAccess')}
           value={editorCapableCount}
-          helper="админы, редакторы и инструкторы с editor access"
+          helper={t('admin.opsAccessHelper')}
         />
         <InfoTile
           icon={<CalendarPlus2 className="h-5 w-5 text-primary" />}
-          label="Занятия"
+          label={t('admin.tileLessons')}
           value={lessonCount}
-          helper="текущая сетка в базе"
+          helper={t('admin.lessonsHelper')}
         />
         <InfoTile
           icon={<FileSpreadsheet className="h-5 w-5 text-primary" />}
-          label="Импорт CSV"
+          label={t('admin.tileCsvImport')}
           value={canImport ? (importResult ? 'OK' : 'ADMIN') : 'ADMIN'}
           helper={
             canImport
-              ? 'ручной импорт доступен в этом кабинете'
-              : 'скрыт для редакторов и инструкторов'
+              ? t('admin.csvImportHelperOn')
+              : t('admin.csvImportHelperOff')
           }
         />
       </div>
@@ -145,14 +147,14 @@ export function AdminWorkspace({
       <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-950">{workspaceTitle(currentUser)}</h3>
+            <h3 className="text-lg font-semibold text-slate-950">{workspaceTitle(currentUser, t)}</h3>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              {workspaceDescription(currentUser)}
+              {workspaceDescription(currentUser, t)}
             </p>
           </div>
           <Button variant="outline" onClick={onRefresh}>
             <RefreshCcw className="mr-2 h-4 w-4" />
-            Обновить данные
+            {t('admin.refresh')}
           </Button>
         </div>
       </section>
@@ -165,8 +167,8 @@ export function AdminWorkspace({
         <OpsSection
           value="schedule-grid"
           icon={<Table2 className="h-5 w-5 text-primary" />}
-          title="Сетка редактирования занятий"
-          subtitle="Один день — одна ячейка. Клик открывает popup дня. Группы можно создавать, редактировать и удалять."
+          title={t('admin.sectionGridTitle')}
+          subtitle={t('admin.sectionGridSubtitle')}
         >
           <LessonAdminEditor
             groups={groups}
@@ -180,8 +182,8 @@ export function AdminWorkspace({
           <OpsSection
             value="auto-import"
             icon={<Timer className="h-5 w-5 text-primary" />}
-            title="Автоимпорт CSV"
-            subtitle="Расписание, по которому планировщик подтягивает CSV из источника."
+            title={t('admin.sectionAutoTitle')}
+            subtitle={t('admin.sectionAutoSubtitle')}
           >
             <AutoImportCard onImported={onRefresh} />
           </OpsSection>
@@ -191,8 +193,8 @@ export function AdminWorkspace({
           <OpsSection
             value="users"
             icon={<UsersRound className="h-5 w-5 text-primary" />}
-            title="Управление пользователями"
-            subtitle="Создание, редактирование и роли учётных записей."
+            title={t('admin.sectionUsersTitle')}
+            subtitle={t('admin.sectionUsersSubtitle')}
           >
             <UserAdminEditor users={users} onChanged={onRefresh} />
           </OpsSection>
@@ -202,8 +204,8 @@ export function AdminWorkspace({
           <OpsSection
             value="manual-import"
             icon={<Download className="h-5 w-5 text-primary" />}
-            title="Ручной импорт CSV"
-            subtitle="POST /api/import/csv через gateway. Большие файлы могут обрабатываться несколько минут."
+            title={t('admin.sectionManualTitle')}
+            subtitle={t('admin.sectionManualSubtitle')}
           >
             <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-center gap-3">
@@ -218,7 +220,7 @@ export function AdminWorkspace({
                   onClick={() => selectedFile && onImport(selectedFile)}
                 >
                   <UploadCloud className="mr-2 h-4 w-4" />
-                  {importing ? 'Импортирую...' : 'Запустить импорт'}
+                  {importing ? t('admin.importing') : t('admin.runImport')}
                 </Button>
               </div>
               {importResult ? (
@@ -235,8 +237,8 @@ export function AdminWorkspace({
           <OpsSection
             value="user-activity"
             icon={<Activity className="h-5 w-5 text-primary" />}
-            title="Активность пользователей"
-            subtitle="Кто и как часто заходит в кабинет."
+            title={t('admin.sectionActivityTitle')}
+            subtitle={t('admin.sectionActivitySubtitle')}
           >
             <UserActivityCard />
           </OpsSection>

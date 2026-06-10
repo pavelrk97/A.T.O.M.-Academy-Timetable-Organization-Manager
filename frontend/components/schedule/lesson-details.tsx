@@ -2,6 +2,7 @@
 
 import { BookOpenText, Clock3, MapPin, NotebookText, UserRound, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useI18n } from '@/lib/i18n'
 import type { ScheduleGridLessonCell } from '@/lib/types'
 
 interface LessonDetailsProps {
@@ -12,8 +13,8 @@ interface LessonDetailsProps {
   onClose: () => void
 }
 
-function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('ru-RU', {
+function formatDate(date: string, locale: string) {
+  return new Date(date).toLocaleDateString(locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -21,11 +22,11 @@ function formatDate(date: string) {
   })
 }
 
-function lessonTypeLabel(type?: string | null) {
-  if (type === 'LECTURE') return 'Лекция'
-  if (type === 'SELF_STUDY') return 'Самостоятельная работа'
-  if (type === 'ASSESSMENT') return 'Контроль'
-  return 'Занятие'
+function lessonTypeLabel(type: string | null | undefined, t: (key: string) => string) {
+  if (type === 'LECTURE') return t('lesson.typeLecture')
+  if (type === 'SELF_STUDY') return t('lesson.typeSelfStudy')
+  if (type === 'ASSESSMENT') return t('lesson.typeAssessment')
+  return t('lesson.typeDefault')
 }
 
 export function LessonDetails({
@@ -35,15 +36,18 @@ export function LessonDetails({
   lessons,
   onClose,
 }: LessonDetailsProps) {
+  const { t, lang } = useI18n()
+  const dateLocale = lang === 'en' ? 'en-US' : 'ru-RU'
+
   return (
     <div className="flex h-full flex-col bg-white">
       <div className="flex items-start justify-between border-b border-border px-5 py-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Детали дня
+            {t('details.title')}
           </div>
           <h3 className="mt-1 text-lg font-semibold text-slate-950">{groupCode}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">{formatDate(date)}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{formatDate(date, dateLocale)}</p>
           {location ? (
             <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="h-3.5 w-3.5" />
@@ -59,7 +63,7 @@ export function LessonDetails({
       <div className="flex-1 overflow-auto px-5 py-4">
         {lessons.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-slate-50 px-4 py-8 text-center text-sm text-muted-foreground">
-            На эту дату занятий нет.
+            {t('details.noLessons')}
           </div>
         ) : (
           <div className="space-y-4">
@@ -71,31 +75,31 @@ export function LessonDetails({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-xs font-semibold text-primary">
-                      Пара {lesson.orderNumber || '—'}
+                      {t('details.pair')} {lesson.orderNumber || '—'}
                     </div>
                     <h4 className="mt-1 text-base font-semibold text-slate-950">
-                      {lesson.title || 'Без названия'}
+                      {lesson.title || t('lesson.untitled')}
                     </h4>
                   </div>
                   <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                    {lessonTypeLabel(lesson.type)}
+                    {lessonTypeLabel(lesson.type, t)}
                   </span>
                 </div>
 
                 <div className="mt-4 grid gap-3 text-sm text-slate-700">
                   <div className="flex items-center gap-2">
                     <Clock3 className="h-4 w-4 text-primary" />
-                    {lesson.durationHours} ч.
+                    {lesson.durationHours} {t('workload.hoursShort')}
                   </div>
 
                   <div className="flex items-start gap-2">
                     <UserRound className="mt-0.5 h-4 w-4 text-primary" />
                     <div className="space-y-1">
-                      <div className="font-medium text-slate-900">Преподаватели</div>
+                      <div className="font-medium text-slate-900">{t('details.teachers')}</div>
                       <div className="text-sm text-muted-foreground">
                         {lesson.instructorNames.length > 0
                           ? lesson.instructorNames.join(', ')
-                          : 'Не указаны'}
+                          : t('details.notSpecified')}
                       </div>
                     </div>
                   </div>
@@ -104,7 +108,7 @@ export function LessonDetails({
                     <div className="flex items-start gap-2">
                       <NotebookText className="mt-0.5 h-4 w-4 text-primary" />
                       <div>
-                        <div className="font-medium text-slate-900">Примечание</div>
+                        <div className="font-medium text-slate-900">{t('details.note')}</div>
                         <div className="text-sm text-muted-foreground">{lesson.note}</div>
                       </div>
                     </div>
@@ -121,10 +125,10 @@ export function LessonDetails({
           <div className="flex items-center justify-between text-sm">
             <div className="inline-flex items-center gap-2 text-muted-foreground">
               <BookOpenText className="h-4 w-4 text-primary" />
-              {lessons.length} занятий
+              {lessons.length} {t('workload.lessonsCount')}
             </div>
             <div className="font-medium text-slate-950">
-              {lessons.reduce((sum, lesson) => sum + lesson.durationHours, 0)} ч.
+              {lessons.reduce((sum, lesson) => sum + lesson.durationHours, 0)} {t('workload.hoursShort')}
             </div>
           </div>
         </div>

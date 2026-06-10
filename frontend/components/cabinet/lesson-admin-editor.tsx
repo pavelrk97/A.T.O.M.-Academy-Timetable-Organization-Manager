@@ -25,6 +25,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { groupsApi, lessonsApi } from '@/lib/api'
+import { useI18n } from '@/lib/i18n'
 import type {
   DaySyncPayload,
   GroupDto,
@@ -114,16 +115,16 @@ const SLOT_COUNT = 8
 const MIN_ZOOM = 80
 const MAX_ZOOM = 135
 
-function lessonTypeLabel(type: LessonType | string | null | undefined) {
+function lessonTypeLabel(type: LessonType | string | null | undefined, t: (key: string) => string) {
   switch (type) {
     case 'LECTURE':
-      return 'Лекция'
+      return t('lesson.typeLecture')
     case 'SELF_STUDY':
-      return 'Самостоятельная'
+      return t('lesson.typeSelfStudy')
     case 'ASSESSMENT':
-      return 'Контроль'
+      return t('lesson.typeAssessment')
     default:
-      return 'Занятие'
+      return t('lesson.typeDefault')
   }
 }
 
@@ -216,14 +217,6 @@ function cellKey(groupId: string, date: string) {
 function parseCellKey(value: string): CellCoord {
   const [groupId, date] = value.split('::')
   return { groupId, date }
-}
-
-function formatDateCaption(date: string) {
-  return new Date(date).toLocaleDateString('ru-RU', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-  })
 }
 
 function createEmptySlotDraft(orderNumber: number): DaySlotDraft {
@@ -355,28 +348,28 @@ function slotHasExtraData(slot: DaySlotDraft) {
   return Boolean(slot.note.trim() || slot.instructorIds.length)
 }
 
-function validateDraft(draft: DayDraft): string | null {
+function validateDraft(draft: DayDraft, t: (key: string) => string): string | null {
   for (const slot of draft.slots) {
     const title = slot.title.trim()
     if (!title && slotHasExtraData(slot)) {
-      return `Заполни название или очисти слот №${slot.orderNumber} для ${draft.groupCode} ${draft.date}.`
+      return `${t('lesson.valFillOrClear1')} №${slot.orderNumber} ${t('lesson.valFor')} ${draft.groupCode} ${draft.date}.`
     }
     if (title && !slot.instructorIds.length) {
-      return `Выбери хотя бы одного инструктора для ${draft.groupCode} ${draft.date}, слот №${slot.orderNumber}.`
+      return `${t('lesson.valInstructor1')} ${draft.groupCode} ${draft.date}, ${t('lesson.slotLower')} №${slot.orderNumber}.`
     }
     if (title && slot.durationHours <= 0) {
-      return `Часы должны быть больше нуля для ${draft.groupCode} ${draft.date}, слот №${slot.orderNumber}.`
+      return `${t('lesson.valHours1')} ${draft.groupCode} ${draft.date}, ${t('lesson.slotLower')} №${slot.orderNumber}.`
     }
   }
   return null
 }
 
-function cellStatusLabel(hasDay: boolean, lessonsCount: number, dirty: boolean) {
+function cellStatusLabel(hasDay: boolean, lessonsCount: number, dirty: boolean, t: (key: string) => string) {
   if (dirty) {
-    return `черновик ${lessonsCount}/8`
+    return `${t('lesson.draft')} ${lessonsCount}/8`
   }
   if (!hasDay) {
-    return 'нет дня'
+    return t('lesson.noDay')
   }
   return `${lessonsCount}/8`
 }
@@ -388,6 +381,7 @@ function DayEditorSheet({
   instructorOptions,
   onApply,
 }: DayEditorSheetProps) {
+  const { t } = useI18n()
   const [draft, setDraft] = useState<DayDraft | null>(initialDraft ? cloneDayDraft(initialDraft) : null)
   const [instructorSearch, setInstructorSearch] = useState('')
 
@@ -500,25 +494,24 @@ function DayEditorSheet({
       <SheetContent side="right" className="w-[min(96vw,1100px)] overflow-y-auto sm:max-w-[1100px]">
         <SheetHeader>
           <SheetTitle>
-            День группы {draft.groupCode} • {draft.date}
+            {t('lesson.dayOfGroup')} {draft.groupCode} • {draft.date}
           </SheetTitle>
           <SheetDescription>
-            Заполни слоты локально, нажми «Применить в черновик», затем сохрани все изменённые
-            дни одной кнопкой.
+            {t('lesson.sheetDesc')}
           </SheetDescription>
         </SheetHeader>
 
         <div className="space-y-4 px-4 pb-2">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-slate-50 px-4 py-3">
             <div className="text-sm text-slate-700">
-              {draft.hasDay ? 'День уже существует в базе.' : 'День будет создан при сохранении.'}
+              {draft.hasDay ? t('lesson.dayExists') : t('lesson.dayWillCreate')}
             </div>
             <div className="relative w-full max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={instructorSearch}
                 onChange={(event) => setInstructorSearch(event.target.value)}
-                placeholder="Поиск инструктора по фамилии"
+                placeholder={t('lesson.searchInstructor')}
                 className="pl-9"
               />
             </div>
@@ -529,32 +522,32 @@ function DayEditorSheet({
               <section key={slot.orderNumber} className="rounded-2xl border border-border bg-white p-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-slate-950">Слот №{slot.orderNumber}</div>
+                    <div className="text-sm font-semibold text-slate-950">{t('lesson.slotCap')} №{slot.orderNumber}</div>
                     <div className="text-xs text-muted-foreground">
-                      {slot.lessonId ? 'Редактирование существующего занятия' : 'Новый слот дня'}
+                      {slot.lessonId ? t('lesson.editExisting') : t('lesson.newSlot')}
                     </div>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => clearSlot(slot.orderNumber)}>
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Очистить слот
+                    {t('lesson.clearSlot')}
                   </Button>
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-[1.2fr_140px_120px]">
                   <label className="space-y-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Название
+                      {t('lesson.title')}
                     </span>
                     <Input
                       value={slot.title}
                       onChange={(event) => updateSlot(slot.orderNumber, { title: event.target.value })}
-                      placeholder="Название занятия"
+                      placeholder={t('lesson.titlePlaceholder')}
                     />
                   </label>
 
                   <label className="space-y-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Тип
+                      {t('lesson.type')}
                     </span>
                     <select
                       value={slot.type}
@@ -565,7 +558,7 @@ function DayEditorSheet({
                     >
                       {LESSON_TYPE_OPTIONS.map((type) => (
                         <option key={type} value={type}>
-                          {lessonTypeLabel(type)}
+                          {lessonTypeLabel(type, t)}
                         </option>
                       ))}
                     </select>
@@ -573,7 +566,7 @@ function DayEditorSheet({
 
                   <label className="space-y-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Часы
+                      {t('lesson.hours')}
                     </span>
                     <Input
                       type="number"
@@ -591,12 +584,12 @@ function DayEditorSheet({
 
                 <label className="mt-4 block space-y-2">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Комментарий
+                    {t('lesson.comment')}
                   </span>
                   <Textarea
                     value={slot.note}
                     onChange={(event) => updateSlot(slot.orderNumber, { note: event.target.value })}
-                    placeholder="Необязательная заметка"
+                    placeholder={t('lesson.notePlaceholder')}
                     className="min-h-20"
                   />
                 </label>
@@ -604,10 +597,10 @@ function DayEditorSheet({
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Инструкторы
+                      {t('lesson.instructors')}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      Выбрано: {slot.instructorIds.length}
+                      {t('multiselect.selectedCount')} {slot.instructorIds.length}
                     </span>
                   </div>
                   <div className="max-h-44 space-y-2 overflow-auto rounded-xl border border-border bg-slate-50 p-3">
@@ -622,7 +615,7 @@ function DayEditorSheet({
                       </label>
                     ))}
                     {!filteredInstructorOptions.length ? (
-                      <div className="text-sm text-muted-foreground">Поиск не дал результатов.</div>
+                      <div className="text-sm text-muted-foreground">{t('lesson.searchNoResults')}</div>
                     ) : null}
                   </div>
                 </div>
@@ -633,11 +626,11 @@ function DayEditorSheet({
 
         <SheetFooter className="border-t border-border bg-white">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Закрыть
+            {t('lesson.close')}
           </Button>
           <Button onClick={applyDraft}>
             <Save className="mr-2 h-4 w-4" />
-            Применить в черновик
+            {t('lesson.applyToDraft')}
           </Button>
         </SheetFooter>
       </SheetContent>
@@ -664,6 +657,7 @@ function GroupEditSheet({
   onSave,
   onDelete,
 }: GroupEditSheetProps) {
+  const { t } = useI18n()
   const [code, setCode] = useState('')
   const [location, setLocation] = useState('')
   const [course, setCourse] = useState('')
@@ -684,29 +678,28 @@ function GroupEditSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[min(96vw,520px)] overflow-y-auto sm:max-w-[520px]">
         <SheetHeader>
-          <SheetTitle>Группа {target.code}</SheetTitle>
+          <SheetTitle>{t('lesson.group')} {target.code}</SheetTitle>
           <SheetDescription>
-            Меняй код, локацию и курс. Удаление каскадно — будут удалены все дни и занятия группы.
+            {t('lesson.groupEditDesc')}
           </SheetDescription>
         </SheetHeader>
 
         <div className="space-y-4 px-4 pb-2">
           <label className="block space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Код группы</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('lesson.groupCode')}</span>
             <Input value={code} onChange={(event) => setCode(event.target.value)} />
           </label>
           <label className="block space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Локация</span>
-            <Input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="напр. А101" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('lesson.location')}</span>
+            <Input value={location} onChange={(event) => setLocation(event.target.value)} placeholder={t('lesson.locationPlaceholder')} />
           </label>
           <label className="block space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Курс</span>
-            <Input value={course} onChange={(event) => setCourse(event.target.value)} placeholder="необязательно" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('lesson.course')}</span>
+            <Input value={course} onChange={(event) => setCourse(event.target.value)} placeholder={t('lesson.coursePlaceholder')} />
           </label>
 
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-            В группе сейчас дней: {(target.days || []).length}. Они и все их занятия удалятся
-            каскадно при удалении группы.
+            {t('lesson.groupHasDays')} {(target.days || []).length}. {t('lesson.cascadeWarn')}
           </div>
         </div>
 
@@ -717,14 +710,14 @@ function GroupEditSheet({
             disabled={deleting || saving}
           >
             <Trash2 className="mr-2 h-4 w-4" />
-            {deleting ? 'Удаляю...' : 'Удалить группу'}
+            {deleting ? t('lesson.deleting') : t('lesson.deleteGroup')}
           </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving || deleting}>
-            Отмена
+            {t('lesson.cancel')}
           </Button>
           <Button onClick={() => onSave(target, code, location, course)} disabled={saving || deleting}>
             <Save className="mr-2 h-4 w-4" />
-            {saving ? 'Сохраняю...' : 'Сохранить'}
+            {saving ? t('lesson.saving') : t('lesson.save')}
           </Button>
         </SheetFooter>
       </SheetContent>
@@ -738,6 +731,8 @@ export function LessonAdminEditor({
   canManageGroups,
   range,
 }: LessonAdminEditorProps) {
+  const { t, lang } = useI18n()
+  const dateLocale = lang === 'en' ? 'en-US' : 'ru-RU'
   const [localGroups, setLocalGroups] = useState<GroupDto[]>(groups)
   const [groupSearch, setGroupSearch] = useState('')
   const [zoom, setZoom] = useState(100)
@@ -850,7 +845,7 @@ export function LessonAdminEditor({
   const activeDraft = activeGroup ? getEffectiveDraft(activeGroup, activeDate) : null
   const activeSelectionLabel = activeGroup
     ? `${activeGroup.code} • ${activeDate}`
-    : 'Ячейка не выбрана'
+    : t('lesson.noCellSelected')
 
   const selectedBounds = useMemo(() => {
     const keys = selectedCellKeys.length
@@ -1039,7 +1034,7 @@ export function LessonAdminEditor({
       }
     })
 
-    setSuccess(`Черновик обновлён: ${nextDraft.groupCode} ${nextDraft.date}.`)
+    setSuccess(`${t('lesson.draftUpdated')} ${nextDraft.groupCode} ${nextDraft.date}.`)
     setError('')
   }
 
@@ -1082,7 +1077,7 @@ export function LessonAdminEditor({
       return
     }
     setClipboard(snapshot)
-    setSuccess(`Скопировано ${snapshot.rows}x${snapshot.columns} ячеек.`)
+    setSuccess(`${t('lesson.copied')} ${snapshot.rows}x${snapshot.columns} ${t('lesson.cells')}`)
     setError('')
   }
 
@@ -1139,7 +1134,7 @@ export function LessonAdminEditor({
     }
 
     Object.values(nextDrafts).forEach(applyDraftToBuffer)
-    setSuccess(`Вставлено ${clipboard.rows}x${clipboard.columns} ячеек в черновик.`)
+    setSuccess(`${t('lesson.pasted')} ${clipboard.rows}x${clipboard.columns} ${t('lesson.cellsIntoDraft')}`)
   }
 
   async function syncDayDraft(draft: DayDraft) {
@@ -1169,7 +1164,7 @@ export function LessonAdminEditor({
     }
 
     for (const draft of dirtyDrafts) {
-      const validationError = validateDraft(draft)
+      const validationError = validateDraft(draft, t)
       if (validationError) {
         setError(validationError)
         setSuccess('')
@@ -1203,12 +1198,12 @@ export function LessonAdminEditor({
         return next
       })
 
-      setSuccess(`Сохранено изменений по дням: ${savedKeys.length}.`)
+      setSuccess(`${t('lesson.savedDays')} ${savedKeys.length}.`)
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Не удалось сохранить пакет изменений.'
+          : t('lesson.errSaveBatch')
       )
     } finally {
       setSavingAll(false)
@@ -1217,7 +1212,7 @@ export function LessonAdminEditor({
 
   async function handleCreateGroup() {
     if (!groupForm.code.trim()) {
-      setError('Код группы обязателен.')
+      setError(t('lesson.codeRequired'))
       return
     }
 
@@ -1235,7 +1230,7 @@ export function LessonAdminEditor({
 
       patchLocalGroup(createdGroup)
       setGroupForm(createEmptyGroupForm())
-      setSuccess(`Группа ${createdGroup.code} создана.`)
+      setSuccess(`${t('lesson.group')} ${createdGroup.code} ${t('lesson.created')}`)
 
       const firstDate = visibleDates[0] || range.from
       const nextCell = { groupId: createdGroup.id, date: firstDate }
@@ -1247,7 +1242,7 @@ export function LessonAdminEditor({
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Не удалось создать группу.'
+          : t('lesson.errCreate')
       )
     } finally {
       setCreatingGroup(false)
@@ -1256,7 +1251,7 @@ export function LessonAdminEditor({
 
   async function handleUpdateGroupMeta(target: GroupDto, code: string, location: string, course: string) {
     if (!code.trim()) {
-      setError('Код группы обязателен.')
+      setError(t('lesson.codeRequired'))
       return
     }
     setGroupEditSaving(true)
@@ -1276,13 +1271,13 @@ export function LessonAdminEditor({
         })),
       })
       patchLocalGroup(updated)
-      setSuccess(`Группа ${updated.code} обновлена.`)
+      setSuccess(`${t('lesson.group')} ${updated.code} ${t('lesson.updated')}`)
       setGroupEditTarget(null)
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Не удалось обновить группу.'
+          : t('lesson.errUpdate')
       )
     } finally {
       setGroupEditSaving(false)
@@ -1290,7 +1285,7 @@ export function LessonAdminEditor({
   }
 
   async function handleDeleteGroup(target: GroupDto) {
-    if (!window.confirm(`Удалить группу ${target.code} вместе со всеми днями и занятиями? Действие необратимо.`)) {
+    if (!window.confirm(`${t('lesson.confirmDeleteA')} ${target.code} ${t('lesson.confirmDeleteB')}`)) {
       return
     }
     setGroupEditDeleting(true)
@@ -1313,13 +1308,13 @@ export function LessonAdminEditor({
         setAnchorCell(null)
         setSelectedCellKeys([])
       }
-      setSuccess(`Группа ${target.code} удалена.`)
+      setSuccess(`${t('lesson.group')} ${target.code} ${t('lesson.deleted')}`)
       setGroupEditTarget(null)
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Не удалось удалить группу.'
+          : t('lesson.errDelete')
       )
     } finally {
       setGroupEditDeleting(false)
@@ -1336,10 +1331,9 @@ export function LessonAdminEditor({
     <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-950">Сетка редактирования занятий</h3>
+          <h3 className="text-lg font-semibold text-slate-950">{t('admin.sectionGridTitle')}</h3>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Один день — одна ячейка. Клик открывает popup дня с 8 слотами. Изменения сначала
-            попадают в черновик, а затем сохраняются пакетом по кнопке «Сохранить все изменения».
+            {t('lesson.gridDesc')}
           </p>
         </div>
 
@@ -1349,7 +1343,7 @@ export function LessonAdminEditor({
             <Input
               value={groupSearch}
               onChange={(event) => setGroupSearch(event.target.value)}
-              placeholder="Поиск по группе, локации, курсу"
+              placeholder={t('lesson.searchGroup')}
               className="w-72 pl-9"
             />
           </div>
@@ -1370,22 +1364,22 @@ export function LessonAdminEditor({
 
           <Button variant="outline" onClick={handleCopySelection} disabled={!selectedCellKeys.length}>
             <Copy className="mr-2 h-4 w-4" />
-            Копировать
+            {t('lesson.copy')}
           </Button>
           <Button variant="outline" onClick={() => void handlePasteSelection()} disabled={!clipboard || !activeCell}>
             <ClipboardPaste className="mr-2 h-4 w-4" />
-            Вставить
+            {t('lesson.paste')}
           </Button>
           <Button onClick={() => void handleSaveAllChanges()} disabled={!dirtyCount || savingAll}>
             <Save className="mr-2 h-4 w-4" />
-            {savingAll ? 'Сохраняю...' : `Сохранить все изменения (${dirtyCount})`}
+            {savingAll ? t('lesson.saving') : `${t('lesson.saveAll')} (${dirtyCount})`}
           </Button>
         </div>
       </div>
 
       {rangeOverflow ? (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          Показаны первые {MAX_DATES} дней выбранного диапазона.
+          {t('lesson.showingFirst')} {MAX_DATES} {t('lesson.daysOfRange')}
         </div>
       ) : null}
 
@@ -1412,10 +1406,10 @@ export function LessonAdminEditor({
             >
               <div className="sticky left-0 top-0 z-20 border-b border-r border-border bg-slate-100 px-4 py-3">
                 <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  Группа
+                  {t('lesson.group')}
                 </div>
                 <div className="mt-1 text-sm text-slate-700">
-                  {dirtyCount ? `Черновиков: ${dirtyCount}` : 'Выбери день для редактирования'}
+                  {dirtyCount ? `${t('lesson.draftsCount')} ${dirtyCount}` : t('lesson.selectDayToEdit')}
                 </div>
               </div>
 
@@ -1425,13 +1419,13 @@ export function LessonAdminEditor({
                   className="sticky top-0 z-10 border-b border-r border-border bg-slate-50 px-2 py-3 text-center"
                 >
                   <div className="text-sm font-semibold text-slate-950">
-                    {new Date(date).toLocaleDateString('ru-RU', { day: '2-digit' })}
+                    {new Date(date).toLocaleDateString(dateLocale, { day: '2-digit' })}
                   </div>
                   <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                    {new Date(date).toLocaleDateString('ru-RU', { weekday: 'short' })}
+                    {new Date(date).toLocaleDateString(dateLocale, { weekday: 'short' })}
                   </div>
                   <div className="text-[11px] text-slate-500">
-                    {new Date(date).toLocaleDateString('ru-RU', { month: 'short' })}
+                    {new Date(date).toLocaleDateString(dateLocale, { month: 'short' })}
                   </div>
                 </div>
               ))}
@@ -1449,7 +1443,7 @@ export function LessonAdminEditor({
                       'sticky left-0 z-10 border-b border-r border-border bg-white px-2 py-3 text-left',
                       canManageGroups && 'hover:bg-slate-50 cursor-pointer transition-colors'
                     )}
-                    title={canManageGroups ? 'Кликни для редактирования группы' : undefined}
+                    title={canManageGroups ? t('lesson.clickToEditGroup') : undefined}
                   >
                     <div className="flex items-center gap-1">
                       <div className="text-sm font-semibold text-slate-950 truncate">{group.code}</div>
@@ -1459,7 +1453,7 @@ export function LessonAdminEditor({
                     </div>
                     <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
                       {group.location ? <div className="truncate">{group.location}</div> : null}
-                      {group.course ? <div className="truncate">Курс {group.course}</div> : null}
+                      {group.course ? <div className="truncate">{t('lesson.course')} {group.course}</div> : null}
                     </div>
                   </button>
 
@@ -1492,18 +1486,18 @@ export function LessonAdminEditor({
                       >
                         <div className="mb-1 flex items-center justify-between gap-2">
                           <span className="text-[11px] font-medium text-slate-500">
-                            {cellStatusLabel(draft.hasDay, lessons.length, dirty)}
+                            {cellStatusLabel(draft.hasDay, lessons.length, dirty, t)}
                           </span>
                           {dirty ? (
                             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                              черновик
+                              {t('lesson.draft')}
                             </span>
                           ) : null}
                         </div>
 
                         {!lessons.length ? (
                           <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-200 px-2 text-center text-[11px] text-slate-400">
-                            Пусто
+                            {t('lesson.empty')}
                           </div>
                         ) : (
                           <div className="space-y-1">
@@ -1534,7 +1528,7 @@ export function LessonAdminEditor({
 
         <aside className="space-y-4">
           <div className="rounded-2xl border border-border bg-slate-50 p-4">
-            <div className="text-sm font-semibold text-slate-950">Текущая ячейка</div>
+            <div className="text-sm font-semibold text-slate-950">{t('lesson.currentCell')}</div>
             <div className="mt-1 text-sm text-muted-foreground">{activeSelectionLabel}</div>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
@@ -1543,7 +1537,7 @@ export function LessonAdminEditor({
                 disabled={!activeGroup || !activeDate}
               >
                 <UsersRound className="mr-2 h-4 w-4" />
-                Открыть день
+                {t('lesson.openDay')}
               </Button>
               <Button
                 variant="outline"
@@ -1566,39 +1560,39 @@ export function LessonAdminEditor({
                 disabled={!activeGroup || !activeDate}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Очистить день
+                {t('lesson.clearDay')}
               </Button>
             </div>
           </div>
 
           {canManageGroups ? (
             <div className="rounded-2xl border border-border bg-slate-50 p-4">
-              <div className="text-sm font-semibold text-slate-950">Создать группу</div>
+              <div className="text-sm font-semibold text-slate-950">{t('lesson.createGroup')}</div>
               <div className="mt-3 space-y-3">
                 <Input
                   value={groupForm.code}
                   onChange={(event) =>
                     setGroupForm((current) => ({ ...current, code: event.target.value }))
                   }
-                  placeholder="Код группы"
+                  placeholder={t('lesson.groupCode')}
                 />
                 <Input
                   value={groupForm.location}
                   onChange={(event) =>
                     setGroupForm((current) => ({ ...current, location: event.target.value }))
                   }
-                  placeholder="Локация"
+                  placeholder={t('lesson.location')}
                 />
                 <Input
                   value={groupForm.course}
                   onChange={(event) =>
                     setGroupForm((current) => ({ ...current, course: event.target.value }))
                   }
-                  placeholder="Курс"
+                  placeholder={t('lesson.course')}
                 />
                 <Button onClick={() => void handleCreateGroup()} disabled={creatingGroup}>
                   <Plus className="mr-2 h-4 w-4" />
-                  {creatingGroup ? 'Создаю...' : 'Создать группу'}
+                  {creatingGroup ? t('lesson.creating') : t('lesson.createGroup')}
                 </Button>
               </div>
             </div>
