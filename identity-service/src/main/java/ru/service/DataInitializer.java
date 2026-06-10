@@ -1,6 +1,7 @@
 package ru.service;
 
 import jakarta.annotation.PostConstruct;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import ru.model.Role;
@@ -8,6 +9,7 @@ import ru.model.User;
 import ru.repository.UserRepository;
 
 @Component
+@Profile("dev")
 public class DataInitializer {
 
     private final UserRepository userRepository;
