@@ -26,6 +26,12 @@ cp .env.production.example .env
 - `IDENTITY_INTERNAL_API_KEY`
 - `SCHEDULE_INTERNAL_API_KEY`
 
+Туда же добавь имя compose-проекта — иначе деплой может поднять параллельный стек, который Caddy не обслуживает:
+
+```bash
+echo 'COMPOSE_PROJECT_NAME=atom' >> .env
+```
+
 3. Подними production-стек:
 
 ```bash
@@ -54,7 +60,18 @@ docker compose -f docker-compose.prod.yml logs -f reverse-proxy
 
 ## Обновление
 
+### Фронтенд — автоматически (CI/CD)
+
+Фронт деплоится сам через GitHub Actions (`.github/workflows/deploy-frontend.yml`): пушишь в `main` или `engl-version` → Actions собирает образ, кладёт в GHCR (`ghcr.io/pavelrk97/atom-frontend`), заходит по SSH и делает `docker compose pull frontend` + `up -d frontend`. Руками ничего делать не нужно.
+
+Секреты репозитория для деплоя: `SSH_HOST`, `SSH_USER`, `SSH_KEY`. Образ в GHCR — публичный, поэтому сервер тянет его без логина.
+
+### Бэкенд — вручную
+
+Java-сервисы (`api-gateway`, `schedule-service`, `identity-service`, `import-service`) пока в CI не собираются, обновляются на сервере:
+
 ```bash
 git pull
-docker compose -f docker-compose.prod.yml up --build -d
+docker compose -f docker-compose.prod.yml up --build -d \
+  api-gateway schedule-service identity-service import-service
 ```

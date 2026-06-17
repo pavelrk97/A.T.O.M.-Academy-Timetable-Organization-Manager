@@ -1,10 +1,10 @@
 # A.T.O.M.
 
-**Academy Timetable Organization Manager** — система управления учебным расписанием с ролевым доступом, импортом из CSV, учётом нагрузки преподавателей и аудит-логом изменений.
+**Academy Timetable Organization Manager** — система управления учебным расписанием с ролевым доступом, импортом из CSV, учётом нагрузки преподавателей, аудит-логом изменений и двуязычным интерфейсом (RU/EN).
 
 Микросервисная архитектура на **Spring Boot 3.2.5 (Java 21)** + фронтенд на **Next.js 16**, единая база PostgreSQL, миграции Flyway, авторизация через JWT.
 
-В продакшне крутится на [https://prk97.ru](https://prk97.ru) (Caddy + автоматический Let's Encrypt).
+В продакшне крутится на [https://prk97.ru](https://prk97.ru) (Caddy + автоматический Let's Encrypt). Фронт деплоится автоматически через GitHub Actions → GHCR (см. [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md)).
 
 ---
 
@@ -24,9 +24,10 @@
 | Backend | Java 21, Spring Boot 3.2.5, Spring Security (OAuth2 Resource Server / JWT), Spring Data JPA, Spring Cloud OpenFeign |
 | База | PostgreSQL 16, Flyway (миграции `db/migration/V1..V5`) |
 | Импорт | OpenCSV, scheduled auto-import, manual upload |
-| Frontend | Next.js 16, React 19, Tailwind CSS, Radix UI |
+| Frontend | Next.js 16, React 19, Tailwind CSS, Radix UI, i18n RU/EN |
 | Прокси (prod) | Caddy 2.10 (HTTPS, ACME) |
 | Контейнеризация | Docker Compose (отдельные dev и prod compose-файлы) |
+| CI/CD | GitHub Actions → GHCR, автодеплой фронта по SSH |
 
 ---
 
