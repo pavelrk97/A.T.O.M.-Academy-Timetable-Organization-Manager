@@ -5,6 +5,7 @@ import { Check, ChevronsUpDown, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useI18n } from '@/lib/i18n'
 import type { User } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -31,13 +32,17 @@ export function InstructorMultiSelect({
   instructors,
   selectedIds,
   onChange,
-  placeholder = 'Выбрать инструкторов',
+  placeholder,
   maxLabelChips = 2,
   disabled = false,
-  emptyHint = 'Нет инструкторов с canTeach=true.',
+  emptyHint,
 }: InstructorMultiSelectProps) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+
+  const resolvedPlaceholder = placeholder ?? t('multiselect.placeholder')
+  const resolvedEmptyHint = emptyHint ?? t('multiselect.emptyHint')
 
   const sortedInstructors = useMemo(
     () =>
@@ -82,7 +87,7 @@ export function InstructorMultiSelect({
   }
 
   const triggerLabel = (() => {
-    if (!selectedInstructors.length) return placeholder
+    if (!selectedInstructors.length) return resolvedPlaceholder
     if (selectedInstructors.length <= maxLabelChips) {
       return selectedInstructors.map(instructorLabel).join(', ')
     }
@@ -123,7 +128,7 @@ export function InstructorMultiSelect({
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Поиск по фамилии, ФИО, логину…"
+                placeholder={t('multiselect.search')}
                 className="h-9 pl-9"
                 autoFocus
               />
@@ -132,7 +137,7 @@ export function InstructorMultiSelect({
             <div className="max-h-72 overflow-auto">
               {filteredInstructors.length === 0 ? (
                 <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                  {sortedInstructors.length === 0 ? emptyHint : 'Ничего не найдено.'}
+                  {sortedInstructors.length === 0 ? resolvedEmptyHint : t('multiselect.nothingFound')}
                 </div>
               ) : (
                 <ul className="py-1">
@@ -179,7 +184,7 @@ export function InstructorMultiSelect({
 
             <div className="flex items-center justify-between gap-2 border-t border-border bg-slate-50 px-3 py-2 text-xs">
               <span className="text-muted-foreground">
-                Выбрано: {selectedInstructors.length}
+                {t('multiselect.selectedCount')} {selectedInstructors.length}
               </span>
               <div className="flex items-center gap-1">
                 <Button
@@ -190,7 +195,7 @@ export function InstructorMultiSelect({
                   onClick={selectAllFiltered}
                   disabled={!filteredInstructors.length}
                 >
-                  Выбрать все
+                  {t('multiselect.selectAll')}
                 </Button>
                 <Button
                   type="button"
@@ -200,7 +205,7 @@ export function InstructorMultiSelect({
                   onClick={clearSelection}
                   disabled={!selectedInstructors.length}
                 >
-                  <X className="mr-1 h-3.5 w-3.5" /> Сбросить
+                  <X className="mr-1 h-3.5 w-3.5" /> {t('multiselect.reset')}
                 </Button>
               </div>
             </div>
@@ -219,7 +224,7 @@ export function InstructorMultiSelect({
               <button
                 type="button"
                 onClick={() => toggle(user.id)}
-                aria-label={`Убрать ${instructorLabel(user)}`}
+                aria-label={`${t('multiselect.remove')} ${instructorLabel(user)}`}
                 className="rounded-full p-0.5 hover:bg-primary/20"
               >
                 <X className="h-3 w-3" />

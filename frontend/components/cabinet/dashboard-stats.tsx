@@ -1,6 +1,7 @@
 'use client'
 
 import { BellRing, CalendarDays, Clock3, Rows3 } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
 interface DashboardStatsProps {
   totalHours: number
@@ -15,32 +16,35 @@ export function DashboardStats({
   teachingDays,
   notificationsCount,
   upcomingLessonsCount,
-  periodLabel = 'текущий диапазон',
+  periodLabel,
 }: DashboardStatsProps) {
+  const { t } = useI18n()
+  const resolvedPeriod = periodLabel ?? t('stats.currentRange')
+
   const items = [
     {
-      label: 'Часы нагрузки',
+      label: t('stats.workloadHours'),
       value: totalHours,
       icon: <Clock3 className="h-5 w-5 text-primary" />,
-      helper: periodLabel,
+      helper: resolvedPeriod,
     },
     {
-      label: 'Дней с занятиями',
+      label: t('stats.teachingDays'),
       value: teachingDays,
       icon: <CalendarDays className="h-5 w-5 text-primary" />,
-      helper: periodLabel,
+      helper: resolvedPeriod,
     },
     {
-      label: 'Уведомления',
+      label: t('stats.notifications'),
       value: notificationsCount,
       icon: <BellRing className="h-5 w-5 text-primary" />,
-      helper: 'лента событий',
+      helper: t('stats.eventFeed'),
     },
     {
-      label: 'Ближайшие занятия',
+      label: t('stats.upcomingLessons'),
       value: upcomingLessonsCount,
       icon: <Rows3 className="h-5 w-5 text-primary" />,
-      helper: 'видно в сетке',
+      helper: t('stats.visibleInGrid'),
     },
   ]
 

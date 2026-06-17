@@ -7,10 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { autoImportApi } from '@/lib/api'
+import { useI18n } from '@/lib/i18n'
 import type { AutoImportSettings } from '@/lib/types'
 import { cn } from '@/lib/utils'
-
-const RUN_TIMES_LABEL = '13:00 и 23:00 (МСК)'
 
 function formatDateTime(value: string | null) {
   if (!value) return '—'
@@ -27,17 +26,17 @@ function formatDateTime(value: string | null) {
   }
 }
 
-function formatCountdown(target: string | null) {
+function formatCountdown(target: string | null, t: (key: string) => string) {
   if (!target) return null
   const targetMs = new Date(target).getTime()
   const diff = targetMs - Date.now()
-  if (Number.isNaN(targetMs) || diff <= 0) return '0с'
+  if (Number.isNaN(targetMs) || diff <= 0) return `0${t('autoImport.s')}`
   const hours = Math.floor(diff / (60 * 60 * 1000))
   const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000))
   const seconds = Math.floor((diff % (60 * 1000)) / 1000)
-  if (hours > 0) return `${hours}ч ${minutes}м`
-  if (minutes > 0) return `${minutes}м ${seconds}с`
-  return `${seconds}с`
+  if (hours > 0) return `${hours}${t('autoImport.h')} ${minutes}${t('autoImport.m')}`
+  if (minutes > 0) return `${minutes}${t('autoImport.m')} ${seconds}${t('autoImport.s')}`
+  return `${seconds}${t('autoImport.s')}`
 }
 
 interface AutoImportCardProps {
@@ -45,6 +44,7 @@ interface AutoImportCardProps {
 }
 
 export function AutoImportCard({ onImported }: AutoImportCardProps) {
+  const { t } = useI18n()
   const [settings, setSettings] = useState<AutoImportSettings | null>(null)
   const [urlDraft, setUrlDraft] = useState('')
   const [loading, setLoading] = useState(false)
@@ -66,8 +66,8 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
 
   const countdown = useMemo(() => {
     void nowTick
-    return formatCountdown(settings?.nextRunAt || null)
-  }, [settings?.nextRunAt, nowTick])
+    return formatCountdown(settings?.nextRunAt || null, t)
+  }, [settings?.nextRunAt, nowTick, t])
 
   async function loadSettings() {
     setLoading(true)
@@ -77,7 +77,7 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
       setUrlDraft(data.sourceUrl || '')
       setError(null)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Не удалось загрузить настройки')
+      setError(caught instanceof Error ? caught.message : t('autoImport.errLoad'))
     } finally {
       setLoading(false)
     }
@@ -91,7 +91,7 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
   async function handleSaveUrl() {
     if (!settings) return
     if (!urlDraft.trim()) {
-      setError('URL источника не может быть пустым')
+      setError(t('autoImport.errUrlEmpty'))
       return
     }
     await persistSettings({ enabled: settings.enabled, sourceUrl: urlDraft.trim() })
@@ -105,7 +105,7 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
       setUrlDraft(updated.sourceUrl || '')
       setError(null)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Не удалось сохранить настройки')
+      setError(caught instanceof Error ? caught.message : t('autoImport.errSave'))
     } finally {
       setSaving(false)
     }
@@ -121,7 +121,7 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
         onImported?.()
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Не удалось запустить обновление')
+      setError(caught instanceof Error ? caught.message : t('autoImport.errRun'))
     } finally {
       setRunning(false)
     }
@@ -132,7 +132,7 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
       <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Загружаю настройки авто-импорта...
+          {t('autoImport.loading')}
         </div>
       </section>
     )
@@ -141,7 +141,7 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
   if (!settings) {
     return (
       <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-        <div className="text-sm text-muted-foreground">Настройки недоступны.</div>
+        <div className="text-sm text-muted-foreground">{t('autoImport.unavailable')}</div>
         {error ? <div className="mt-2 text-sm text-red-600">{error}</div> : null}
       </section>
     )
@@ -159,17 +159,17 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
           </div>
           <div>
             <div className="text-sm font-semibold text-slate-950">
-              Авто-обновление расписания
+              {t('autoImport.title')}
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Скачивает CSV из Google-таблицы и запускает импорт каждый день в {RUN_TIMES_LABEL}.
+              {t('autoImport.descBefore')} {t('autoImport.runTimes')}.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <Label htmlFor="auto-import-toggle" className="text-sm">
-            {settings.enabled ? 'Включено' : 'Выключено'}
+            {settings.enabled ? t('autoImport.enabled') : t('autoImport.disabled')}
           </Label>
           <Switch
             id="auto-import-toggle"
@@ -184,7 +184,7 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
         <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-slate-50 px-3 py-1 text-xs text-slate-600">
           <Timer className="h-3.5 w-3.5 text-primary" />
           <span>
-            Следующий запуск: <span className="font-medium text-slate-950">{countdown}</span>
+            {t('autoImport.nextRun')} <span className="font-medium text-slate-950">{countdown}</span>
             {' • '}
             <span className="text-slate-500">{formatDateTime(settings.nextRunAt)}</span>
           </span>
@@ -193,7 +193,7 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
 
       <div className="mt-5 space-y-3">
         <Label htmlFor="auto-import-url" className="text-xs uppercase tracking-[0.14em] text-slate-500">
-          URL источника (Google Sheets)
+          {t('autoImport.sourceUrl')}
         </Label>
         <div className="flex flex-wrap items-center gap-2">
           <Input
@@ -209,29 +209,28 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
             onClick={handleSaveUrl}
             disabled={!urlChanged || saving}
           >
-            Сохранить URL
+            {t('autoImport.saveUrl')}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Лист должен быть открыт «Доступ по ссылке: Просмотр». Бэкенд скачивает CSV напрямую через
-          публичный экспорт Google.
+          {t('autoImport.shareHint')}
         </p>
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Button onClick={handleRunNow} disabled={running}>
           {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-          {running ? 'Обновляю...' : 'Обновить сейчас'}
+          {running ? t('autoImport.updating') : t('autoImport.updateNow')}
         </Button>
         <Button variant="ghost" size="sm" onClick={loadSettings} disabled={loading}>
-          Обновить статус
+          {t('autoImport.refreshStatus')}
         </Button>
       </div>
 
       <div className="mt-5 grid gap-3 rounded-xl border border-border bg-slate-50 p-4 sm:grid-cols-2">
-        <StatusLine label="Последний запуск" value={formatDateTime(settings.lastRunAt)} />
+        <StatusLine label={t('autoImport.lastRun')} value={formatDateTime(settings.lastRunAt)} />
         <StatusLine
-          label="Статус"
+          label={t('autoImport.status')}
           value={
             <span
               className={cn(
@@ -245,15 +244,15 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
               {lastStatusIs('OK') ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
               {lastStatusIs('ERROR') ? <AlertTriangle className="h-3.5 w-3.5" /> : null}
               {lastStatusIs('RUNNING') ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              {settings.lastStatus || 'Не запускалось'}
+              {settings.lastStatus || t('autoImport.notRun')}
             </span>
           }
         />
         {settings.lastImportedGroups != null ? (
-          <StatusLine label="Групп импортировано" value={settings.lastImportedGroups} />
+          <StatusLine label={t('autoImport.groupsImported')} value={settings.lastImportedGroups} />
         ) : null}
         {settings.updatedBy ? (
-          <StatusLine label="Кем обновлено" value={settings.updatedBy} />
+          <StatusLine label={t('autoImport.updatedBy')} value={settings.updatedBy} />
         ) : null}
       </div>
 
@@ -262,7 +261,7 @@ export function AutoImportCard({ onImported }: AutoImportCardProps) {
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
-              <div className="font-medium">Ошибка последнего запуска</div>
+              <div className="font-medium">{t('autoImport.lastRunError')}</div>
               <div className="mt-1 text-xs">{settings.lastError}</div>
             </div>
           </div>

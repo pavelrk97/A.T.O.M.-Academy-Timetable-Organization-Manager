@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/lib/auth-context'
+import { LanguageProvider } from '@/lib/i18n'
+import { LanguageSwitcher } from '@/components/language-switcher'
 import './globals.css'
 
 const geistSans = Geist({
@@ -17,7 +19,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'A.T.O.M. - Academy Timetable Organization Manager',
-  description: 'Система управления расписанием и нагрузкой преподавателей',
+  description: 'Schedule and teaching workload management system',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -54,7 +56,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>{children}</AuthProvider>
+          <LanguageSwitcher />
+        </LanguageProvider>
         <Analytics />
       </body>
     </html>

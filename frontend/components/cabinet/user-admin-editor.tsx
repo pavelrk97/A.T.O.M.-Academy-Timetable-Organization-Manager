@@ -5,6 +5,7 @@ import { Plus, RefreshCcw, Save, Trash2, UserRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { usersApi } from '@/lib/api'
+import { useI18n } from '@/lib/i18n'
 import type { User, UserRole, UserUpsertRequest } from '@/lib/types'
 
 interface UserAdminEditorProps {
@@ -14,14 +15,14 @@ interface UserAdminEditorProps {
 
 const ROLE_OPTIONS: UserRole[] = ['ADMIN', 'EDITOR', 'INSTRUCTOR']
 
-function roleLabel(role: UserRole) {
+function roleLabel(role: UserRole, t: (key: string) => string) {
   switch (role) {
     case 'ADMIN':
-      return 'Администратор'
+      return t('role.admin')
     case 'EDITOR':
-      return 'Редактор'
+      return t('role.editor')
     case 'INSTRUCTOR':
-      return 'Инструктор'
+      return t('role.instructor')
     default:
       return role
   }
@@ -76,6 +77,7 @@ function normalizePayload(form: UserUpsertRequest): UserUpsertRequest {
 }
 
 export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
+  const { t } = useI18n()
   const sortedUsers = useMemo(
     () =>
       [...users].sort((left, right) =>
@@ -121,10 +123,10 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
       return
     }
     const target = users.find((candidate) => candidate.id === selectedUserId)
-    const targetName = target?.displayName || target?.fullName || target?.username || 'пользователя'
+    const targetName = target?.displayName || target?.fullName || target?.username || t('user.fallback')
     if (
       typeof window !== 'undefined' &&
-      !window.confirm(`Удалить пользователя «${targetName}»? Действие необратимо.`)
+      !window.confirm(`${t('user.confirmDeleteA')}${targetName}${t('user.confirmDeleteB')}`)
     ) {
       return
     }
@@ -138,12 +140,12 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
       await onChanged()
       setSelectedUserId(null)
       setForm(createEmptyForm())
-      setSuccess(`Пользователь ${targetName} удалён.`)
+      setSuccess(`${t('user.deletedA')} ${targetName} ${t('user.deletedB')}`)
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Не удалось удалить пользователя.'
+          : t('user.errDelete')
       )
     } finally {
       setDeleting(false)
@@ -152,17 +154,17 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
 
   async function handleSubmit() {
     if (!form.username.trim()) {
-      setError('Логин не может быть пустым.')
+      setError(t('user.errLoginEmpty'))
       return
     }
 
     if (!form.fullName.trim()) {
-      setError('ФИО не может быть пустым.')
+      setError(t('user.errNameEmpty'))
       return
     }
 
     if (!form.password.trim()) {
-      setError('Пароль обязателен для создания и обновления пользователя.')
+      setError(t('user.errPasswordRequired'))
       return
     }
 
@@ -182,12 +184,12 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
         ...current,
         password: '',
       }))
-      setSuccess(selectedUserId ? 'Пользователь обновлён.' : 'Пользователь создан.')
+      setSuccess(selectedUserId ? t('user.updated') : t('user.created'))
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Не удалось сохранить пользователя.'
+          : t('user.errSave')
       )
     } finally {
       setSaving(false)
@@ -198,19 +200,19 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
     <section className="rounded-2xl border border-border bg-slate-50 p-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-slate-950">Пользователи</div>
+          <div className="text-sm font-semibold text-slate-950">{t('admin.tileUsers')}</div>
           <div className="text-xs text-muted-foreground">
-            Создание и редактирование учётных записей доступно только администратору.
+            {t('user.descAdminOnly')}
           </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={startCreate}>
             <Plus className="mr-2 h-4 w-4" />
-            Новый пользователь
+            {t('user.newUser')}
           </Button>
           <Button variant="outline" size="sm" onClick={onChanged}>
             <RefreshCcw className="mr-2 h-4 w-4" />
-            Обновить
+            {t('user.refresh')}
           </Button>
         </div>
       </div>
@@ -244,7 +246,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
                     {candidate.username}
                   </div>
                   <div className="mt-1 text-xs text-slate-600">
-                    {roleLabel(candidate.role)}
+                    {roleLabel(candidate.role, t)}
                     {candidate.editorAccess && candidate.role === 'INSTRUCTOR'
                       ? ' • editor access'
                       : ''}
@@ -257,13 +259,13 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
 
         <div className="rounded-xl border border-border bg-white p-4">
           <div className="mb-4 text-sm font-semibold text-slate-950">
-            {selectedUserId ? 'Редактирование пользователя' : 'Создание пользователя'}
+            {selectedUserId ? t('user.editUser') : t('user.createUser')}
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Логин
+                {t('login.username')}
               </span>
               <Input
                 value={form.username}
@@ -275,7 +277,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
 
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Пароль
+                {t('login.password')}
               </span>
               <Input
                 type="password"
@@ -285,15 +287,15 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
                 }
                 placeholder={
                   selectedUserId
-                    ? 'Укажи новый пароль для обновления'
-                    : 'Укажи стартовый пароль'
+                    ? t('user.passwordUpdateHint')
+                    : t('user.passwordStartHint')
                 }
               />
             </label>
 
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                ФИО
+                {t('user.fullName')}
               </span>
               <Input
                 value={form.fullName}
@@ -305,7 +307,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
 
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Отображаемое имя
+                {t('user.displayName')}
               </span>
               <Input
                 value={form.displayName || ''}
@@ -329,7 +331,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
 
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Телефон
+                {t('user.phone')}
               </span>
               <Input
                 value={form.phone || ''}
@@ -341,7 +343,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
 
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Должность
+                {t('user.position')}
               </span>
               <Input
                 value={form.position || ''}
@@ -353,7 +355,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
 
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Подразделение
+                {t('user.department')}
               </span>
               <Input
                 value={form.department || ''}
@@ -365,7 +367,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
 
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Роль
+                {t('user.role')}
               </span>
               <select
                 value={form.role}
@@ -385,7 +387,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
               >
                 {ROLE_OPTIONS.map((role) => (
                   <option key={role} value={role}>
-                    {roleLabel(role)}
+                    {roleLabel(role, t)}
                   </option>
                 ))}
               </select>
@@ -401,7 +403,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
                   setForm((current) => ({ ...current, active: event.target.checked }))
                 }
               />
-              Активен
+              {t('user.active')}
             </label>
 
             <label className="flex items-center gap-3 rounded-xl border border-border px-3 py-3 text-sm">
@@ -412,7 +414,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
                   setForm((current) => ({ ...current, canTeach: event.target.checked }))
                 }
               />
-              Может вести занятия
+              {t('user.canTeach')}
             </label>
 
             <label className="flex items-center gap-3 rounded-xl border border-border px-3 py-3 text-sm">
@@ -446,14 +448,14 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
             <Button onClick={handleSubmit} disabled={saving || deleting}>
               <Save className="mr-2 h-4 w-4" />
               {saving
-                ? 'Сохраняю...'
+                ? t('user.saving')
                 : selectedUserId
-                  ? 'Сохранить пользователя'
-                  : 'Создать пользователя'}
+                  ? t('user.saveUser')
+                  : t('user.createUserBtn')}
             </Button>
             <Button variant="outline" onClick={startCreate} disabled={saving || deleting}>
               <Plus className="mr-2 h-4 w-4" />
-              Очистить форму
+              {t('user.clearForm')}
             </Button>
             {selectedUserId ? (
               <Button
@@ -463,7 +465,7 @@ export function UserAdminEditor({ users, onChanged }: UserAdminEditorProps) {
                 className="ml-auto"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                {deleting ? 'Удаляю...' : 'Удалить пользователя'}
+                {deleting ? t('user.deleting') : t('user.deleteUser')}
               </Button>
             ) : null}
           </div>

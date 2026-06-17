@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, Eye, EyeOff, LockKeyhole } from 'lucide-reac
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useI18n } from '@/lib/i18n'
 
 interface ChangePasswordProps {
   onSubmit: (payload: {
@@ -14,6 +15,7 @@ interface ChangePasswordProps {
 }
 
 export function ChangePassword({ onSubmit }: ChangePasswordProps) {
+  const { t } = useI18n()
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
@@ -38,12 +40,12 @@ export function ChangePassword({ onSubmit }: ChangePasswordProps) {
     setError('')
 
     if (form.newPassword.length < 6) {
-      setError('Новый пароль должен быть не короче 6 символов.')
+      setError(t('password.errTooShort'))
       return
     }
 
     if (form.newPassword !== form.confirmPassword) {
-      setError('Подтверждение пароля не совпадает.')
+      setError(t('password.errMismatch'))
       return
     }
 
@@ -58,12 +60,12 @@ export function ChangePassword({ onSubmit }: ChangePasswordProps) {
         newPassword: '',
         confirmPassword: '',
       })
-      setSuccess('Пароль обновлён. Новый пароль уже используется в текущей сессии.')
+      setSuccess(t('password.success'))
     } catch (caught) {
       const message =
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Не удалось сменить пароль.'
+          : t('password.errChange')
       setError(message)
     } finally {
       setSubmitting(false)
@@ -73,17 +75,17 @@ export function ChangePassword({ onSubmit }: ChangePasswordProps) {
   return (
     <section className="rounded-2xl border border-border bg-white shadow-sm">
       <div className="border-b border-border px-5 py-4">
-        <h3 className="text-lg font-semibold text-slate-950">Смена пароля</h3>
+        <h3 className="text-lg font-semibold text-slate-950">{t('password.title')}</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Пароль меняется сразу в identity-service и сохраняется для этой фронтовой сессии.
+          {t('password.subtitle')}
         </p>
       </div>
 
       <form onSubmit={submit} className="space-y-4 px-5 py-5">
         {[
-          { key: 'currentPassword', label: 'Текущий пароль', visibleKey: 'current' },
-          { key: 'newPassword', label: 'Новый пароль', visibleKey: 'next' },
-          { key: 'confirmPassword', label: 'Повторите новый пароль', visibleKey: 'confirm' },
+          { key: 'currentPassword', label: t('password.current'), visibleKey: 'current' },
+          { key: 'newPassword', label: t('password.new'), visibleKey: 'next' },
+          { key: 'confirmPassword', label: t('password.repeat'), visibleKey: 'confirm' },
         ].map((field) => (
           <div key={field.key} className="space-y-2">
             <Label htmlFor={field.key}>{field.label}</Label>
@@ -132,9 +134,9 @@ export function ChangePassword({ onSubmit }: ChangePasswordProps) {
         ) : null}
 
         <div className="flex items-center justify-between gap-3">
-          <div className="text-xs text-muted-foreground">Минимум 6 символов.</div>
+          <div className="text-xs text-muted-foreground">{t('password.min')}</div>
           <Button type="submit" disabled={submitting}>
-            {submitting ? 'Меняю пароль...' : 'Обновить пароль'}
+            {submitting ? t('password.changing') : t('password.update')}
           </Button>
         </div>
       </form>

@@ -15,32 +15,34 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n'
 import type { User } from '@/lib/types'
 
 const navigation = [
-  { href: '/schedule', label: 'Расписание', icon: CalendarDays },
-  { href: '/cabinet', label: 'Личный кабинет', icon: PanelsTopLeft },
+  { href: '/schedule', labelKey: 'nav.schedule', icon: CalendarDays },
+  { href: '/cabinet', labelKey: 'nav.cabinet', icon: PanelsTopLeft },
 ]
 
 function canUseOperations(user?: User | null) {
   return Boolean(user && (user.role === 'ADMIN' || user.role === 'EDITOR' || user.editorAccess))
 }
 
-function roleLabel(user?: User | null) {
+function roleLabel(user: User | null | undefined, t: (key: string) => string) {
   if (!user) {
     return ''
   }
 
-  if (user.role === 'ADMIN') return 'Администратор'
-  if (user.role === 'EDITOR') return 'Редактор'
-  if (user.editorAccess) return 'Инструктор / Редактор'
-  return 'Инструктор'
+  if (user.role === 'ADMIN') return t('role.admin')
+  if (user.role === 'EDITOR') return t('role.editor')
+  if (user.editorAccess) return t('role.instructorEditor')
+  return t('role.instructor')
 }
 
 export function Header() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { user, isAuthenticated, logout } = useAuth()
+  const { t } = useI18n()
   const visibleName = user ? user.displayName || user.fullName || user.username : ''
 
   return (
@@ -71,7 +73,7 @@ export function Header() {
                 )}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             )
           })}
@@ -102,7 +104,7 @@ export function Header() {
                     <div className="max-w-40 truncate text-sm font-medium text-slate-950">
                       {visibleName}
                     </div>
-                    <div className="text-xs text-muted-foreground">{roleLabel(user)}</div>
+                    <div className="text-xs text-muted-foreground">{roleLabel(user, t)}</div>
                   </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -115,34 +117,34 @@ export function Header() {
                 <DropdownMenuItem asChild>
                   <Link href="/cabinet?tab=profile">
                     <UserCircle2 className="mr-2 h-4 w-4" />
-                    Профиль
+                    {t('header.profile')}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/cabinet?tab=notifications">
                     <Bell className="mr-2 h-4 w-4" />
-                    Уведомления
+                    {t('header.notifications')}
                   </Link>
                 </DropdownMenuItem>
                 {canUseOperations(user) ? (
                   <DropdownMenuItem asChild>
                     <Link href="/cabinet?tab=admin">
                       <FileCog className="mr-2 h-4 w-4" />
-                      Операции
+                      {t('header.operations')}
                     </Link>
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
-                  Выйти
+                  {t('header.logout')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
             <Link href="/login">
               <Button size="sm" className="rounded-xl">
-                Войти
+                {t('header.login')}
               </Button>
             </Link>
           )}
@@ -168,7 +170,7 @@ export function Header() {
                     )}
                   >
                     <item.icon className="h-5 w-5" />
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
                 ))}
                 {canUseOperations(user) ? (
@@ -178,7 +180,7 @@ export function Header() {
                     className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
                   >
                     <FileCog className="h-5 w-5" />
-                    Операции
+                    {t('header.operations')}
                   </Link>
                 ) : null}
               </div>

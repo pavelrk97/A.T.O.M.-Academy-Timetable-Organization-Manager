@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { CalendarRange, ChevronLeft, ChevronRight, Clock3, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useI18n } from '@/lib/i18n'
 import type { WorkloadCalendar } from '@/lib/types'
 
 interface WorkloadCalendarProps {
@@ -23,13 +24,13 @@ function shiftRange(from: string | null | undefined, to: string | null | undefin
   }
 }
 
-function formatRange(from?: string | null, to?: string | null) {
-  if (!from || !to) return 'Период не задан'
-  const left = new Date(from).toLocaleDateString('ru-RU', {
+function formatRange(from: string | null | undefined, to: string | null | undefined, locale: string, noPeriod: string) {
+  if (!from || !to) return noPeriod
+  const left = new Date(from).toLocaleDateString(locale, {
     day: '2-digit',
     month: 'long',
   })
-  const right = new Date(to).toLocaleDateString('ru-RU', {
+  const right = new Date(to).toLocaleDateString(locale, {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
@@ -43,13 +44,16 @@ export function WorkloadCalendar({
   onLessonClick,
   actions,
 }: WorkloadCalendarProps) {
+  const { t, lang } = useI18n()
+  const dateLocale = lang === 'en' ? 'en-US' : 'ru-RU'
+
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-950">Нагрузка по дням</h3>
+          <h3 className="text-lg font-semibold text-slate-950">{t('home.feature3Title')}</h3>
           <p className="text-sm text-muted-foreground">
-            По клику на занятие можно перейти в расписание на конкретный день.
+            {t('workload.subtitle')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -65,7 +69,7 @@ export function WorkloadCalendar({
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="min-w-52 rounded-xl bg-slate-50 px-3 py-2 text-center text-sm text-slate-700">
-            {formatRange(data.from, data.to)}
+            {formatRange(data.from, data.to, dateLocale, t('workload.noPeriod'))}
           </div>
           <Button
             variant="outline"
@@ -83,19 +87,19 @@ export function WorkloadCalendar({
       <div className="grid gap-4 border-b border-border bg-slate-50 px-5 py-4 md:grid-cols-2">
         <MetricCard
           icon={<Clock3 className="h-5 w-5 text-primary" />}
-          label="Всего часов"
+          label={t('workload.totalHours')}
           value={data.totalHours}
         />
         <MetricCard
           icon={<CalendarRange className="h-5 w-5 text-primary" />}
-          label="Дней с занятиями"
+          label={t('stats.teachingDays')}
           value={data.days.length}
         />
       </div>
 
       {data.days.length === 0 ? (
         <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-          В выбранном диапазоне у инструктора нет нагрузки.
+          {t('workload.noWorkload')}
         </div>
       ) : (
         <div className="divide-y divide-border">
@@ -104,18 +108,18 @@ export function WorkloadCalendar({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold capitalize text-slate-950">
-                    {new Date(day.date).toLocaleDateString('ru-RU', {
+                    {new Date(day.date).toLocaleDateString(dateLocale, {
                       weekday: 'long',
                       day: '2-digit',
                       month: 'long',
                     })}
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {day.lessons.length} занятий
+                    {day.lessons.length} {t('workload.lessonsCount')}
                   </div>
                 </div>
                 <div className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-                  {day.totalHours} ч.
+                  {day.totalHours} {t('workload.hoursShort')}
                 </div>
               </div>
 
@@ -133,11 +137,11 @@ export function WorkloadCalendar({
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="rounded-full bg-white px-3 py-1 text-sm font-medium text-slate-700">
-                        {lesson.durationHours} ч.
+                        {lesson.durationHours} {t('workload.hoursShort')}
                       </div>
                       {onLessonClick ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
-                          Открыть день
+                          {t('lesson.openDay')}
                           <ExternalLink className="h-3.5 w-3.5" />
                         </span>
                       ) : null}

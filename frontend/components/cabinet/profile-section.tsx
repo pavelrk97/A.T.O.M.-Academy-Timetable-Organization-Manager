@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useI18n } from '@/lib/i18n'
 import type { MyProfileUpdateRequest, User } from '@/lib/types'
 
 interface ProfileSectionProps {
@@ -23,11 +24,11 @@ interface ProfileSectionProps {
   isEditable?: boolean
 }
 
-function roleLabel(user: User) {
-  if (user.role === 'ADMIN') return 'Администратор'
-  if (user.role === 'EDITOR') return 'Редактор'
-  if (user.editorAccess) return 'Инструктор / Редактор'
-  return 'Инструктор'
+function roleLabel(user: User, t: (key: string) => string) {
+  if (user.role === 'ADMIN') return t('role.admin')
+  if (user.role === 'EDITOR') return t('role.editor')
+  if (user.editorAccess) return t('role.instructorEditor')
+  return t('role.instructor')
 }
 
 export function ProfileSection({
@@ -35,6 +36,7 @@ export function ProfileSection({
   onUpdate,
   isEditable = true,
 }: ProfileSectionProps) {
+  const { t } = useI18n()
   const visibleName = user.displayName || user.fullName || user.username
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -78,21 +80,20 @@ export function ProfileSection({
   }
 
   const fields = [
-    { key: 'displayName', label: 'Отображаемое имя', icon: UserRound, type: 'text' },
+    { key: 'displayName', label: t('user.displayName'), icon: UserRound, type: 'text' },
     { key: 'email', label: 'Email', icon: Mail, type: 'email' },
-    { key: 'phone', label: 'Телефон', icon: Phone, type: 'tel' },
-    { key: 'position', label: 'Должность', icon: BriefcaseBusiness, type: 'text' },
-    { key: 'department', label: 'Подразделение', icon: Building2, type: 'text' },
+    { key: 'phone', label: t('user.phone'), icon: Phone, type: 'tel' },
+    { key: 'position', label: t('user.position'), icon: BriefcaseBusiness, type: 'text' },
+    { key: 'department', label: t('user.department'), icon: Building2, type: 'text' },
   ] as const
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-950">Профиль</h3>
+          <h3 className="text-lg font-semibold text-slate-950">{t('header.profile')}</h3>
           <p className="text-sm text-muted-foreground">
-            Здесь редактируются отображаемое имя и контактные данные. Системное имя для импорта
-            управляется отдельно.
+            {t('profile.subtitle')}
           </p>
         </div>
         {isEditable ? (
@@ -100,17 +101,17 @@ export function ProfileSection({
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={reset} disabled={saving}>
                 <X className="mr-2 h-4 w-4" />
-                Отмена
+                {t('lesson.cancel')}
               </Button>
               <Button size="sm" onClick={save} disabled={saving}>
                 <Check className="mr-2 h-4 w-4" />
-                {saving ? 'Сохраняю...' : 'Сохранить'}
+                {saving ? t('lesson.saving') : t('lesson.save')}
               </Button>
             </div>
           ) : (
             <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
               <PencilLine className="mr-2 h-4 w-4" />
-              Редактировать
+              {t('profile.edit')}
             </Button>
           )
         ) : null}
@@ -125,21 +126,21 @@ export function ProfileSection({
             <div className="text-lg font-semibold text-slate-950">{visibleName}</div>
             <div className="text-sm text-muted-foreground">@{user.username}</div>
             {user.fullName && user.fullName !== visibleName ? (
-              <div className="mt-1 text-xs text-slate-500">Системное имя: {user.fullName}</div>
+              <div className="mt-1 text-xs text-slate-500">{t('profile.systemName')} {user.fullName}</div>
             ) : null}
           </div>
           <div className="mt-4 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-            {roleLabel(user)}
+            {roleLabel(user, t)}
           </div>
           {user.editorAccess && user.role === 'INSTRUCTOR' ? (
             <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Есть доступ к редакторским операциям
+              {t('profile.editorAccessNote')}
             </div>
           ) : null}
           <div className="mt-6 space-y-2 text-sm text-muted-foreground">
-            <div>Аккаунт: {user.active ? 'активен' : 'отключён'}</div>
-            <div>Может вести занятия: {user.canTeach ? 'да' : 'нет'}</div>
+            <div>{t('profile.account')} {user.active ? t('profile.activeYes') : t('profile.activeNo')}</div>
+            <div>{t('profile.canTeachLabel')} {user.canTeach ? t('common.yes') : t('common.no')}</div>
           </div>
         </div>
 
