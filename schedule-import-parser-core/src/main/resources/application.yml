@@ -4,6 +4,9 @@ server:
 atom:
   import:
     archive-dir: ${ATOM_IMPORT_ARCHIVE_DIR:${user.home}/atom-import-archive}
+  kafka:
+    enabled: ${ATOM_KAFKA_ENABLED:false}
+    lesson-audit-topic: atom.lesson-audit
 
 internal:
   security:
@@ -25,6 +28,19 @@ spring:
     active: dev
   flyway:
     enabled: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+    consumer:
+      group-id: schedule-service-audit
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: ru.dto
 
 ---
 
