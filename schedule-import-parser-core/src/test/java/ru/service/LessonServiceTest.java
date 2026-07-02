@@ -303,10 +303,13 @@ class LessonServiceTest {
     }
 
     @Test
-    void exportWorkloadExcel_rejectsPlainInstructor() {
+    void exportWorkloadExcel_returnsWorkbookFromExportService() {
         LessonService lessonService = lessonService();
         Authentication authentication = mock(Authentication.class);
-        User actor = user("instructor", "Course Instructor", Role.INSTRUCTOR);
+        User actor = user("admin", "Admin", Role.ADMIN);
+        User instructor = user("inst-1", "Меняйло", Role.INSTRUCTOR);
+        Lesson lesson = lesson("гр.6 ()", LocalDate.of(2026, 1, 5), 4, instructor);
+        byte[] expected = {1, 2, 3};
 
         when(userService.getCurrentUser(authentication)).thenReturn(actor);
         when(lessonRepository.findForDateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
@@ -325,9 +328,7 @@ class LessonServiceTest {
                 authentication
         );
 
-        assertThatThrownBy(() -> lessonService.exportWorkloadExcel(null, null, null, null, authentication))
-                .isInstanceOf(ForbiddenEditException.class)
-                .hasMessage("Only admin or editor can export workload catalog");
+        assertThat(exported).isEqualTo(expected);
     }
 
     @Test

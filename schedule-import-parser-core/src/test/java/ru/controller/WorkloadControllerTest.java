@@ -115,27 +115,16 @@ class WorkloadControllerTest {
 
     @Test
     @WithMockUser(username = "instructor", roles = "INSTRUCTOR")
-    void export_returnsExcelAttachmentForInstructor() throws Exception {
-        given(lessonService.exportWorkloadExcel(
-                eq(null),
-                org.mockito.ArgumentMatchers.<java.util.List<UUID>>any(),
-                eq(null),
-                eq(null),
-                eq(null),
-                any(Authentication.class)
-        )).willReturn(new byte[]{4, 5, 6});
-
+    void export_isForbiddenForInstructor() throws Exception {
         mockMvc.perform(get("/api/workload/export"))
-                .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes(new byte[]{4, 5, 6}));
+                .andExpect(status().isForbidden());
 
-        verify(lessonService).exportWorkloadExcel(
-                eq(null),
+        verify(lessonService, never()).exportWorkloadExcel(
+                any(),
                 org.mockito.ArgumentMatchers.<java.util.List<UUID>>any(),
-                eq(null),
-                eq(null),
-                eq(null),
+                any(),
+                any(),
+                any(),
                 any(Authentication.class)
         );
     }
