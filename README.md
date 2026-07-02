@@ -1,6 +1,6 @@
 # A.T.O.M.
 
-**Academy Timetable Organization Manager** — система управления учебным расписанием с ролевым доступом, импортом из CSV, учётом нагрузки преподавателей, аудит-логом изменений и двуязычным интерфейсом (RU/EN).
+**Academy Timetable Organization Manager** — система управления учебным расписанием с ролевым доступом, импортом из CSV, учётом нагрузки преподавателей, асинхронным аудит-логом изменений (события через Kafka) и двуязычным интерфейсом (RU/EN).
 
 Микросервисная архитектура на **Spring Boot 3.2.5 (Java 21)** + фронтенд на **Next.js 16**, единая база PostgreSQL, миграции Flyway, авторизация через JWT.
 
@@ -23,6 +23,7 @@
 |---|---|
 | Backend | Java 21, Spring Boot 3.2.5, Spring Security (OAuth2 Resource Server / JWT), Spring Data JPA, Spring Cloud OpenFeign |
 | База | PostgreSQL 16, Flyway (миграции `db/migration/V1..V5`) |
+| События | Apache Kafka 3.8 (KRaft, без ZooKeeper), spring-kafka — асинхронный аудит изменений занятий |
 | Импорт | OpenCSV, scheduled auto-import, manual upload |
 | Frontend | Next.js 16, React 19, Tailwind CSS, Radix UI, i18n RU/EN |
 | Прокси (prod) | Caddy 2.10 (HTTPS, ACME) |
@@ -58,11 +59,14 @@
        │ :8082      │ │ :8080     │  │ :8083           │
        └──────┬─────┘ └─────┬─────┘  └────────┬────────┘
               │             │                  │
-              └─────────────┴──────────────────┘
+              └─────────────┼──────────────────┘
                             │
-                       ┌────▼─────┐
-                       │ Postgres │
-                       └──────────┘
+                  ┌─────────┴─────────┐
+                  │                   │
+             ┌────▼─────┐      ┌──────▼──────┐
+             │ Postgres │      │    Kafka    │  события аудита
+             └──────────┘      │    :9092    │  (только schedule-service)
+                               └─────────────┘
 ```
 
 | Сервис | Порт (внутри сети) | Ответственность |
@@ -73,6 +77,18 @@
 | `import-service` | 8083 | Внешний ingress `POST /api/import/csv` (лимит 200 МБ) |
 
 **Межсервисное взаимодействие** — Spring Cloud OpenFeign, **JWT** пользователя пробрасывается в `Authorization`, плюс служебные заголовки `X-Internal-API-Key` (`IDENTITY_INTERNAL_API_KEY`, `SCHEDULE_INTERNAL_API_KEY`) для internal-эндпоинтов.
+
+### Аудит через события (Kafka)
+
+Изменения занятий пишутся в аудит-лог асинхронно:
+
+```
+LessonService ──▶ topic atom.lesson-audit ──▶ consumer group schedule-service-audit ──▶ change_logs
+```
+
+- Продюсер публикует событие **после commit'а** транзакции (иначе при откате в топик улетел бы аудит несостоявшегося изменения); ключ сообщения — id занятия, поэтому события одного занятия обрабатываются по порядку.
+- Формат — JSON (`spring-kafka` JsonSerializer/JsonDeserializer, десериализация ограничена доверенным пакетом `ru.dto`).
+- Управляется флагом `ATOM_KAFKA_ENABLED` (по умолчанию `false` — аудит пишется синхронно в БД, Kafka-бины не создаются). В dev-compose флаг включён, брокер поднимается автоматически.
 
 ---
 
@@ -91,6 +107,7 @@ docker compose up --build
 - schedule-service → http://localhost:8080
 - import-service → http://localhost:8083
 - PostgreSQL → localhost:5432
+- Kafka → localhost:9092
 
 ### Backend (Maven multi-module)
 
@@ -118,6 +135,13 @@ pnpm run lint     # ESLint
 docker compose logs -f schedule-service        # логи одного сервиса
 docker compose ps                              # статус
 docker compose -f docker-compose.prod.yml up -d --build frontend   # пересобрать только фронт
+```
+
+Посмотреть события аудита в топике с самого начала:
+
+```bash
+docker exec -it atom-kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 --topic atom.lesson-audit --from-beginning
 ```
 
 ### Postman
