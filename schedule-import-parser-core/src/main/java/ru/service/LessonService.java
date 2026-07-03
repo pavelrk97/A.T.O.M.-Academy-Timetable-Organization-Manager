@@ -282,8 +282,12 @@ public class LessonService {
                         .instructorId(instructor.getId())
                         .instructorName(instructor.getFullName())
                         .totalHours(0)
+                        .businessTripHours(0)
                         .build());
                 workload.setTotalHours(workload.getTotalHours() + lesson.getDurationHours());
+                if (lesson.isBusinessTrip()) {
+                    workload.setBusinessTripHours(workload.getBusinessTripHours() + lesson.getDurationHours());
+                }
             }
         }
 
@@ -298,7 +302,7 @@ public class LessonService {
                                       LocalDate from,
                                       LocalDate to,
                                       Authentication authentication) {
-        return exportWorkloadExcel(instructorId, null, instructorQuery, from, to, authentication);
+        return exportWorkloadExcel(instructorId, null, instructorQuery, from, to, true, authentication);
     }
 
     public byte[] exportWorkloadExcel(UUID instructorId,
@@ -307,6 +311,16 @@ public class LessonService {
                                       LocalDate from,
                                       LocalDate to,
                                       Authentication authentication) {
+        return exportWorkloadExcel(instructorId, instructorIds, instructorQuery, from, to, true, authentication);
+    }
+
+    public byte[] exportWorkloadExcel(UUID instructorId,
+                                      List<UUID> instructorIds,
+                                      String instructorQuery,
+                                      LocalDate from,
+                                      LocalDate to,
+                                      boolean includeBusinessTrips,
+                                      Authentication authentication) {
         userService.getCurrentUser(authentication);
 
         Set<UUID> idFilter = sanitiseInstructorIds(instructorIds);
@@ -314,14 +328,15 @@ public class LessonService {
         LocalDate effectiveTo = normalizeTo(to);
         String normalizedQuery = instructorQuery == null ? null : instructorQuery.trim().toLowerCase();
         List<Lesson> lessons = lessonRepository.findForDateRange(effectiveFrom, effectiveTo).stream()
+                .filter(lesson -> includeBusinessTrips || !lesson.isBusinessTrip())
                 .sorted(Comparator.comparing((Lesson lesson) -> lesson.getDay().getDate())
                         .thenComparing(Lesson::getOrderNumber)
                         .thenComparing(Lesson::getId))
                 .toList();
 
         List<WorkloadCalendarDto> calendars = buildWorkloadCalendars(lessons, instructorId, idFilter, normalizedQuery);
-        log.info("Workload export built: requestedInstructorId={}, instructorIds={}, instructorQuery={}, from={}, to={}, rows={}",
-                instructorId, idFilter.size(), instructorQuery, effectiveFrom, effectiveTo, calendars.size());
+        log.info("Workload export built: requestedInstructorId={}, instructorIds={}, instructorQuery={}, from={}, to={}, includeBusinessTrips={}, rows={}",
+                instructorId, idFilter.size(), instructorQuery, effectiveFrom, effectiveTo, includeBusinessTrips, calendars.size());
         return workloadExcelExportService.exportCalendars(calendars, effectiveFrom, effectiveTo);
     }
 
@@ -383,6 +398,7 @@ public class LessonService {
         lesson.setDurationHours(dto.getDurationHours() != null ? dto.getDurationHours() : 0);
         lesson.setNote(normalizeNote(dto.getNote()));
         lesson.setType(dto.getType() != null ? dto.getType() : lesson.getType());
+        lesson.setBusinessTrip(Boolean.TRUE.equals(dto.getBusinessTrip()));
         List<User> instructors = resolveAssignableInstructors(dto.getInstructorIds());
         List<String> lecturerNames = resolveLecturerNames(instructors);
         lesson.setAssignedInstructors(new ArrayList<>(instructors));
@@ -407,6 +423,7 @@ public class LessonService {
                 && lesson.getDurationHours() == (dto.getDurationHours() != null ? dto.getDurationHours() : 0)
                 && java.util.Objects.equals(lesson.getNote(), normalizeNote(dto.getNote()))
                 && java.util.Objects.equals(lesson.getType(), dto.getType())
+                && lesson.isBusinessTrip() == Boolean.TRUE.equals(dto.getBusinessTrip())
                 && areUuidListsEqual(extractAssignedInstructorIds(lesson), dto.getInstructorIds() != null ? dto.getInstructorIds() : List.of());
     }
 

@@ -77,7 +77,7 @@ class WorkloadControllerTest {
         UUID instructorId = UUID.randomUUID();
         given(authHeaderFactory.bearerHeader(any())).willReturn("Bearer test-token");
         given(scheduleClient.exportWorkload("Bearer test-token", instructorId, null, "расп",
-                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30)))
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), true))
                 .willReturn("csv-data".getBytes(StandardCharsets.UTF_8));
 
         mockMvc.perform(get("/api/workload/export")
@@ -97,7 +97,7 @@ class WorkloadControllerTest {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes("csv-data".getBytes(StandardCharsets.UTF_8)));
 
         verify(scheduleClient).exportWorkload("Bearer test-token", instructorId, null, "расп",
-                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30));
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), true);
     }
 
     @Test
@@ -105,7 +105,7 @@ class WorkloadControllerTest {
         // EDITOR теперь имеет доступ к экспорту workload — это прокидывается далее
         // в schedule-service, где LessonService так же пропускает ADMIN/EDITOR/editorAccess.
         given(authHeaderFactory.bearerHeader(any())).willReturn("Bearer editor-token");
-        given(scheduleClient.exportWorkload("Bearer editor-token", null, null, null, null, null))
+        given(scheduleClient.exportWorkload("Bearer editor-token", null, null, null, null, null, true))
                 .willReturn(new byte[]{1, 2, 3});
 
         mockMvc.perform(get("/api/workload/export")
@@ -121,7 +121,7 @@ class WorkloadControllerTest {
     @Test
     void instructorCanExportWorkloadCsv() throws Exception {
         given(authHeaderFactory.bearerHeader(any())).willReturn("Bearer instructor-token");
-        given(scheduleClient.exportWorkload("Bearer instructor-token", null, null, null, null, null))
+        given(scheduleClient.exportWorkload("Bearer instructor-token", null, null, null, null, null, true))
                 .willReturn(new byte[]{4, 5, 6});
 
         mockMvc.perform(get("/api/workload/export")
@@ -134,6 +134,6 @@ class WorkloadControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes(new byte[]{4, 5, 6}));
 
-        verify(scheduleClient).exportWorkload("Bearer instructor-token", null, null, null, null, null);
+        verify(scheduleClient).exportWorkload("Bearer instructor-token", null, null, null, null, null, true);
     }
 }

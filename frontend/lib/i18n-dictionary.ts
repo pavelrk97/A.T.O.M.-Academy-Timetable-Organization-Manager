@@ -529,6 +529,12 @@ export const translations: Record<string, Record<Language, string>> = {
   },
   'workload.lessonsCount': { ru: 'занятий', en: 'lessons' },
   'workload.hoursShort': { ru: 'ч.', en: 'h' },
+  'workload.includeTrips': { ru: 'Учитывать командировки', en: 'Include business trips' },
+  'workload.tripHoursIncluded': { ru: 'Часы командировок (учтены)', en: 'Business trip hours (included)' },
+  'workload.tripHoursExcluded': { ru: 'Часы командировок (исключены)', en: 'Business trip hours (excluded)' },
+  'workload.tripBadge': { ru: 'Командировка', en: 'Business trip' },
+
+  'lesson.businessTrip': { ru: 'Командировка (выездное занятие)', en: 'Business trip (off-site lesson)' },
 
   'activity.errLoad': { ru: 'Не удалось загрузить активность', en: 'Failed to load activity' },
   'activity.subtitle': {

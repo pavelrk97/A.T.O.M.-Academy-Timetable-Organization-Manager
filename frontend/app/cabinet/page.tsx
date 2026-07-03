@@ -163,6 +163,7 @@ function CabinetPageContent() {
   const [workloadExporting, setWorkloadExporting] = useState(false)
   const [workloadInstructorIds, setWorkloadInstructorIds] = useState<string[]>([])
   const [workloadSummaries, setWorkloadSummaries] = useState<WorkloadSummary[]>([])
+  const [includeBusinessTrips, setIncludeBusinessTrips] = useState(true)
   const [scheduleZoom, setScheduleZoom] = useState(100)
   const [scheduleZoomDraft, setScheduleZoomDraft] = useState(100)
   const syncingFromUrlRef = useRef(false)
@@ -406,6 +407,7 @@ function CabinetPageContent() {
             : undefined,
         from: range.from,
         to: range.to,
+        includeBusinessTrips,
       })
       saveDownload(download)
     } catch (caught) {
@@ -732,6 +734,8 @@ function CabinetPageContent() {
                   onPeriodChange={(from, to) => setRange({ from, to })}
                   onLessonClick={(date) => jumpToScheduleDay(date)}
                   actions={renderWorkloadActions()}
+                  includeBusinessTrips={includeBusinessTrips}
+                  onIncludeBusinessTripsChange={setIncludeBusinessTrips}
                 />
               ) : null}
 

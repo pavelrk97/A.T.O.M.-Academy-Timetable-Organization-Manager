@@ -19,4 +19,5 @@ public class WorkloadCalendarLessonDto {
     private String groupCode;
     private String title;
     private int durationHours;
+    private boolean businessTrip;
 }

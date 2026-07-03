@@ -88,10 +88,11 @@ public class MeController {
     @GetMapping("/workload/export")
     public ResponseEntity<byte[]> exportMyWorkload(Authentication authentication,
                                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                                   @RequestParam(required = false, defaultValue = "true") boolean includeBusinessTrips) {
         LocalDate effectiveFrom = from != null ? from : LocalDate.of(1900, 1, 1);
         LocalDate effectiveTo = to != null ? to : LocalDate.of(3000, 12, 31);
-        byte[] workbook = scheduleClient.exportMyWorkload(authHeaderFactory.bearerHeader(authentication), from, to);
+        byte[] workbook = scheduleClient.exportMyWorkload(authHeaderFactory.bearerHeader(authentication), from, to, includeBusinessTrips);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"my-workload-%s-%s.xlsx\"".formatted(effectiveFrom, effectiveTo))

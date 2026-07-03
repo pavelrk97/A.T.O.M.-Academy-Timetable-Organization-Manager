@@ -308,10 +308,11 @@ export const meApi = {
       `/me/workload/calendar${query ? `?${query}` : ''}`
     )
   },
-  exportWorkloadCalendar: (params?: { from?: string; to?: string }) => {
+  exportWorkloadCalendar: (params?: { from?: string; to?: string; includeBusinessTrips?: boolean }) => {
     const searchParams = new URLSearchParams()
     if (params?.from) searchParams.set('from', params.from)
     if (params?.to) searchParams.set('to', params.to)
+    if (params?.includeBusinessTrips === false) searchParams.set('includeBusinessTrips', 'false')
     const query = searchParams.toString()
     return fetchDownload(
       `/me/workload/export${query ? `?${query}` : ''}`,
@@ -382,6 +383,7 @@ export const workloadApi = {
     instructorQuery?: string
     from?: string
     to?: string
+    includeBusinessTrips?: boolean
   }) => {
     const searchParams = new URLSearchParams()
     if (params?.instructorId) searchParams.set('instructorId', params.instructorId)
@@ -391,6 +393,7 @@ export const workloadApi = {
     if (params?.instructorQuery) searchParams.set('instructorQuery', params.instructorQuery)
     if (params?.from) searchParams.set('from', params.from)
     if (params?.to) searchParams.set('to', params.to)
+    if (params?.includeBusinessTrips === false) searchParams.set('includeBusinessTrips', 'false')
     const query = searchParams.toString()
     return fetchDownload(`/workload/export${query ? `?${query}` : ''}`, {}, 'workload.xlsx')
   },

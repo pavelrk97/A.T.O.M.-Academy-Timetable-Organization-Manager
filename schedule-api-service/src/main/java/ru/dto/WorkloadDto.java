@@ -17,4 +17,5 @@ public class WorkloadDto {
     private UUID instructorId;
     private String instructorName;
     private int totalHours;
+    private int businessTripHours;
 }

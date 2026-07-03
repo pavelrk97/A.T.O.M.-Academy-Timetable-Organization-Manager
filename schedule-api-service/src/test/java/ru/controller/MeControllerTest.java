@@ -110,7 +110,7 @@ class MeControllerTest {
         LocalDate to = LocalDate.of(2026, 5, 31);
 
         given(authHeaderFactory.bearerHeader(org.mockito.ArgumentMatchers.any())).willReturn(authorization);
-        given(scheduleClient.exportMyWorkload(eq(authorization), eq(from), eq(to)))
+        given(scheduleClient.exportMyWorkload(eq(authorization), eq(from), eq(to), eq(true)))
                 .willReturn("csv-data".getBytes(StandardCharsets.UTF_8));
 
         mockMvc.perform(get("/api/me/workload/export")
@@ -125,6 +125,6 @@ class MeControllerTest {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes("csv-data".getBytes(StandardCharsets.UTF_8)));
 
-        verify(scheduleClient).exportMyWorkload(authorization, from, to);
+        verify(scheduleClient).exportMyWorkload(authorization, from, to, true);
     }
 }

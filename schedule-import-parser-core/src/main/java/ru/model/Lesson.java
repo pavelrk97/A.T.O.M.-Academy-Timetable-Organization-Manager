@@ -41,6 +41,9 @@ public class Lesson extends BaseEntity {
     @Column(nullable = false)
     private LessonType type;
 
+    @Column(name = "business_trip", nullable = false)
+    private boolean businessTrip;
+
     @ElementCollection
     @CollectionTable(name = "lesson_lecturers", joinColumns = @JoinColumn(name = "lesson_id"))
     @Column(name = "lecturer_name")
@@ -79,6 +82,9 @@ public class Lesson extends BaseEntity {
 
     public LessonType getType() { return type; }
     public void setType(LessonType type) { this.type = type; }
+
+    public boolean isBusinessTrip() { return businessTrip; }
+    public void setBusinessTrip(boolean businessTrip) { this.businessTrip = businessTrip; }
 
     public List<String> getLecturers() { return lecturers; }
     public void setLecturers(List<String> lecturers) { this.lecturers = lecturers; }

@@ -75,10 +75,17 @@ public class MyCabinetService {
     }
 
     public byte[] exportMyWorkloadExcel(Authentication authentication, LocalDate from, LocalDate to) {
+        return exportMyWorkloadExcel(authentication, from, to, true);
+    }
+
+    public byte[] exportMyWorkloadExcel(Authentication authentication, LocalDate from, LocalDate to, boolean includeBusinessTrips) {
         DashboardSeed seed = buildDashboardSeed(authentication, from, to);
-        WorkloadCalendarDto workload = buildWorkload(seed.currentUser(), seed.lessons(), seed.from(), seed.to());
-        log.info("Own workload export built: user={}, from={}, to={}, totalHours={}, days={}",
-                seed.currentUser().getUsername(), seed.from(), seed.to(), workload.getTotalHours(), workload.getDays().size());
+        List<Lesson> lessons = includeBusinessTrips
+                ? seed.lessons()
+                : seed.lessons().stream().filter(lesson -> !lesson.isBusinessTrip()).toList();
+        WorkloadCalendarDto workload = buildWorkload(seed.currentUser(), lessons, seed.from(), seed.to());
+        log.info("Own workload export built: user={}, from={}, to={}, includeBusinessTrips={}, totalHours={}, days={}",
+                seed.currentUser().getUsername(), seed.from(), seed.to(), includeBusinessTrips, workload.getTotalHours(), workload.getDays().size());
         return workloadExcelExportService.exportCalendars(List.of(workload), seed.from(), seed.to());
     }
 
@@ -147,6 +154,7 @@ public class MyCabinetService {
                     .groupCode(lesson.getDay().getGroup().getCode())
                     .title(lesson.getTitle())
                     .durationHours(lesson.getDurationHours())
+                    .businessTrip(lesson.isBusinessTrip())
                     .build());
             totalHours += lesson.getDurationHours();
         }

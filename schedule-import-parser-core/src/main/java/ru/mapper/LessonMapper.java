@@ -22,6 +22,7 @@ public class LessonMapper {
                 .durationHours(lesson.getDurationHours())
                 .note(lesson.getNote())
                 .type(lesson.getType())
+                .businessTrip(lesson.isBusinessTrip())
                 .dayId(lesson.getDay() != null ? lesson.getDay().getId() : null)
                 .groupId(lesson.getDay() != null && lesson.getDay().getGroup() != null ? lesson.getDay().getGroup().getId() : null)
                 .instructorIds(extractInstructorIds(lesson))
@@ -40,6 +41,7 @@ public class LessonMapper {
         lesson.setDurationHours(dto.getDurationHours() != null ? dto.getDurationHours() : 0);
         lesson.setNote(dto.getNote());
         lesson.setType(dto.getType());
+        lesson.setBusinessTrip(Boolean.TRUE.equals(dto.getBusinessTrip()));
         return lesson;
     }
 

@@ -90,6 +90,7 @@ class WorkloadControllerTest {
                 eq("расп"),
                 eq(LocalDate.of(2026, 6, 1)),
                 eq(LocalDate.of(2026, 6, 30)),
+                eq(true),
                 any(Authentication.class)
         )).willReturn("csv-data".getBytes(StandardCharsets.UTF_8));
 
@@ -109,6 +110,7 @@ class WorkloadControllerTest {
                 eq("расп"),
                 eq(LocalDate.of(2026, 6, 1)),
                 eq(LocalDate.of(2026, 6, 30)),
+                eq(true),
                 any(Authentication.class)
         );
     }
