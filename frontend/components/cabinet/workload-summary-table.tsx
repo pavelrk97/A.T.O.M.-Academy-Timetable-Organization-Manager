@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Users } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import type { WorkloadSummary } from '@/lib/types'
 
@@ -35,16 +34,7 @@ export function WorkloadSummaryTable({
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-primary/10 p-2">
-            <Users className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-slate-950">{t('workload.teamTitle')}</h3>
-            <p className="text-sm text-muted-foreground">{t('workload.teamSubtitle')}</p>
-          </div>
-        </div>
+      <div className="flex items-center justify-end border-b border-border px-5 py-3">
         <div className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
           {totalHours} {t('workload.hoursShort')}
         </div>
