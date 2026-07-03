@@ -27,6 +27,7 @@ import { ProfileSection } from '@/components/cabinet/profile-section'
 import { ChangePassword } from '@/components/cabinet/change-password'
 import { NotificationsFeed } from '@/components/cabinet/notifications-feed'
 import { WorkloadCalendar } from '@/components/cabinet/workload-calendar'
+import { WorkloadSummaryTable } from '@/components/cabinet/workload-summary-table'
 import { InstructorMultiSelect } from '@/components/cabinet/instructor-multi-select'
 import { AdminWorkspace } from '@/components/cabinet/admin-workspace'
 import { ScheduleGrid } from '@/components/schedule/schedule-grid'
@@ -729,14 +730,23 @@ function CabinetPageContent() {
               ) : null}
 
               {activeTab === 'workload' ? (
-                <WorkloadCalendar
-                  data={dashboard.workload}
-                  onPeriodChange={(from, to) => setRange({ from, to })}
-                  onLessonClick={(date) => jumpToScheduleDay(date)}
-                  actions={renderWorkloadActions()}
-                  includeBusinessTrips={includeBusinessTrips}
-                  onIncludeBusinessTripsChange={setIncludeBusinessTrips}
-                />
+                <div className="space-y-6">
+                  {operationsEnabled ? (
+                    <WorkloadSummaryTable
+                      summaries={workloadSummaries}
+                      selectedIds={workloadInstructorIds}
+                      includeBusinessTrips={includeBusinessTrips}
+                    />
+                  ) : null}
+                  <WorkloadCalendar
+                    data={dashboard.workload}
+                    onPeriodChange={(from, to) => setRange({ from, to })}
+                    onLessonClick={(date) => jumpToScheduleDay(date)}
+                    actions={renderWorkloadActions()}
+                    includeBusinessTrips={includeBusinessTrips}
+                    onIncludeBusinessTripsChange={setIncludeBusinessTrips}
+                  />
+                </div>
               ) : null}
 
               {activeTab === 'notifications' ? (
