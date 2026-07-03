@@ -58,3 +58,22 @@ jobs:
             docker compose -f docker-compose.prod.yml pull frontend
             docker compose -f docker-compose.prod.yml up -d frontend
             docker image prune -f
+
+      - name: Rebuild backend on server (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 40m
+          script: |
+            set -e
+            cd /root/A.T.O.M.-Academy-Timetable-Organization-Manager
+            swapon /swapfile 2>/dev/null || true
+            free -h
+            docker compose -f docker-compose.prod.yml up --build -d api-gateway schedule-service identity-service import-service
+            sleep 25
+            docker compose -f docker-compose.prod.yml ps
+            docker compose -f docker-compose.prod.yml logs schedule-service --tail 40 | grep -iE "flyway|migrat|started" || true
+            curl -s -o /dev/null -w "gateway healthcheck: %{http_code}\n" "http://localhost:8081/api/public/schedule?from=2026-07-01&to=2026-07-02"
