@@ -153,6 +153,7 @@ public class ScheduleCsvParser {
 
         int order = 1;
         boolean selfStudy = false;
+        boolean businessTrip = false;
         boolean inAssessment = false;
         Lesson currentAssessment = null;
         String pendingInstructor = null;
@@ -164,6 +165,12 @@ public class ScheduleCsvParser {
 
             if (line.equals("СП")) {
                 selfStudy = true;
+                continue;
+            }
+
+            String maybeTrip = line.endsWith(":") ? line.substring(0, line.length() - 1).trim() : line;
+            if (maybeTrip.equalsIgnoreCase("TRIP")) {
+                businessTrip = true;
                 continue;
             }
 
@@ -194,6 +201,7 @@ public class ScheduleCsvParser {
                 l.setOrderNumber(order++);
                 l.setTitle(assessmentTitle);
                 l.setType(LessonType.ASSESSMENT);
+                l.setBusinessTrip(businessTrip);
                 l.setDurationHours(hasDuration ? Integer.parseInt(dm.group(1)) : 0);
                 l.setLecturers(new ArrayList<>());
                 if (pendingInstructor != null) {
@@ -238,6 +246,7 @@ public class ScheduleCsvParser {
             lesson.setOrderNumber(order++);
             lesson.setDurationHours(hours);
             lesson.setType(selfStudy ? LessonType.SELF_STUDY : LessonType.LECTURE);
+            lesson.setBusinessTrip(businessTrip);
 
             List<String> instructorsInText = findInstructors(text, instructors);
             String title;
@@ -272,6 +281,9 @@ public class ScheduleCsvParser {
                 }
             }
 
+            if (businessTrip && title.isBlank()) {
+                title = "TRIP";
+            }
             lesson.setTitle(title);
             if (lecturer != null) lesson.setLecturer(lecturer);
             day.getLessons().add(lesson);
