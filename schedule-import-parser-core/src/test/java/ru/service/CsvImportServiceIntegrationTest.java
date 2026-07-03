@@ -244,6 +244,27 @@ class CsvImportServiceIntegrationTest {
         csvImportService.importGroups(List.of(buildImportedGroup(groupCode, lecturerName)));
     }
 
+    @Test
+    void importFromCsv_persistsBusinessTripFlagFromTripCells() throws Exception {
+        String tripCsv = """
+                h0,x
+                h1,05.%s
+                "trip-group\nB201","I&C02\nTRIP\nМеняйло (8ч)\nЗагузин (8ч)"
+                """.formatted(januaryKey());
+
+        csvImportService.importFromCsv(new java.io.ByteArrayInputStream(tripCsv.getBytes(StandardCharsets.UTF_8)));
+        entityManager.flush();
+        entityManager.clear();
+
+        Group group = groupRepository.findByCode("trip-group").orElseThrow();
+        List<Lesson> lessons = group.getDays().get(0).getLessons();
+        assertThat(lessons).hasSize(2);
+        assertThat(lessons).allSatisfy(lesson -> {
+            assertThat(lesson.isBusinessTrip()).isTrue();
+            assertThat(lesson.getTitle()).isEqualTo("TRIP");
+        });
+    }
+
     private String csv(String groupCode, String instructorName, String lessonLine) {
         return """
                 h0,%s

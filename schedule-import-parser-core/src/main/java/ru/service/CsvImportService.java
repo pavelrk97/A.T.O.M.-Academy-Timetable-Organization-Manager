@@ -187,6 +187,7 @@ public class CsvImportService {
                 lesson.setDurationHours(importedLesson.getDurationHours());
                 lesson.setNote(importedLesson.getNote());
                 lesson.setType(importedLesson.getType());
+                lesson.setBusinessTrip(importedLesson.isBusinessTrip());
                 lesson.setLecturers(resolveLecturerNames(importedLesson));
                 lesson.setAssignedInstructors(resolveInstructors(importedLesson, instructorCache));
                 lesson.setDay(day);
