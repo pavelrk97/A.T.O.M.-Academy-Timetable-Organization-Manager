@@ -1,0 +1,109 @@
+{
+  "id": null,
+  "uid": "atom-overview",
+  "title": "A.T.O.M. Overview",
+  "tags": ["atom"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Requests per second",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (application) (rate(http_server_requests_seconds_count[1m]))",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Average response time",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (application) (rate(http_server_requests_seconds_sum[1m])) / sum by (application) (rate(http_server_requests_seconds_count[1m]))",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "5xx errors per second",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (application) (rate(http_server_requests_seconds_count{status=~\"5..\"}[1m]))",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "JVM heap",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (application) (jvm_memory_used_bytes{area=\"heap\"})",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Process CPU",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "process_cpu_usage",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Active DB connections (Hikari)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "hikaricp_connections_active",
+          "legendFormat": "{{application}}"
+        }
+      ]
+    }
+  ]
+}

@@ -197,6 +197,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - ./docker/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - ./docker/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./docker/grafana/dashboards:/etc/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
 
 volumes:
