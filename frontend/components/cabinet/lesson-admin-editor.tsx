@@ -65,6 +65,7 @@ interface DaySlotDraft {
   durationHours: number
   note: string
   type: LessonType
+  businessTrip: boolean
   instructorIds: string[]
 }
 
@@ -85,6 +86,7 @@ interface ClipboardLessonDraft {
   durationHours: number
   note: string
   type: LessonType
+  businessTrip: boolean
   instructorIds: string[]
 }
 
@@ -228,6 +230,7 @@ function createEmptySlotDraft(orderNumber: number): DaySlotDraft {
     durationHours: 2,
     note: '',
     type: 'LECTURE',
+    businessTrip: false,
     instructorIds: [],
   }
 }
@@ -262,6 +265,7 @@ function dayLessonToSlot(
     durationHours: lesson.durationHours || 2,
     note: lesson.note || '',
     type: (lesson.type as LessonType) || 'LECTURE',
+    businessTrip: Boolean(lesson.businessTrip),
     instructorIds: resolveInstructorIds(lesson),
   }
 }
@@ -307,6 +311,7 @@ function draftToCellLessons(draft: DayDraft): LessonEditorDto[] {
       durationHours: slot.durationHours,
       note: slot.note || null,
       type: slot.type,
+      businessTrip: slot.businessTrip,
       instructorIds: slot.instructorIds,
       instructorNames: [],
       lecturers: [],
@@ -335,6 +340,7 @@ function areDraftsEqual(left: DayDraft, right: DayDraft) {
       slot.durationHours === other.durationHours &&
       slot.note.trim() === other.note.trim() &&
       slot.type === other.type &&
+      slot.businessTrip === other.businessTrip &&
       areStringArraysEqual(slot.instructorIds, other.instructorIds)
     )
   })
@@ -460,6 +466,7 @@ function DayEditorSheet({
                 durationHours: 2,
                 note: '',
                 type: slot.type || 'LECTURE',
+                businessTrip: false,
                 instructorIds: [],
               }
             : slot
@@ -581,6 +588,17 @@ function DayEditorSheet({
                     />
                   </label>
                 </div>
+
+                <label className="mt-4 flex items-center gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={slot.businessTrip}
+                    onChange={(event) =>
+                      updateSlot(slot.orderNumber, { businessTrip: event.target.checked })
+                    }
+                  />
+                  <span>{t('lesson.businessTrip')}</span>
+                </label>
 
                 <label className="mt-4 block space-y-2">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -1058,6 +1076,7 @@ export function LessonAdminEditor({
             durationHours: slot.durationHours,
             note: slot.note,
             type: slot.type,
+            businessTrip: slot.businessTrip,
             instructorIds: [...slot.instructorIds],
           })),
         })
@@ -1111,6 +1130,7 @@ export function LessonAdminEditor({
         durationHours: 2,
         note: '',
         type: slot.type || 'LECTURE',
+        businessTrip: false,
         instructorIds: [],
       }))
 
@@ -1122,6 +1142,7 @@ export function LessonAdminEditor({
           durationHours: lesson.durationHours,
           note: lesson.note,
           type: lesson.type,
+          businessTrip: lesson.businessTrip,
           instructorIds: [...lesson.instructorIds] as string[],
         }
       }
@@ -1150,6 +1171,7 @@ export function LessonAdminEditor({
         durationHours: slot.durationHours,
         note: slot.note.trim() || null,
         type: slot.type,
+        businessTrip: slot.businessTrip,
         instructorIds: [...slot.instructorIds],
       })),
     }
@@ -1553,6 +1575,7 @@ export function LessonAdminEditor({
                     durationHours: 2,
                     note: '',
                     type: slot.type || 'LECTURE',
+                    businessTrip: false,
                     instructorIds: [],
                   }))
                   applyDraftToBuffer(emptyDraft)

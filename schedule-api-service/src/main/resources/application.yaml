@@ -25,9 +25,22 @@ spring:
     multipart:
       max-file-size: 200MB
       max-request-size: 200MB
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 10000
+            # Запуск авто-импорта (/api/auto-import/run) синхронно гоняет полный импорт CSV
+            # и на слабом сервере легко выходит за дефолтные 60 секунд — gateway отваливался
+            # с "Downstream service call failed", хотя импорт на schedule-service доходил до конца.
+            readTimeout: 300000
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}

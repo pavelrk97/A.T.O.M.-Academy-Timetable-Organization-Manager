@@ -50,6 +50,7 @@ export interface LessonEditorDto {
   durationHours: number
   note?: string | null
   type?: LessonType | null
+  businessTrip?: boolean | null
   dayId?: string | null
   groupId?: string | null
   instructorIds?: string[]
@@ -65,6 +66,7 @@ export interface LessonMutationPayload {
   durationHours: number
   note?: string | null
   type?: LessonType | null
+  businessTrip?: boolean | null
   dayId: string
   groupId: string
   instructorIds: string[]
@@ -83,6 +85,7 @@ export interface DaySyncPayload {
     durationHours: number
     note?: string | null
     type?: LessonType | null
+    businessTrip?: boolean | null
     instructorIds: string[]
   }>
 }
@@ -168,6 +171,7 @@ export interface WorkloadCalendarLesson {
   groupCode: string
   title: string
   durationHours: number
+  businessTrip?: boolean
 }
 
 export interface WorkloadCalendarDay {
@@ -190,6 +194,7 @@ export interface WorkloadSummary {
   instructorId: string
   instructorName: string
   totalHours: number
+  businessTripHours: number
 }
 
 export interface Notification {

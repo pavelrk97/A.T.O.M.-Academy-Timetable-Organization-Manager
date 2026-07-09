@@ -72,6 +72,55 @@ class ScheduleCsvParserTest {
     }
 
     @Test
+    void parse_marksTripCellLessonsAsBusinessTrips() throws Exception {
+        String csv = """
+                h0,%s
+                h1,05.%s
+                "%s\nБ201","OE00\nTRIP\nМеняйло %s\nЗагузин %s"
+                """.formatted(
+                weekdayKey(),
+                monthKey(Month.JUNE),
+                "гр. 6",
+                durationLiteral(8),
+                durationLiteral(8)
+        );
+
+        List<Group> groups = ScheduleCsvParser.parse(new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(groups).hasSize(1);
+        List<Lesson> lessons = groups.get(0).getDays().get(0).getLessons();
+        assertThat(lessons).hasSize(2);
+        assertThat(lessons).allSatisfy(lesson -> {
+            assertThat(lesson.isBusinessTrip()).isTrue();
+            assertThat(lesson.getTitle()).isEqualTo("TRIP");
+            assertThat(lesson.getDurationHours()).isEqualTo(8);
+        });
+        assertThat(lessons.get(0).getLecturer()).isEqualTo("Меняйло");
+        assertThat(lessons.get(1).getLecturer()).isEqualTo("Загузин");
+    }
+
+    @Test
+    void parse_keepsRegularLessonsWithoutBusinessTripFlag() throws Exception {
+        String csv = """
+                h0,%s
+                h1,05.%s
+                "%s\nБ201","OE00\nМеняйло %s\nOrdinary topic"
+                """.formatted(
+                weekdayKey(),
+                monthKey(Month.JUNE),
+                "гр. 6",
+                durationLiteral(4)
+        );
+
+        List<Group> groups = ScheduleCsvParser.parse(new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8)));
+
+        List<Lesson> lessons = groups.get(0).getDays().get(0).getLessons();
+        assertThat(lessons).hasSize(1);
+        assertThat(lessons.get(0).isBusinessTrip()).isFalse();
+        assertThat(lessons.get(0).getTitle()).isEqualTo("Ordinary topic");
+    }
+
+    @Test
     void parse_handlesInstructorFirstFormat() throws Exception {
         // Format B: "Instructor (Nч)" then title on next line (e.g. гр.174 в реальной выгрузке).
         String csv = """

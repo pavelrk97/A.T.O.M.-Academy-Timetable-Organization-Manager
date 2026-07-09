@@ -175,7 +175,7 @@ class MeControllerTest {
     @Test
     @WithMockUser(username = "mentor", roles = "INSTRUCTOR")
     void exportMyWorkload_returnsExcelAttachment() throws Exception {
-        given(myCabinetService.exportMyWorkloadExcel(any(Authentication.class), eq(LocalDate.of(2026, 5, 1)), eq(LocalDate.of(2026, 5, 31))))
+        given(myCabinetService.exportMyWorkloadExcel(any(Authentication.class), eq(LocalDate.of(2026, 5, 1)), eq(LocalDate.of(2026, 5, 31)), eq(true)))
                 .willReturn("csv-data".getBytes(StandardCharsets.UTF_8));
 
         mockMvc.perform(get("/api/me/workload/export")
@@ -186,6 +186,6 @@ class MeControllerTest {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes("csv-data".getBytes(StandardCharsets.UTF_8)));
 
-        verify(myCabinetService).exportMyWorkloadExcel(any(Authentication.class), eq(LocalDate.of(2026, 5, 1)), eq(LocalDate.of(2026, 5, 31)));
+        verify(myCabinetService).exportMyWorkloadExcel(any(Authentication.class), eq(LocalDate.of(2026, 5, 1)), eq(LocalDate.of(2026, 5, 31)), eq(true));
     }
 }

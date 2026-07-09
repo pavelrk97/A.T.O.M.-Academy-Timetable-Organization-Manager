@@ -303,10 +303,13 @@ class LessonServiceTest {
     }
 
     @Test
-    void exportWorkloadExcel_rejectsPlainInstructor() {
+    void exportWorkloadExcel_returnsWorkbookFromExportService() {
         LessonService lessonService = lessonService();
         Authentication authentication = mock(Authentication.class);
-        User actor = user("instructor", "Course Instructor", Role.INSTRUCTOR);
+        User actor = user("admin", "Admin", Role.ADMIN);
+        User instructor = user("inst-1", "Меняйло", Role.INSTRUCTOR);
+        Lesson lesson = lesson("гр.6 ()", LocalDate.of(2026, 1, 5), 4, instructor);
+        byte[] expected = {1, 2, 3};
 
         when(userService.getCurrentUser(authentication)).thenReturn(actor);
         when(lessonRepository.findForDateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
@@ -325,9 +328,73 @@ class LessonServiceTest {
                 authentication
         );
 
-        assertThatThrownBy(() -> lessonService.exportWorkloadExcel(null, null, null, null, authentication))
-                .isInstanceOf(ForbiddenEditException.class)
-                .hasMessage("Only admin or editor can export workload catalog");
+        assertThat(exported).isEqualTo(expected);
+    }
+
+    @Test
+    void getWorkload_countsBusinessTripHoursSeparately() {
+        LessonService lessonService = lessonService();
+        Authentication authentication = mock(Authentication.class);
+
+        User admin = user("admin", "Admin", Role.ADMIN);
+        User instructor = user("inst-1", "Меняйло", Role.INSTRUCTOR);
+
+        Lesson regular = lesson("гр.6 ()", LocalDate.of(2026, 1, 5), 4, instructor);
+        Lesson trip = lesson("гр.7 ()", LocalDate.of(2026, 1, 6), 6, instructor);
+        trip.setBusinessTrip(true);
+
+        when(userService.getCurrentUser(authentication)).thenReturn(admin);
+        when(lessonRepository.findForDateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .thenReturn(List.of(regular, trip));
+
+        List<WorkloadDto> workload = lessonService.getWorkload(null, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), authentication);
+
+        assertThat(workload).hasSize(1);
+        assertThat(workload.get(0).getTotalHours()).isEqualTo(10);
+        assertThat(workload.get(0).getBusinessTripHours()).isEqualTo(6);
+    }
+
+    @Test
+    void exportWorkloadExcel_excludesBusinessTripsWhenDisabled() {
+        LessonService lessonService = lessonService();
+        Authentication authentication = mock(Authentication.class);
+
+        User admin = user("admin", "Admin", Role.ADMIN);
+        User instructor = user("inst-1", "Меняйло", Role.INSTRUCTOR);
+
+        Lesson regular = lesson("гр.6 ()", LocalDate.of(2026, 1, 5), 4, instructor);
+        Lesson trip = lesson("гр.7 ()", LocalDate.of(2026, 1, 6), 6, instructor);
+        trip.setBusinessTrip(true);
+
+        when(userService.getCurrentUser(authentication)).thenReturn(admin);
+        when(lessonRepository.findForDateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .thenReturn(List.of(regular, trip));
+        when(workloadExcelExportService.exportCalendars(
+                org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.eq(LocalDate.of(2026, 1, 1)),
+                org.mockito.ArgumentMatchers.eq(LocalDate.of(2026, 1, 31))
+        )).thenReturn(new byte[]{1});
+
+        lessonService.exportWorkloadExcel(
+                null,
+                null,
+                null,
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 1, 31),
+                false,
+                authentication
+        );
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<List<ru.dto.WorkloadCalendarDto>> captor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(workloadExcelExportService).exportCalendars(
+                captor.capture(),
+                org.mockito.ArgumentMatchers.eq(LocalDate.of(2026, 1, 1)),
+                org.mockito.ArgumentMatchers.eq(LocalDate.of(2026, 1, 31))
+        );
+        assertThat(captor.getValue()).hasSize(1);
+        assertThat(captor.getValue().get(0).getTotalHours()).isEqualTo(4);
     }
 
     @Test

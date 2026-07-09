@@ -26,6 +26,7 @@ public class LessonDto {
     private Integer durationHours;
     private String note;
     private LessonType type;
+    private Boolean businessTrip;
     private UUID dayId;
     private UUID groupId;
     private List<UUID> instructorIds;

@@ -48,12 +48,13 @@ public class WorkloadController {
             @RequestParam(required = false) String instructorQuery,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false, defaultValue = "true") boolean includeBusinessTrips,
             Authentication authentication
     ) {
         LocalDate effectiveFrom = from != null ? from : LocalDate.of(1900, 1, 1);
         LocalDate effectiveTo = to != null ? to : LocalDate.of(3000, 12, 31);
         byte[] workbook = lessonService.exportWorkloadExcel(
-                instructorId, instructorIds, instructorQuery, from, to, authentication);
+                instructorId, instructorIds, instructorQuery, from, to, includeBusinessTrips, authentication);
         String scope;
         if (instructorIds != null && !instructorIds.isEmpty()) {
             scope = "selected-" + instructorIds.size();
@@ -63,6 +64,9 @@ public class WorkloadController {
             scope = "filtered";
         } else {
             scope = "all";
+        }
+        if (!includeBusinessTrips) {
+            scope += "-no-trips";
         }
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,

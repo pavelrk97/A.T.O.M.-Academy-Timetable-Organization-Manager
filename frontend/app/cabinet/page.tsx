@@ -11,6 +11,7 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Bell,
+  CalendarRange,
   Download,
   FileCog,
   LayoutDashboard,
@@ -18,6 +19,7 @@ import {
   LockKeyhole,
   Rows3,
   UserRound,
+  Users,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
@@ -27,9 +29,16 @@ import { ProfileSection } from '@/components/cabinet/profile-section'
 import { ChangePassword } from '@/components/cabinet/change-password'
 import { NotificationsFeed } from '@/components/cabinet/notifications-feed'
 import { WorkloadCalendar } from '@/components/cabinet/workload-calendar'
+import { WorkloadSummaryTable } from '@/components/cabinet/workload-summary-table'
 import { InstructorMultiSelect } from '@/components/cabinet/instructor-multi-select'
 import { AdminWorkspace } from '@/components/cabinet/admin-workspace'
 import { ScheduleGrid } from '@/components/schedule/schedule-grid'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
@@ -163,6 +172,7 @@ function CabinetPageContent() {
   const [workloadExporting, setWorkloadExporting] = useState(false)
   const [workloadInstructorIds, setWorkloadInstructorIds] = useState<string[]>([])
   const [workloadSummaries, setWorkloadSummaries] = useState<WorkloadSummary[]>([])
+  const [includeBusinessTrips, setIncludeBusinessTrips] = useState(true)
   const [scheduleZoom, setScheduleZoom] = useState(100)
   const [scheduleZoomDraft, setScheduleZoomDraft] = useState(100)
   const syncingFromUrlRef = useRef(false)
@@ -406,6 +416,7 @@ function CabinetPageContent() {
             : undefined,
         from: range.from,
         to: range.to,
+        includeBusinessTrips,
       })
       saveDownload(download)
     } catch (caught) {
@@ -727,12 +738,68 @@ function CabinetPageContent() {
               ) : null}
 
               {activeTab === 'workload' ? (
-                <WorkloadCalendar
-                  data={dashboard.workload}
-                  onPeriodChange={(from, to) => setRange({ from, to })}
-                  onLessonClick={(date) => jumpToScheduleDay(date)}
-                  actions={renderWorkloadActions()}
-                />
+                <Accordion
+                  type="multiple"
+                  defaultValue={operationsEnabled ? ['workload-team'] : ['workload-calendar']}
+                  className="space-y-3"
+                >
+                  {operationsEnabled ? (
+                    <AccordionItem
+                      value="workload-team"
+                      className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
+                    >
+                      <AccordionTrigger className="px-5 py-4 hover:no-underline data-[state=open]:bg-slate-50/60">
+                        <div className="flex flex-1 items-start gap-3 text-left">
+                          <div className="rounded-xl bg-primary/10 p-2.5 shrink-0">
+                            <Users className="h-5 w-5 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-slate-950">{t('workload.teamTitle')}</div>
+                            <div className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
+                              {t('workload.teamSubtitle')}
+                            </div>
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="border-t border-border bg-slate-50/40 px-3 py-4 sm:px-5">
+                        <WorkloadSummaryTable
+                          summaries={workloadSummaries}
+                          selectedIds={workloadInstructorIds}
+                          includeBusinessTrips={includeBusinessTrips}
+                        />
+                      </AccordionContent>
+                    </AccordionItem>
+                  ) : null}
+
+                  <AccordionItem
+                    value="workload-calendar"
+                    className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
+                  >
+                    <AccordionTrigger className="px-5 py-4 hover:no-underline data-[state=open]:bg-slate-50/60">
+                      <div className="flex flex-1 items-start gap-3 text-left">
+                        <div className="rounded-xl bg-primary/10 p-2.5 shrink-0">
+                          <CalendarRange className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-slate-950">{t('home.feature3Title')}</div>
+                          <div className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
+                            {t('workload.subtitle')}
+                          </div>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="border-t border-border bg-slate-50/40 px-3 py-4 sm:px-5">
+                      <WorkloadCalendar
+                        data={dashboard.workload}
+                        onPeriodChange={(from, to) => setRange({ from, to })}
+                        onLessonClick={(date) => jumpToScheduleDay(date)}
+                        actions={renderWorkloadActions()}
+                        includeBusinessTrips={includeBusinessTrips}
+                        onIncludeBusinessTripsChange={setIncludeBusinessTrips}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               ) : null}
 
               {activeTab === 'notifications' ? (

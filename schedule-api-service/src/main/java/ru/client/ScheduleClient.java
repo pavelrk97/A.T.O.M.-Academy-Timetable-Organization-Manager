@@ -91,7 +91,8 @@ public interface ScheduleClient {
                           @RequestParam(name = "instructorIds", required = false) List<UUID> instructorIds,
                           @RequestParam(required = false) String instructorQuery,
                           @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
+                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                          @RequestParam(name = "includeBusinessTrips") boolean includeBusinessTrips);
 
     @GetMapping("/api/me/schedule/grid")
     ScheduleGridDto getMyFullScheduleGrid(@RequestHeader("Authorization") String authorization,
@@ -111,7 +112,8 @@ public interface ScheduleClient {
     @GetMapping(value = "/api/me/workload/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     byte[] exportMyWorkload(@RequestHeader("Authorization") String authorization,
                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
+                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                            @RequestParam(name = "includeBusinessTrips") boolean includeBusinessTrips);
 
     @GetMapping("/api/me/notifications")
     List<MyNotificationDto> getMyNotifications(@RequestHeader("Authorization") String authorization,

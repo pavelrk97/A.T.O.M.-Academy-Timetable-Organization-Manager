@@ -47,3 +47,4 @@ upload.html
 *-run.out.log
 *-run.err.log
 
+docker-compose.override.yml
