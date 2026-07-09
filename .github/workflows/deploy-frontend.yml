@@ -1,4 +1,4 @@
-name: Build & deploy frontend
+name: Deploy
 
 on:
   push:
@@ -59,7 +59,7 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d frontend
             docker image prune -f
 
-      - name: Rebuild backend on server (manual runs only)
+      - name: Rebuild backend & monitoring on server (manual runs only)
         if: github.event_name == 'workflow_dispatch'
         uses: appleboy/ssh-action@v1
         with:
@@ -79,6 +79,9 @@ jobs:
               [ "$code" = "200" ] && break
               sleep 5
             done
+            grep -q '^GRAFANA_ADMIN_PASSWORD=' .env || { echo "ERROR: GRAFANA_ADMIN_PASSWORD не задан в серверном .env"; exit 1; }
+            docker compose -f docker-compose.prod.yml up -d loki promtail prometheus grafana reverse-proxy
+            docker compose -f docker-compose.prod.yml restart reverse-proxy
             docker compose -f docker-compose.prod.yml ps
             docker compose -f docker-compose.prod.yml logs schedule-service --tail 40 | grep -iE "flyway|migrat|started" || true
             echo "gateway healthcheck: $code"
