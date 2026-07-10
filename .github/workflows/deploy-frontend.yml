@@ -72,17 +72,19 @@ jobs:
             cd /root/A.T.O.M.-Academy-Timetable-Organization-Manager
             swapon /swapfile 2>/dev/null || true
             free -h
-            docker compose -f docker-compose.prod.yml up --build -d api-gateway schedule-service identity-service import-service
-            code=000
-            for i in $(seq 1 24); do
-              code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081/api/public/schedule?from=2026-07-01&to=2026-07-02" || true)
-              [ "$code" = "200" ] && break
-              sleep 5
-            done
             grep -q '^GRAFANA_ADMIN_PASSWORD=' .env || { echo "ERROR: GRAFANA_ADMIN_PASSWORD не задан в серверном .env"; exit 1; }
-            docker compose -f docker-compose.prod.yml up -d loki promtail prometheus grafana reverse-proxy
+            docker compose -f docker-compose.prod.yml up --build -d api-gateway schedule-service identity-service import-service
+            docker compose -f docker-compose.prod.yml up -d loki promtail prometheus grafana
             docker compose -f docker-compose.prod.yml restart reverse-proxy
             docker compose -f docker-compose.prod.yml ps
-            docker compose -f docker-compose.prod.yml logs schedule-service --tail 40 | grep -iE "flyway|migrat|started" || true
+            # 4 JVM на 2 CPU поднимаются долго и конкурируют за процессор — ждём готовности gateway до 10 минут.
+            code=000
+            for i in $(seq 1 60); do
+              code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081/api/public/schedule?from=2026-07-01&to=2026-07-02" || true)
+              [ "$code" = "200" ] && { echo "gateway готов за ~$((i*10))с"; break; }
+              echo "прогрев ${i}/60: gateway=$code"
+              sleep 10
+            done
+            docker compose -f docker-compose.prod.yml logs schedule-service --tail 20 | grep -iE "flyway|started" || true
             echo "gateway healthcheck: $code"
             [ "$code" = "200" ]
