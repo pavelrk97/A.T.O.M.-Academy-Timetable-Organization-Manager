@@ -74,8 +74,8 @@ jobs:
             free -h
             grep -q '^GRAFANA_ADMIN_PASSWORD=' .env || { echo "ERROR: GRAFANA_ADMIN_PASSWORD не задан в серверном .env"; exit 1; }
             docker compose -f docker-compose.prod.yml up --build -d api-gateway schedule-service identity-service import-service
-            docker compose -f docker-compose.prod.yml up -d loki promtail prometheus grafana
-            docker compose -f docker-compose.prod.yml restart reverse-proxy
+            docker compose -f docker-compose.prod.yml up -d loki promtail prometheus grafana node-exporter
+            docker compose -f docker-compose.prod.yml restart prometheus reverse-proxy
             docker compose -f docker-compose.prod.yml ps
             # 4 JVM на 2 CPU поднимаются долго и конкурируют за процессор — ждём готовности gateway до 10 минут.
             code=000
