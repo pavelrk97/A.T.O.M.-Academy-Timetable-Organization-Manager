@@ -77,12 +77,15 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d loki promtail prometheus grafana node-exporter
             docker compose -f docker-compose.prod.yml restart prometheus reverse-proxy
             docker compose -f docker-compose.prod.yml ps
-            # 4 JVM на 2 CPU поднимаются долго и конкурируют за процессор — ждём готовности gateway до 10 минут.
+            # Проверяем через Caddy (порты сервисов наружу не публикуются — только 80/443).
+            # --resolve направляет домен на локальный Caddy, минуя внешний DNS.
+            # 4 JVM на 2 CPU поднимаются долго и конкурируют за процессор — ждём до 10 минут.
+            host=$(grep '^PUBLIC_HOSTNAME=' .env | cut -d= -f2 | tr -d ' \r')
             code=000
             for i in $(seq 1 60); do
-              code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081/api/public/schedule?from=2026-07-01&to=2026-07-02" || true)
-              [ "$code" = "200" ] && { echo "gateway готов за ~$((i*10))с"; break; }
-              echo "прогрев ${i}/60: gateway=$code"
+              code=$(curl -s -o /dev/null -w "%{http_code}" -k --resolve "${host}:443:127.0.0.1" "https://${host}/api/public/schedule?from=2026-07-01&to=2026-07-02" || true)
+              [ "$code" = "200" ] && { echo "app готов за ~$((i*10))с"; break; }
+              echo "прогрев ${i}/60: app=$code"
               sleep 10
             done
             docker compose -f docker-compose.prod.yml logs schedule-service --tail 20 | grep -iE "flyway|started" || true
