@@ -4,7 +4,7 @@
 
 Микросервисная архитектура на **Spring Boot 3.2.5 (Java 21)** + фронтенд на **Next.js 16**, единая база PostgreSQL, миграции Flyway, авторизация через JWT.
 
-В продакшне крутится на [https://prk97.ru](https://prk97.ru) (Caddy + автоматический Let's Encrypt). Фронт деплоится автоматически через GitHub Actions → GHCR (см. [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md)).
+В продакшне крутится на [https://prk97.ru](https://prk97.ru) (Caddy + автоматический Let's Encrypt). Фронт деплоится автоматически через GitHub Actions → GHCR (см. [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md)). Мониторинг (метрики + логи) — Grafana на [https://prk97.ru/grafana/](https://prk97.ru/grafana/).
 
 ---
 
@@ -22,12 +22,13 @@
 | Слой | Технологии |
 |---|---|
 | Backend | Java 21, Spring Boot 3.2.5, Spring Security (OAuth2 Resource Server / JWT), Spring Data JPA, Spring Cloud OpenFeign |
-| База | PostgreSQL 16, Flyway (миграции `db/migration/V1..V5`) |
+| База | PostgreSQL 16, Flyway (миграции `db/migration/V1..V6`) |
 | Импорт | OpenCSV, scheduled auto-import, manual upload |
 | Frontend | Next.js 16, React 19, Tailwind CSS, Radix UI, i18n RU/EN |
 | Прокси (prod) | Caddy 2.10 (HTTPS, ACME) |
 | Контейнеризация | Docker Compose (отдельные dev и prod compose-файлы) |
 | CI/CD | GitHub Actions → GHCR, автодеплой фронта по SSH |
+| Мониторинг | Prometheus + Grafana (метрики), Loki + Promtail (логи), Spring Boot Actuator / Micrometer |
 
 ---
 
@@ -42,7 +43,7 @@
               │ HTTPS
        ┌──────▼──────┐
        │   Caddy     │  reverse-proxy (только в prod)
-       │  80/443     │  /  → frontend  •  /api/* → api-gateway
+       │  80/443     │  / → frontend • /api/* → gateway • /grafana/* → grafana
        └──────┬──────┘
               │
    ┌──────────┴──────────┐
@@ -74,6 +75,14 @@
 
 **Межсервисное взаимодействие** — Spring Cloud OpenFeign, **JWT** пользователя пробрасывается в `Authorization`, плюс служебные заголовки `X-Internal-API-Key` (`IDENTITY_INTERNAL_API_KEY`, `SCHEDULE_INTERNAL_API_KEY`) для internal-эндпоинтов.
 
+### Мониторинг
+
+Отдельный стек наблюдаемости, поднимается тем же Docker Compose:
+
+- **Метрики** — каждый сервис отдаёт `/actuator/prometheus` (Spring Boot Actuator + Micrometer), **Prometheus** их скрейпит, **Grafana** рисует дашборд `A.T.O.M. Overview`.
+- **Логи** — **Promtail** собирает stdout всех контейнеров и шлёт в **Loki**; в Grafana фильтруются по лейблу `container_name`.
+- Эндпоинты `/actuator/prometheus` наружу не публикуются — доступны только внутри docker-сети. В prod к Grafana ходят через Caddy (`/grafana/`), сервисные порты Prometheus/Loki закрыты.
+
 ---
 
 ## Быстрый старт (Docker)
@@ -91,6 +100,8 @@ docker compose up --build
 - schedule-service → http://localhost:8080
 - import-service → http://localhost:8083
 - PostgreSQL → localhost:5432
+- Grafana → http://localhost:3001 (admin/admin)
+- Prometheus → http://localhost:9090
 
 ### Backend (Maven multi-module)
 
