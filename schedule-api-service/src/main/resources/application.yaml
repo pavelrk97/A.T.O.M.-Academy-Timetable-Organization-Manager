@@ -14,6 +14,11 @@ import:
   service:
     url: ${IMPORT_SERVICE_URL:http://localhost:8083}
 
+gemini:
+  base-url: https://generativelanguage.googleapis.com/v1beta
+  model: ${GEMINI_MODEL:gemini-2.0-flash}
+  api-key: ${GEMINI_API_KEY:}
+
 security:
   jwt:
     secret: ${JWT_SECRET:dev-jwt-secret-key-dev-jwt-secret-key-123456}
