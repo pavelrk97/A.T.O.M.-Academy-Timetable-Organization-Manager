@@ -136,6 +136,8 @@ services:
       SCHEDULE_SERVICE_URL: ${SCHEDULE_SERVICE_URL}
       IMPORT_SERVICE_URL: ${IMPORT_SERVICE_URL}
       JWT_SECRET: ${JWT_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-latest}
 
   frontend:
     image: ghcr.io/pavelrk97/atom-frontend:latest

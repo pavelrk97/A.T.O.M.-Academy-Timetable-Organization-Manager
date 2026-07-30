@@ -14,6 +14,13 @@ import:
   service:
     url: ${IMPORT_SERVICE_URL:http://localhost:8083}
 
+gemini:
+  base-url: https://generativelanguage.googleapis.com/v1beta
+  # gemini-flash-latest — алиас на актуальную flash-модель с бесплатным tier;
+  # у gemini-2.0-flash на новых проектах free-tier квота = 0 (429 RESOURCE_EXHAUSTED).
+  model: ${GEMINI_MODEL:gemini-flash-latest}
+  api-key: ${GEMINI_API_KEY:}
+
 security:
   jwt:
     secret: ${JWT_SECRET:dev-jwt-secret-key-dev-jwt-secret-key-123456}
