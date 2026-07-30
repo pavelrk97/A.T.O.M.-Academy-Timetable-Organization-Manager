@@ -16,9 +16,9 @@ import:
 
 gemini:
   base-url: https://generativelanguage.googleapis.com/v1beta
-  # gemini-flash-latest — алиас на актуальную flash-модель с бесплатным tier;
-  # у gemini-2.0-flash на новых проектах free-tier квота = 0 (429 RESOURCE_EXHAUSTED).
-  model: ${GEMINI_MODEL:gemini-flash-latest}
+  # gemini-3.5-flash-lite выбран как free-tier модель с лимитом 500 RPD
+  # в текущем Google AI Studio project; избегаем latest-алиаса с меньшей квотой.
+  model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
   api-key: ${GEMINI_API_KEY:}
 
 security:
