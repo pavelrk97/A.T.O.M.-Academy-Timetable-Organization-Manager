@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/lib/auth-context'
 import { LanguageProvider } from '@/lib/i18n'
 import { LanguageSwitcher } from '@/components/language-switcher'
+import { AssistantWidget } from '@/components/assistant-widget'
 import './globals.css'
 
 const geistSans = Geist({
@@ -59,6 +60,7 @@ export default function RootLayout({
         <LanguageProvider>
           <AuthProvider>{children}</AuthProvider>
           <LanguageSwitcher />
+          <AssistantWidget />
         </LanguageProvider>
         <Analytics />
       </body>

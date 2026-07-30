@@ -4,6 +4,16 @@ export const translations: Record<string, Record<Language, string>> = {
   'nav.schedule': { ru: 'Расписание', en: 'Schedule' },
   'nav.cabinet': { ru: 'Личный кабинет', en: 'Account' },
 
+  'assistant.title': { ru: 'Ассистент', en: 'Assistant' },
+  'assistant.placeholder': { ru: 'Спроси про расписание…', en: 'Ask about the schedule…' },
+  'assistant.greeting': {
+    ru: 'Привет! Спроси про расписание — например, «какие занятия у группы 87 на этой неделе».',
+    en: 'Hi! Ask about the schedule — e.g. "what lessons does group 87 have this week".',
+  },
+  'assistant.thinking': { ru: 'Думаю…', en: 'Thinking…' },
+  'assistant.send': { ru: 'Отправить', en: 'Send' },
+  'assistant.error': { ru: 'Не получилось ответить, попробуй ещё раз.', en: 'Could not answer, please try again.' },
+
   'role.admin': { ru: 'Администратор', en: 'Administrator' },
   'role.editor': { ru: 'Редактор', en: 'Editor' },
   'role.instructorEditor': { ru: 'Инструктор / Редактор', en: 'Instructor / Editor' },
