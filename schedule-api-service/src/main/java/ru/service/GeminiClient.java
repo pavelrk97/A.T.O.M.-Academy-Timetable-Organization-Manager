@@ -1,10 +1,13 @@
 package ru.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.Duration;
 import java.util.List;
@@ -17,6 +20,8 @@ import java.util.Map;
  */
 @Service
 public class GeminiClient {
+
+    private static final Logger log = LoggerFactory.getLogger(GeminiClient.class);
 
     private final WebClient webClient;
     private final String apiKey;
@@ -47,17 +52,23 @@ public class GeminiClient {
                 "generationConfig", generationConfig
         );
 
-        JsonNode response = webClient.post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/models/{model}:generateContent")
-                        .queryParam("key", apiKey)
-                        .build(model))
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(body)
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .timeout(Duration.ofSeconds(30))
-                .block();
+        JsonNode response;
+        try {
+            response = webClient.post()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/models/{model}:generateContent")
+                            .queryParam("key", apiKey)
+                            .build(model))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .timeout(Duration.ofSeconds(30))
+                    .block();
+        } catch (WebClientResponseException ex) {
+            log.warn("Gemini API {} for model {}: {}", ex.getStatusCode(), model, ex.getResponseBodyAsString());
+            throw ex;
+        }
 
         if (response == null) {
             return "";

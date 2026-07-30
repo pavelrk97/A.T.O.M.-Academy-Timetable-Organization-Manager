@@ -16,7 +16,9 @@ import:
 
 gemini:
   base-url: https://generativelanguage.googleapis.com/v1beta
-  model: ${GEMINI_MODEL:gemini-2.0-flash}
+  # gemini-flash-latest — алиас на актуальную flash-модель с бесплатным tier;
+  # у gemini-2.0-flash на новых проектах free-tier квота = 0 (429 RESOURCE_EXHAUSTED).
+  model: ${GEMINI_MODEL:gemini-flash-latest}
   api-key: ${GEMINI_API_KEY:}
 
 security:
