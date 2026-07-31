@@ -13,4 +13,6 @@ import lombok.Setter;
 @Builder
 public class AssistantRequest {
     private String question;
+    private String captchaId;
+    private String captchaAnswer;
 }

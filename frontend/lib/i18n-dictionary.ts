@@ -13,6 +13,12 @@ export const translations: Record<string, Record<Language, string>> = {
   'assistant.thinking': { ru: 'Думаю…', en: 'Thinking…' },
   'assistant.send': { ru: 'Отправить', en: 'Send' },
   'assistant.error': { ru: 'Не получилось ответить, попробуй ещё раз.', en: 'Could not answer, please try again.' },
+  'assistant.captchaHint': {
+    ru: 'Слишком много запросов. Подтвердите, что вы не робот, и решите пример:',
+    en: 'Too many requests. Confirm you are not a robot and solve:',
+  },
+  'assistant.captchaPlaceholder': { ru: 'Ответ на пример…', en: 'Your answer…' },
+  'assistant.captchaWrong': { ru: 'Неверно, попробуйте ещё раз.', en: 'Wrong, please try again.' },
 
   'role.admin': { ru: 'Администратор', en: 'Administrator' },
   'role.editor': { ru: 'Редактор', en: 'Editor' },
