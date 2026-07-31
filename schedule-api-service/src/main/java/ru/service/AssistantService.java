@@ -1,146 +1,150 @@
 package ru.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import ru.client.ScheduleClient;
+import ru.dto.AssistantRequest;
 import ru.dto.AssistantResponse;
 import ru.dto.ScheduleEntryDto;
+import ru.service.AssistantRateLimiter.Challenge;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * ИИ-ассистент по расписанию. Схема «RAG-lite» с заземлением на реальные данные:
- *   1) Gemini извлекает из вопроса период (from/to) и текстовый фильтр (группа/преподаватель);
- *   2) тянем занятия из существующего публичного эндпоинта schedule-service;
- *   3) фуззи-фильтруем в Java (обходит точное совпадение кодов групп);
- *   4) Gemini формулирует ответ ТОЛЬКО по этим данным — ничего не выдумывает.
+ * ИИ-ассистент по расписанию. Заземление на реальные данные, ОДИН вызов модели:
+ *   1) период (from/to) вычисляем в Java по ключевым словам вопроса (без обращения к модели);
+ *   2) тянем занятия из публичного эндпоинта schedule-service;
+ *   3) один запрос к Gemini: модель сама фильтрует по группе/предмету/преподавателю
+ *      и формулирует ответ ТОЛЬКО по переданным данным.
+ * Перед 4-м запросом с одного IP включается самописная капча (см. {@link AssistantRateLimiter}).
  */
 @Service
 public class AssistantService {
 
     private static final Logger log = LoggerFactory.getLogger(AssistantService.class);
-    private static final int MAX_LESSONS_TO_MODEL = 60;
+    private static final int MAX_LESSONS_TO_MODEL = 80;
+    private static final Pattern ISO_DATE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    private static final String QUOTA_MESSAGE = "ноу мани ноу хани, токены на сегодня все";
 
     private final GeminiClient gemini;
     private final ScheduleClient scheduleClient;
-    private final ObjectMapper objectMapper;
+    private final AssistantRateLimiter rateLimiter;
 
-    public AssistantService(GeminiClient gemini, ScheduleClient scheduleClient, ObjectMapper objectMapper) {
+    public AssistantService(GeminiClient gemini, ScheduleClient scheduleClient, AssistantRateLimiter rateLimiter) {
         this.gemini = gemini;
         this.scheduleClient = scheduleClient;
-        this.objectMapper = objectMapper;
+        this.rateLimiter = rateLimiter;
     }
 
-    public AssistantResponse ask(String question) {
+    public AssistantResponse ask(AssistantRequest request, String clientIp) {
         if (!gemini.isConfigured()) {
-            return AssistantResponse.builder()
-                    .answer("Ассистент не настроен: не задан ключ Gemini (переменная GEMINI_API_KEY).")
-                    .lessons(List.of())
-                    .build();
+            return textResponse("Ассистент не настроен: не задан ключ Gemini (переменная GEMINI_API_KEY).");
         }
-        if (question == null || question.isBlank()) {
-            return AssistantResponse.builder()
-                    .answer("Задай вопрос про расписание — например, «какие занятия у группы 87 на этой неделе».")
-                    .lessons(List.of())
-                    .build();
+
+        String question = request.getQuestion() == null ? "" : request.getQuestion().trim();
+        if (question.isBlank()) {
+            return textResponse("Задай вопрос про расписание - например, «какие занятия у группы 87 на этой неделе».");
         }
+
+        // Защита от ботов: после лимита требуем капчу, пока её не решат.
+        if (rateLimiter.needsCaptcha(clientIp)) {
+            boolean solved = rateLimiter.solve(clientIp, request.getCaptchaId(), request.getCaptchaAnswer());
+            if (!solved) {
+                Challenge challenge = rateLimiter.issueChallenge(clientIp);
+                return AssistantResponse.builder()
+                        .answer("Слишком много запросов. Подтвердите, что вы не робот.")
+                        .lessons(List.of())
+                        .captchaRequired(true)
+                        .captchaId(challenge.id())
+                        .captchaQuestion(challenge.question())
+                        .build();
+            }
+        }
+        rateLimiter.recordRequest(clientIp);
 
         LocalDate today = LocalDate.now();
-        LocalDate from = today;
-        LocalDate to = today.plusDays(7);
-        String filter = "";
+        LocalDate[] window = resolveWindow(question, today);
 
-        // 1) извлечение параметров
-        try {
-            String extractPrompt = """
-                    Сегодня %s. Пользователь спрашивает про учебное расписание академии.
-                    Верни СТРОГО JSON без пояснений и текста вокруг:
-                    {"from":"YYYY-MM-DD","to":"YYYY-MM-DD","filter":"<название группы или фамилия преподавателя из вопроса; пусто, если не упомянуты>"}
-                    Если период в вопросе не указан — возьми ближайшие 7 дней от сегодняшней даты.
-                    Вопрос: %s
-                    """.formatted(today, question);
-            String json = gemini.generate(extractPrompt, true);
-            JsonNode node = objectMapper.readTree(json);
-            if (node.hasNonNull("from")) {
-                from = LocalDate.parse(node.get("from").asText());
-            }
-            if (node.hasNonNull("to")) {
-                to = LocalDate.parse(node.get("to").asText());
-            }
-            if (node.hasNonNull("filter")) {
-                filter = node.get("filter").asText("").trim();
-            }
-        } catch (Exception ex) {
-            log.warn("Assistant extract step failed, using defaults ({}..{}): {}", from, to, ex.getMessage());
-        }
-
-        // 2) данные из существующего публичного эндпоинта
         List<ScheduleEntryDto> lessons;
         try {
-            lessons = scheduleClient.getPublicSchedule(null, null, from, to);
+            lessons = scheduleClient.getPublicSchedule(null, null, window[0], window[1]);
         } catch (Exception ex) {
             log.error("Assistant schedule fetch failed", ex);
-            return AssistantResponse.builder()
-                    .answer("Не удалось получить расписание, попробуй позже.")
-                    .lessons(List.of())
-                    .build();
+            return textResponse("Не удалось получить расписание, попробуй позже.");
         }
 
-        // 3) фуззи-фильтр в Java по группе / предмету / преподавателю
-        String needle = filter.toLowerCase(Locale.ROOT);
-        List<ScheduleEntryDto> filtered = lessons.stream()
-                .filter(l -> needle.isBlank() || matches(l, needle))
+        List<ScheduleEntryDto> capped = lessons.stream()
                 .limit(MAX_LESSONS_TO_MODEL)
                 .collect(Collectors.toList());
 
-        // 4) естественный ответ строго по данным
+        String compact = capped.stream().map(this::compactLine).collect(Collectors.joining("\n"));
+        String prompt = """
+                Ты ассистент по учебному расписанию академии. Сегодня %s.
+                Ответь на вопрос кратко и на языке вопроса, опираясь ТОЛЬКО на данные ниже.
+                Если в вопросе упомянута группа, предмет или преподаватель - сам отфильтруй нужные строки.
+                Ничего не выдумывай; если подходящих занятий нет - так и скажи.
+                Вопрос: %s
+                Занятия за период %s … %s (дата | группа | предмет | преподаватели | часы):
+                %s
+                """.formatted(today, question, window[0], window[1],
+                        compact.isBlank() ? "(нет занятий за период)" : compact);
+
         String answer;
         try {
-            String compact = filtered.stream()
-                    .map(this::compactLine)
-                    .collect(Collectors.joining("\n"));
-            String answerPrompt = """
-                    Ты ассистент по учебному расписанию. Ответь на вопрос кратко и на языке вопроса,
-                    опираясь ТОЛЬКО на данные ниже. Ничего не выдумывай; если подходящих занятий нет — так и скажи.
-                    Вопрос: %s
-                    Занятия (дата | группа | предмет | преподаватели | часы):
-                    %s
-                    """.formatted(question, compact.isBlank() ? "(нет занятий за период)" : compact);
-            answer = gemini.generate(answerPrompt, false);
+            answer = gemini.generate(prompt, false);
+        } catch (GeminiQuotaExceededException ex) {
+            log.warn("Assistant quota exhausted for ip={}", clientIp);
+            return textResponse(QUOTA_MESSAGE);
         } catch (Exception ex) {
             log.warn("Assistant answer step failed: {}", ex.getMessage());
-            answer = "Нашёл занятий: " + filtered.size() + " за период " + from + " … " + to + ".";
+            answer = "Нашёл занятий: " + capped.size() + " за период " + window[0] + " … " + window[1] + ".";
         }
 
-        return AssistantResponse.builder().answer(answer).lessons(filtered).build();
+        return AssistantResponse.builder().answer(answer).lessons(capped).build();
+    }
+
+    /** Определяет период по ключевым словам вопроса, без вызова модели. По умолчанию - ближайшие 7 дней. */
+    private LocalDate[] resolveWindow(String question, LocalDate today) {
+        Matcher matcher = ISO_DATE.matcher(question);
+        if (matcher.find()) {
+            LocalDate first = LocalDate.parse(matcher.group());
+            LocalDate second = matcher.find() ? LocalDate.parse(matcher.group()) : first;
+            return first.isAfter(second)
+                    ? new LocalDate[]{second, first}
+                    : new LocalDate[]{first, second};
+        }
+
+        String q = question.toLowerCase();
+        if (q.contains("послезавтра")) {
+            return new LocalDate[]{today.plusDays(2), today.plusDays(2)};
+        }
+        if (q.contains("завтра") || q.contains("tomorrow")) {
+            return new LocalDate[]{today.plusDays(1), today.plusDays(1)};
+        }
+        if (q.contains("сегодня") || q.contains("today")) {
+            return new LocalDate[]{today, today};
+        }
+        if (q.contains("месяц") || q.contains("month")) {
+            return new LocalDate[]{today, today.plusDays(30)};
+        }
+        if (q.contains("недел") || q.contains("week")) {
+            return new LocalDate[]{today, today.plusDays(7)};
+        }
+        return new LocalDate[]{today, today.plusDays(7)};
+    }
+
+    private AssistantResponse textResponse(String answer) {
+        return AssistantResponse.builder().answer(answer).lessons(List.of()).build();
     }
 
     private String compactLine(ScheduleEntryDto l) {
         List<String> instructors = l.getInstructorNames() == null ? List.of() : l.getInstructorNames();
         return l.getDate() + " | " + l.getGroupCode() + " | " + l.getTitle()
                 + " | " + String.join(", ", instructors) + " | " + l.getDurationHours() + "ч";
-    }
-
-    private boolean matches(ScheduleEntryDto l, String needle) {
-        if (l.getGroupCode() != null && l.getGroupCode().toLowerCase(Locale.ROOT).contains(needle)) {
-            return true;
-        }
-        if (l.getTitle() != null && l.getTitle().toLowerCase(Locale.ROOT).contains(needle)) {
-            return true;
-        }
-        if (l.getInstructorNames() != null) {
-            for (String name : l.getInstructorNames()) {
-                if (name != null && name.toLowerCase(Locale.ROOT).contains(needle)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 }

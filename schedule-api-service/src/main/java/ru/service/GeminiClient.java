@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -67,6 +68,9 @@ public class GeminiClient {
                     .block();
         } catch (WebClientResponseException ex) {
             log.warn("Gemini API {} for model {}: {}", ex.getStatusCode(), model, ex.getResponseBodyAsString());
+            if (ex.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+                throw new GeminiQuotaExceededException("Gemini free-tier quota exhausted");
+            }
             throw ex;
         }
 

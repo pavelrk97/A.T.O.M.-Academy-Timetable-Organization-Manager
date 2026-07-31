@@ -16,4 +16,7 @@ import java.util.List;
 public class AssistantResponse {
     private String answer;
     private List<ScheduleEntryDto> lessons;
+    private boolean captchaRequired;
+    private String captchaId;
+    private String captchaQuestion;
 }

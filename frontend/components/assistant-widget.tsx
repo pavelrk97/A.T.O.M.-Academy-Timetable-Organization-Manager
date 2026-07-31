@@ -10,12 +10,19 @@ interface Message {
   text: string
 }
 
+interface Captcha {
+  id: string
+  question: string
+  pendingQuestion: string
+}
+
 export function AssistantWidget() {
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
+  const [captcha, setCaptcha] = useState<Captcha | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -23,22 +30,47 @@ export function AssistantWidget() {
   }, [messages, loading])
 
   async function send() {
-    const question = input.trim()
-    if (!question || loading) {
+    const value = input.trim()
+    if (!value || loading) {
       return
     }
+
+    // Обычный вопрос либо ответ на капчу (тогда шлём отложенный вопрос + решение).
+    const question = captcha ? captcha.pendingQuestion : value
+    const body = captcha
+      ? { question, captchaId: captcha.id, captchaAnswer: value }
+      : { question }
+
     setInput('')
-    setMessages((prev) => [...prev, { role: 'user', text: question }])
+    if (!captcha) {
+      setMessages((prev) => [...prev, { role: 'user', text: value }])
+    }
     setLoading(true)
     try {
       const res = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
+
+      if (data.captchaRequired) {
+        const wasCaptcha = Boolean(captcha)
+        setCaptcha({ id: data.captchaId, question: data.captchaQuestion, pendingQuestion: question })
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            text: `${wasCaptcha ? t('assistant.captchaWrong') + ' ' : ''}${t('assistant.captchaHint')} ${data.captchaQuestion}`,
+          },
+        ])
+        return
+      }
+
+      setCaptcha(null)
       setMessages((prev) => [...prev, { role: 'assistant', text: data.answer || t('assistant.error') }])
     } catch {
+      setCaptcha(null)
       setMessages((prev) => [...prev, { role: 'assistant', text: t('assistant.error') }])
     } finally {
       setLoading(false)
@@ -101,7 +133,8 @@ export function AssistantWidget() {
               void send()
             }
           }}
-          placeholder={t('assistant.placeholder')}
+          inputMode={captcha ? 'numeric' : 'text'}
+          placeholder={captcha ? `${captcha.question} = ?` : t('assistant.placeholder')}
           className="flex-1 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
         />
         <button
