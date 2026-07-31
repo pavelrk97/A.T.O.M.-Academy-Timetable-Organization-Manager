@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ru.dto.WorkloadCalendarDto;
 import ru.dto.WorkloadDto;
 import ru.service.LessonService;
 
@@ -39,6 +40,16 @@ public class WorkloadController {
             Authentication authentication
     ) {
         return lessonService.getWorkload(instructorId, instructorIds, from, to, authentication);
+    }
+
+    @GetMapping("/calendar")
+    public WorkloadCalendarDto getInstructorCalendar(
+            @RequestParam UUID instructorId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            Authentication authentication
+    ) {
+        return lessonService.getInstructorWorkloadCalendar(instructorId, from, to, authentication);
     }
 
     @GetMapping("/export")

@@ -85,6 +85,12 @@ public interface ScheduleClient {
                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
 
+    @GetMapping("/api/workload/calendar")
+    WorkloadCalendarDto getWorkloadCalendar(@RequestHeader("Authorization") String authorization,
+                                            @RequestParam UUID instructorId,
+                                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to);
+
     @GetMapping(value = "/api/workload/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     byte[] exportWorkload(@RequestHeader("Authorization") String authorization,
                           @RequestParam(required = false) UUID instructorId,

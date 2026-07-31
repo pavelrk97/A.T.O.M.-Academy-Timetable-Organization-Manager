@@ -297,6 +297,68 @@ public class LessonService {
         return workload;
     }
 
+    public WorkloadCalendarDto getInstructorWorkloadCalendar(UUID instructorId,
+                                                             LocalDate from,
+                                                             LocalDate to,
+                                                             Authentication authentication) {
+        userService.getCurrentUser(authentication);
+        LocalDate effectiveFrom = normalizeFrom(from);
+        LocalDate effectiveTo = normalizeTo(to);
+
+        List<Lesson> lessons = loadLessonsForSchedule(null, instructorId, effectiveFrom, effectiveTo).stream()
+                .sorted(Comparator.comparing((Lesson lesson) -> lesson.getDay().getDate())
+                        .thenComparing(Lesson::getOrderNumber)
+                        .thenComparing(Lesson::getId))
+                .toList();
+
+        Map<LocalDate, WorkloadCalendarDayDto> daysByDate = new LinkedHashMap<>();
+        int totalHours = 0;
+        for (Lesson lesson : lessons) {
+            WorkloadCalendarDayDto day = daysByDate.computeIfAbsent(lesson.getDay().getDate(), date -> WorkloadCalendarDayDto.builder()
+                    .dayId(lesson.getDay().getId())
+                    .date(date)
+                    .totalHours(0)
+                    .lessons(new ArrayList<>())
+                    .build());
+            day.setTotalHours(day.getTotalHours() + lesson.getDurationHours());
+            day.getLessons().add(WorkloadCalendarLessonDto.builder()
+                    .lessonId(lesson.getId())
+                    .groupCode(lesson.getDay().getGroup().getCode())
+                    .title(lesson.getTitle())
+                    .durationHours(lesson.getDurationHours())
+                    .businessTrip(lesson.isBusinessTrip())
+                    .build());
+            totalHours += lesson.getDurationHours();
+        }
+
+        WorkloadCalendarDto calendar = WorkloadCalendarDto.builder()
+                .instructorId(instructorId)
+                .instructorName(resolveInstructorName(instructorId, lessons))
+                .from(effectiveFrom)
+                .to(effectiveTo)
+                .totalHours(totalHours)
+                .days(new ArrayList<>(daysByDate.values()))
+                .build();
+        log.info("Instructor workload calendar built: instructorId={}, from={}, to={}, totalHours={}, days={}",
+                instructorId, effectiveFrom, effectiveTo, totalHours, calendar.getDays().size());
+        return calendar;
+    }
+
+    private String resolveInstructorName(UUID instructorId, List<Lesson> lessons) {
+        for (Lesson lesson : lessons) {
+            for (User instructor : lesson.getAssignedInstructors()) {
+                if (instructor.getId().equals(instructorId)) {
+                    return instructor.getFullName();
+                }
+            }
+        }
+        try {
+            return userService.findById(instructorId).getFullName();
+        } catch (RuntimeException ex) {
+            return "";
+        }
+    }
+
     public byte[] exportWorkloadExcel(UUID instructorId,
                                       String instructorQuery,
                                       LocalDate from,

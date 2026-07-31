@@ -172,6 +172,7 @@ function CabinetPageContent() {
   const [workloadExporting, setWorkloadExporting] = useState(false)
   const [workloadInstructorIds, setWorkloadInstructorIds] = useState<string[]>([])
   const [workloadSummaries, setWorkloadSummaries] = useState<WorkloadSummary[]>([])
+  const [instructorCalendar, setInstructorCalendar] = useState<DashboardData['workload'] | null>(null)
   const [includeBusinessTrips, setIncludeBusinessTrips] = useState(true)
   const [scheduleZoom, setScheduleZoom] = useState(100)
   const [scheduleZoomDraft, setScheduleZoomDraft] = useState(100)
@@ -366,6 +367,39 @@ function CabinetPageContent() {
       void loadAdminData()
     }
   }, [activeTab, range.from, range.to, user?.role, users.length])
+
+  // Дневной календарь под таблицей: если выбран ровно один инструктор — показываем его дни,
+  // иначе (никто/несколько) остаётся собственная нагрузка текущего пользователя.
+  useEffect(() => {
+    if (activeTab !== 'workload' || workloadInstructorIds.length !== 1) {
+      setInstructorCalendar(null)
+      return
+    }
+
+    let cancelled = false
+    void (async () => {
+      try {
+        const calendar = await workloadApi.getInstructorCalendar({
+          instructorId: workloadInstructorIds[0],
+          from: range.from,
+          to: range.to,
+        })
+        if (!cancelled) {
+          setInstructorCalendar(calendar)
+        }
+      } catch (caught) {
+        if (!cancelled) {
+          setInstructorCalendar(null)
+          setError(
+            caught instanceof Error && caught.message ? caught.message : t('cabinet.errWorkloadList')
+          )
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, workloadInstructorIds, range.from, range.to])
 
   async function handleProfileUpdate(payload: {
     displayName?: string | null
@@ -790,7 +824,7 @@ function CabinetPageContent() {
                     </AccordionTrigger>
                     <AccordionContent className="border-t border-border bg-slate-50/40 px-3 py-4 sm:px-5">
                       <WorkloadCalendar
-                        data={dashboard.workload}
+                        data={instructorCalendar ?? dashboard.workload}
                         onPeriodChange={(from, to) => setRange({ from, to })}
                         onLessonClick={(date) => jumpToScheduleDay(date)}
                         actions={renderWorkloadActions()}

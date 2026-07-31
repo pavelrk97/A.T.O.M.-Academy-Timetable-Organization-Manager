@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.format.annotation.DateTimeFormat;
 import ru.client.ScheduleClient;
+import ru.dto.WorkloadCalendarDto;
 import ru.dto.WorkloadDto;
 import ru.security.DownstreamAuthHeaderFactory;
 
@@ -42,6 +43,14 @@ public class WorkloadController {
                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return scheduleClient.getWorkload(authHeaderFactory.bearerHeader(authentication),
                 instructorId, instructorIds, from, to);
+    }
+
+    @GetMapping("/calendar")
+    public WorkloadCalendarDto getInstructorCalendar(Authentication authentication,
+                                                     @RequestParam UUID instructorId,
+                                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return scheduleClient.getWorkloadCalendar(authHeaderFactory.bearerHeader(authentication), instructorId, from, to);
     }
 
     @GetMapping("/export")

@@ -377,6 +377,13 @@ export const workloadApi = {
     const query = searchParams.toString()
     return fetchApi<WorkloadSummary[]>(`/workload${query ? `?${query}` : ''}`)
   },
+  getInstructorCalendar: (params: { instructorId: string; from?: string; to?: string }) => {
+    const searchParams = new URLSearchParams()
+    searchParams.set('instructorId', params.instructorId)
+    if (params.from) searchParams.set('from', params.from)
+    if (params.to) searchParams.set('to', params.to)
+    return fetchApi<WorkloadCalendar>(`/workload/calendar?${searchParams.toString()}`)
+  },
   exportCsv: (params?: {
     instructorId?: string
     instructorIds?: string[]
