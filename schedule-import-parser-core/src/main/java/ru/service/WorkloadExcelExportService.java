@@ -21,6 +21,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -33,9 +34,13 @@ public class WorkloadExcelExportService {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("d.MMM", new Locale("ru", "RU"));
     private static final DateTimeFormatter WEEKDAY_FORMAT = DateTimeFormatter.ofPattern("EEE", new Locale("ru", "RU"));
+    // Каждый день диапазона — отдельная колонка листа. В xlsx их максимум 16384, а без фильтра дат
+    // вызывающий код подставляет заглушку 1900..3000 (~401000 дней) и POI падает. Держим разумный потолок.
+    private static final int MAX_DAY_COLUMNS = 1000;
 
     public byte[] exportCalendars(List<WorkloadCalendarDto> calendars, LocalDate from, LocalDate to) {
-        List<LocalDate> dates = enumerateDates(from, to);
+        LocalDate[] window = resolveDateWindow(calendars, from, to);
+        List<LocalDate> dates = enumerateDates(window[0], window[1]);
         List<WorkloadCalendarDto> sortedCalendars = calendars.stream()
                 .sorted(Comparator.comparing(WorkloadCalendarDto::getInstructorName, String.CASE_INSENSITIVE_ORDER))
                 .toList();
@@ -199,6 +204,54 @@ public class WorkloadExcelExportService {
                 defaultString(lesson.getTitle()),
                 lesson.getDurationHours()
         );
+    }
+
+    /**
+     * Подбирает диапазон колонок листа. Если from/to не заданы (или охватывают заглушечные 1900..3000),
+     * сужаем окно до реальных дат занятий; сверху ограничиваем {@link #MAX_DAY_COLUMNS}, чтобы не упереться
+     * в лимит колонок xlsx.
+     */
+    private LocalDate[] resolveDateWindow(List<WorkloadCalendarDto> calendars, LocalDate from, LocalDate to) {
+        LocalDate dataMin = null;
+        LocalDate dataMax = null;
+        for (WorkloadCalendarDto calendar : calendars) {
+            if (calendar.getDays() == null) {
+                continue;
+            }
+            for (WorkloadCalendarDayDto day : calendar.getDays()) {
+                LocalDate date = day.getDate();
+                if (date == null) {
+                    continue;
+                }
+                if (dataMin == null || date.isBefore(dataMin)) {
+                    dataMin = date;
+                }
+                if (dataMax == null || date.isAfter(dataMax)) {
+                    dataMax = date;
+                }
+            }
+        }
+
+        LocalDate effectiveFrom = from;
+        LocalDate effectiveTo = to;
+
+        boolean spanTooWide = effectiveFrom == null || effectiveTo == null
+                || ChronoUnit.DAYS.between(effectiveFrom, effectiveTo) > MAX_DAY_COLUMNS;
+        if (spanTooWide) {
+            effectiveFrom = dataMin != null ? dataMin : (effectiveFrom != null ? effectiveFrom : LocalDate.now());
+            effectiveTo = dataMax != null ? dataMax : effectiveFrom;
+        }
+
+        if (effectiveFrom == null) {
+            effectiveFrom = LocalDate.now();
+        }
+        if (effectiveTo == null || effectiveTo.isBefore(effectiveFrom)) {
+            effectiveTo = effectiveFrom;
+        }
+        if (ChronoUnit.DAYS.between(effectiveFrom, effectiveTo) > MAX_DAY_COLUMNS) {
+            effectiveTo = effectiveFrom.plusDays(MAX_DAY_COLUMNS);
+        }
+        return new LocalDate[]{effectiveFrom, effectiveTo};
     }
 
     private List<LocalDate> enumerateDates(LocalDate from, LocalDate to) {
