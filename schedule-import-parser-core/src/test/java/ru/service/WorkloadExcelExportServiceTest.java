@@ -68,4 +68,39 @@ class WorkloadExcelExportServiceTest {
             assertThat(sheet.getRow(2).getCell(3).getStringCellValue()).isEqualTo("6");
         }
     }
+
+    @Test
+    void exportCalendars_withoutDateFilter_shrinksToDataInsteadOfExceedingColumnLimit() throws Exception {
+        WorkloadExcelExportService service = new WorkloadExcelExportService();
+        WorkloadCalendarDto calendar = WorkloadCalendarDto.builder()
+                .instructorId(UUID.randomUUID())
+                .instructorName("Иванов Иван")
+                .totalHours(4)
+                .days(List.of(WorkloadCalendarDayDto.builder()
+                        .dayId(UUID.randomUUID())
+                        .date(LocalDate.of(2026, 8, 3))
+                        .totalHours(4)
+                        .lessons(List.of(WorkloadCalendarLessonDto.builder()
+                                .lessonId(UUID.randomUUID())
+                                .groupCode("гр.1")
+                                .title("Лекция")
+                                .durationHours(4)
+                                .build()))
+                        .build()))
+                .build();
+
+        // Заглушечный диапазон, который раньше давал ~401000 колонок и падение POI (Invalid column index).
+        byte[] workbookBytes = service.exportCalendars(
+                List.of(calendar),
+                LocalDate.of(1900, 1, 1),
+                LocalDate.of(3000, 12, 31)
+        );
+
+        try (var workbook = WorkbookFactory.create(new ByteArrayInputStream(workbookBytes))) {
+            var sheet = workbook.getSheetAt(0);
+            assertThat(sheet.getRow(1).getCell(1).getStringCellValue()).isEqualTo("3.авг.");
+            assertThat(sheet.getRow(2).getCell(1).getStringCellValue()).contains("гр.1: Лекция (4 ч)");
+            assertThat(sheet.getRow(2).getCell(2).getStringCellValue()).isEqualTo("4");
+        }
+    }
 }
